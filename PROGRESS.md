@@ -84,39 +84,58 @@
   update_document_category, delete_document_category, get_document_links, add_document_link,
   update_document_link, delete_document_link`.
   Test cục bộ bằng `npx wrangler pages dev .` (Node.js đã cài máy này) + file `.dev.vars`
-  (chứa SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY, KHÔNG commit — giống `.env` nhưng đây là tên
-  file riêng mà Wrangler tự đọc).
+  (chứa SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY/APP_URL, KHÔNG commit — giống `.env` nhưng đây
+  là tên file riêng mà Wrangler tự đọc).
+- **Backend Phase 2 — XONG, đã test kỹ thật trên Supabase (nhiều kịch bản, dọn sạch dữ liệu
+  test sau đó).** Đây là phần workflow engine phức tạp nhất: `submit, resubmit,
+  update_submission, cancel_submission, approve, reject, request_revision, forward_to_next,
+  change_reviewer, save_inline_comments, get_submissions, get_report, check_submit_result,
+  save_draft, get_drafts, delete_draft, get_submission_versions, get_workflows,
+  get_workflow_templates, save_workflow_template, delete_workflow_template,
+  validate_workflow_template`.
+  Đã test qua browser (fetch trực tiếp `/api`) các kịch bản: workflow 2 bước tuần tự
+  (submit → approve bước 1 → tự chuyển bước 2 → approve → status "approved"), duplicate
+  decision bị chặn, revision → resubmit (dùng lại đúng workflow cũ, tăng send_count),
+  forward_to_next (kể cả chặn "NO_NEXT_STEP" khi đã ở bước cuối), change_reviewer, inline
+  comments, drafts CRUD, workflow templates CRUD (kèm chặn quyền `WORKFLOW_ADMIN_REQUIRED`
+  cho role không phải admin/manager), get_report (tính điểm/tỷ lệ duyệt đúng). Email thông báo
+  (duyệt/chuyển/kết quả) được ghi đúng vào `email_queue` ở mọi bước (verify trực tiếp qua script
+  Node, không qua HTTP) — đúng thứ tự, đúng người nhận.
+  Đơn giản hoá có chủ đích so với bản gốc: bỏ nhánh "workflow legacy không có workflow_steps"
+  (bản Sheets giữ nhánh này để tương thích dữ liệu cũ trước khi có workflow engine — trên
+  Postgres mọi submission LUÔN có workflow_steps ngay từ lúc tạo nên nhánh đó không thể xảy ra).
+  Khoá đồng thời: thay `LockService` toàn cục (Apps Script) bằng "optimistic concurrency" đúng
+  kiểu Postgres — mỗi UPDATE quyết định duyệt kèm `WHERE lock_version = <giá trị vừa đọc>`,
+  0 dòng bị ảnh hưởng → trả lỗi `STALE_LOCK_VERSION` (khách phải tải lại/thử lại), tránh mất
+  hoàn toàn "khoá toàn cục" chặn mọi submission khác trong lúc 1 submission đang được xử lý.
+  Deploy live tại **https://review-content-fschools.pages.dev** — đã smoke-test qua PowerShell
+  (không chỉ local) trước khi coi Phase 2 là xong.
 
 ## Cần làm tiếp (thứ tự đề xuất)
-1. **Backend Phase 2 (việc lớn nhất còn lại) — chưa bắt đầu**: port luồng gửi bài/duyệt bài
-   nhiều bước (`submit, resubmit, update_submission, cancel_submission, approve, reject,
-   request_revision, forward_to_next, change_reviewer, save_inline_comments, get_submissions,
-   workflow templates CRUD, drafts, submission versions`) — đây là phần phức tạp nhất
-   (workflow engine, optimistic locking, lịch sử duyệt) trong `backend_apps_script.js`,
-   nên làm cẩn thận riêng, không gộp vội.
-2. **Backend Phase 3**: các action gọi AI (`ai_check_content, ai_check_brand_image,
+1. **Backend Phase 3**: các action gọi AI (`ai_check_content, ai_check_brand_image,
    ai_suggest_review, ai_chat`) — cần OpenAI API key mới (đưa vào biến môi trường Cloudflare,
    KHÔNG hard-code), và `process_email_queue` — cần chọn provider gửi email thay GmailApp
    (chưa chọn — ví dụ Resend/SendGrid), vì hiện `add_user`/`update_user` mật khẩu mới KHÔNG
    tự gửi mail (trả `email_sent:false`, admin phải tự báo thủ công).
-3. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
+2. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
    bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).
-4. Khi Phase 2+3 xong và test kỹ: đổi hằng số API URL trong `index.html/boss.html/ctv.html`
+3. Khi Phase 3 xong và test kỹ: đổi hằng số API URL trong `index.html/boss.html/ctv.html`
    (hiện là `APPS_SCRIPT_URL`) sang endpoint `/api` của Cloudflare Functions **trong bản deploy
    ở tài khoản Cloudflare MỚI** (không đụng gì tới bản cũ đang chạy thật ở tài khoản Cloudflare
    cũ) — đây là bước chuẩn bị bản mới sẵn sàng, KHÔNG phải "cắt sang cho người dùng thật" (việc
    đó chỉ xảy ra khi người dùng chủ động chuyển qua dùng domain/bản mới sau này).
-5. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
-   tương ứng (data migration) — làm sau khi Phase 2 xong.
-6. ~~Kết nối repo này với tài khoản Cloudflare MỚI~~ — **XONG** (project `review-content-fschools`,
+4. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
+   tương ứng (data migration) — làm trước khi cắt sang thật.
+5. ~~Kết nối repo này với tài khoản Cloudflare MỚI~~ — **XONG** (project `review-content-fschools`,
    xem "Đã làm"). Khi thêm `OPENAI_API_KEY` ở Phase 3, set thêm secret bằng cách tương tự
    (`wrangler pages secret put OPENAI_API_KEY --project-name review-content-fschools`, nhớ dùng
    cách ghi file tạm + redirect stdin, KHÔNG pipe trực tiếp qua PowerShell — xem ghi chú kỹ thuật
    ở "Đã làm" — và nhớ deploy lại sau khi set secret).
-7. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
-   `.env`) và chạy `npm install` trước khi `npx wrangler pages dev .` test được; cũng cần tự
-   `supabase login` và (nếu muốn tự deploy Cloudflare từ máy đó) `wrangler login` 1 lần —
-   các phiên đăng nhập CLI này không đi theo Git, mỗi máy tự đăng nhập riêng.
+6. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
+   `.env`, thêm dòng `APP_URL=http://localhost:8788`) và chạy `npm install` trước khi
+   `npx wrangler pages dev .` test được; cũng cần tự `supabase login` và (nếu muốn tự deploy
+   Cloudflare từ máy đó) `wrangler login` 1 lần — các phiên đăng nhập CLI này không đi theo Git,
+   mỗi máy tự đăng nhập riêng.
 
 ## Ghi chú / rủi ro cần nhớ
 - `backend_apps_script.js` hiện lưu **mật khẩu người dùng dạng plaintext** (kể cả gửi qua
