@@ -49,20 +49,47 @@
 - **Đã tạo bảng thật trên Supabase** (project Review_Content, `jiqnvzbyjbkkyclwecfa`) — 13 bảng
   theo đúng `schema.sql`, qua migration `supabase/migrations/20260918034517_init_schema.sql`,
   áp dụng bằng `supabase db push`. Xác nhận qua `supabase migration list`: local và remote khớp.
-  **Database hiện đã có cấu trúc bảng nhưng CHƯA có dữ liệu thật** (chưa migrate dữ liệu từ
-  Google Sheets sang, chưa có backend mới ghi vào đây).
+- **Backend mới (Cloudflare Pages Functions) — Phase 1 xong, đã test thật trên Supabase (tạo/xoá
+  dữ liệu test qua API rồi dọn sạch, không còn rác trong DB).** Chạy được ở `functions/api/index.js`
+  (router, giữ nguyên giao thức cũ: POST `/api` body `{action,...}` → trả `{ok,...}`, y hệt cách
+  frontend gọi `APPS_SCRIPT_URL` hiện tại — **frontend CHƯA đổi sang endpoint mới**, vẫn đang gọi
+  Google Apps Script như cũ, an toàn vì backend mới chưa đủ action để thay thế hoàn toàn).
+  Action đã port + test OK: `login, get_users, add_user, update_user, delete_user, get_rules,
+  save_rules, get_personas, save_persona, delete_persona, get_brand_guides,
+  save_brand_guide_text, delete_brand_guide, get_document_categories, add_document_category,
+  update_document_category, delete_document_category, get_document_links, add_document_link,
+  update_document_link, delete_document_link`.
+  Test cục bộ bằng `npx wrangler pages dev .` (Node.js đã cài máy này) + file `.dev.vars`
+  (chứa SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY, KHÔNG commit — giống `.env` nhưng đây là tên
+  file riêng mà Wrangler tự đọc).
 
 ## Cần làm tiếp (thứ tự đề xuất)
-1. Viết backend mới (thay Google Apps Script) để đọc/ghi Supabase thay vì Google Sheets —
-   **chưa bắt đầu**. Cần quyết định công nghệ backend mới (vd: Cloudflare Worker/Functions gọi
-   thẳng Supabase, hoặc Supabase Edge Functions) — sẽ bàn khi tới bước này.
-2. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
-   tương ứng (data migration) — chưa bắt đầu, chỉ nên làm sau khi backend mới đã sẵn sàng.
-3. Cập nhật Cloudflare Pages sang tài khoản mới (chưa làm trong phiên này).
-4. Máy còn lại (nhà/trường) cần tự chạy `supabase login` riêng 1 lần (token đăng nhập không
-   đi theo Git) trước khi dùng được lệnh `supabase` ở máy đó. Sau khi `git pull`, thư mục
-   `supabase/` (config + migration) đã có sẵn, chỉ cần `supabase link --project-ref jiqnvzbyjbkkyclwecfa`
-   lại (không cần link lại nếu đã pull đúng, nhưng an toàn thì chạy lại 1 lần cho chắc).
+1. **Backend Phase 2 (việc lớn nhất còn lại) — chưa bắt đầu**: port luồng gửi bài/duyệt bài
+   nhiều bước (`submit, resubmit, update_submission, cancel_submission, approve, reject,
+   request_revision, forward_to_next, change_reviewer, save_inline_comments, get_submissions,
+   workflow templates CRUD, drafts, submission versions`) — đây là phần phức tạp nhất
+   (workflow engine, optimistic locking, lịch sử duyệt) trong `backend_apps_script.js`,
+   nên làm cẩn thận riêng, không gộp vội.
+2. **Backend Phase 3**: các action gọi AI (`ai_check_content, ai_check_brand_image,
+   ai_suggest_review, ai_chat`) — cần OpenAI API key mới (đưa vào biến môi trường Cloudflare,
+   KHÔNG hard-code), và `process_email_queue` — cần chọn provider gửi email thay GmailApp
+   (chưa chọn — ví dụ Resend/SendGrid), vì hiện `add_user`/`update_user` mật khẩu mới KHÔNG
+   tự gửi mail (trả `email_sent:false`, admin phải tự báo thủ công).
+3. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
+   bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).
+4. Khi Phase 2+3 xong và test kỹ: đổi hằng số API URL trong `index.html/boss.html/ctv.html`
+   (hiện là `APPS_SCRIPT_URL`) sang endpoint `/api` của Cloudflare Functions — đây là bước
+   **cắt sang backend mới cho người dùng thật**, cần xác nhận rõ ràng trước khi làm vì ảnh
+   hưởng trực tiếp ~15-20 người đang dùng tool.
+5. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
+   tương ứng (data migration) — làm sau khi Phase 2 xong, trước khi cắt sang thật.
+6. Cập nhật Cloudflare Pages sang tài khoản mới + cấu hình biến môi trường
+   (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, sau này thêm `OPENAI_API_KEY`) trong Cloudflare
+   Dashboard (Pages project → Settings → Environment variables) — **chưa làm**, cần làm trước
+   khi deploy backend mới lên môi trường thật (khác với test cục bộ đang làm ở máy này).
+7. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
+   `.env`) và chạy `npm install` trước khi `npx wrangler pages dev .` test được; cũng cần tự
+   `supabase login` 1 lần trước khi dùng lệnh `supabase`.
 
 ## Ghi chú / rủi ro cần nhớ
 - `backend_apps_script.js` hiện lưu **mật khẩu người dùng dạng plaintext** (kể cả gửi qua

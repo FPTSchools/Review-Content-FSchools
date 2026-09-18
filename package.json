@@ -1,0 +1,12 @@
+{
+  "name": "review-content-fschools-backend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cloudflare Pages Functions backend cho FSchools Content Review, thay Google Apps Script, đọc/ghi Supabase.",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
