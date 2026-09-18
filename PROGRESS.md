@@ -61,6 +61,22 @@
       Khắc phục bằng cách ghi giá trị ra file tạm (không có newline thừa) rồi redirect stdin từ
       file đó, SAU ĐÓ **phải deploy lại 1 lần nữa** thì secret mới mới có hiệu lực (đổi secret
       không tự áp dụng cho deployment đang chạy).
+- [x] **Sửa 2 lỗi UI/UX trên mobile** (người dùng báo sau khi có dữ liệu thật) — cả 2 đều do
+      CSS `width:66% + min-width:<số>px` cứng, không có "trần" nên khi khung cha hẹp hơn giá trị
+      min-width thì bị tràn ra ngoài màn hình:
+      1. Khung xem trước file Drive đính kèm (lúc mở 1 bài để duyệt) bị tràn/khuyết trên mobile —
+         `boss.html` (1 chỗ) + `ctv.html` (2 chỗ). Sửa: đổi `width:66%;min-width:320px` (và các
+         biến thể 240px/280px) → `width:min(100%,480px)` (hoặc `min-width:min(240px,100%)`) —
+         co giãn đúng theo khung cha, không bao giờ tràn, vẫn giữ kích thước đẹp trên desktop.
+      2. Bảng "Tất cả bài" (`boss.html`, trang lịch sử toàn bộ) có 8 cột cố định width%, trên
+         mobile phải kéo thanh trượt ngang mới xem hết — Sửa: thêm CSS trong khối
+         `@media (max-width:860px)` chuyển bảng thành danh sách **thẻ xếp dọc** (mỗi `<td>` tự
+         hiện nhãn cột qua `data-label` + `::before`), y hệt kiểu thẻ đã dùng ở trang "Hàng chờ
+         duyệt" — không còn horizontal scroll.
+      Đã test trực tiếp trên mobile viewport (375px) qua browser thật, xác nhận bằng
+      `getBoundingClientRect()`/`scrollWidth` (không chỉ nhìn ảnh chụp màn hình) rằng không còn
+      phần tử nào tràn khỏi màn hình, và kiểm tra lại desktop không bị ảnh hưởng. Deploy lên
+      https://review-content-fschools.pages.dev.
 
 ## Quy ước làm việc đã chốt với người dùng
 - **Làm thẳng trên nhánh `main`, không dùng quy trình branch + Pull Request** — vì chỉ có

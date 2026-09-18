@@ -248,6 +248,17 @@
       max-width:96vw !important; width:96vw !important; max-height:92vh !important;
     }
     .sub-card-header{padding:11px 12px;flex-wrap:wrap;}
+    /* Bảng "Tất cả bài" (và mọi bảng nhiều cột khác) chuyển thành danh sách thẻ xếp dọc trên
+       mobile thay vì bắt kéo thanh trượt ngang — mỗi <td> tự hiện nhãn cột qua data-label. */
+    .card > div[style*="overflow-x:auto"] table,
+    #page-all table{width:100%;}
+    #page-all thead{display:none;}
+    #page-all tbody, #page-all tr, #page-all td{display:block;width:100% !important;}
+    #page-all tr{border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;}
+    #page-all tr:last-child{margin-bottom:0;}
+    #page-all td{padding:3px 0 !important;border:none !important;white-space:normal !important;overflow:visible !important;text-overflow:clip !important;font-size:12px;}
+    #page-all td[data-label]:before{content:attr(data-label) ": ";font-weight:600;color:var(--text3);font-size:10px;text-transform:uppercase;}
+    #page-all td.all-row-action{text-align:right;margin-top:4px;}
   }
 </style>
 </head>
@@ -1077,12 +1088,12 @@ function renderAll() {
     const scoreColor=s.score?(parseFloat(s.score)>=7?'var(--green)':parseFloat(s.score)>=5?'var(--amber)':'var(--red)'):'var(--text3)';
     const sendCount = s.send_count||1;
     return `<tr style="cursor:pointer" onclick="showAllDetail('${s.id}')">
-      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.title}</td>
-      <td>${s.user_name}</td><td>${typeMap[s.content_type]||s.content_type}</td><td>${date}</td>
-      <td><span class="status-chip ${sMap[s.status]||'s-new'}">${sLbl[s.status]||s.status}</span></td>
-      <td style="text-align:center;font-weight:600;color:var(--accent)">${sendCount}</td>
-      <td style="color:${scoreColor};font-weight:500">${s.score||'--'}</td>
-      <td><span style="color:var(--accent);font-size:11px">Xem ▸</span></td>
+      <td data-label="Tiêu đề" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.title}</td>
+      <td data-label="CTV">${s.user_name}</td><td data-label="Loại">${typeMap[s.content_type]||s.content_type}</td><td data-label="Ngày giờ gửi">${date}</td>
+      <td data-label="Trạng thái"><span class="status-chip ${sMap[s.status]||'s-new'}">${sLbl[s.status]||s.status}</span></td>
+      <td data-label="Lần" style="text-align:center;font-weight:600;color:var(--accent)">${sendCount}</td>
+      <td data-label="Điểm" style="color:${scoreColor};font-weight:500">${s.score||'--'}</td>
+      <td class="all-row-action"><span style="color:var(--accent);font-size:11px">Xem ▸</span></td>
     </tr>`;
   }).join('');
 }
@@ -1187,7 +1198,7 @@ function buildDrivePreviewWithComment(s) {
 
     return `<div style="margin-bottom:12px">
       <a href="${link}" target="_blank" style="font-size:12px;color:var(--blue);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-bottom:6px">📎 ${isDoc?'Mở file Google':(folderId?'Mở thư mục Drive':'Xem file Drive')} ↗</a>
-      <div style="width:66%;margin:0 auto;min-width:320px;resize:both;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2)">
+      <div style="width:min(100%,480px);margin:0 auto;resize:both;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2)">
         ${previewHtml}
       </div>
       ${commentHtml}

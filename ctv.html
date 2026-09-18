@@ -1064,7 +1064,7 @@ function buildDrivePreview(driveLinksStr) {
     const folderHint = folderId ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">📁 Link thư mục — khung trên chỉ hiển thị lưới xem trước, mở link để xem/tải từng file gốc.</div>' : '';
     return '<div class="drive-preview-item" style="max-width:560px;margin:0">' +
       '<a href="' + link + '" target="_blank" style="font-size:12px;color:var(--blue);text-decoration:none">📎 ' + (folderId ? 'Mở thư mục Drive' : 'Xem file Drive') + ' ↗</a>' +
-      '<div style="margin-top:6px;border-radius:var(--radius);overflow:auto;border:1px solid var(--border);resize:both;min-height:336px;min-width:240px;display:flex;flex-direction:column">' + previewHtml + '</div>' +
+      '<div style="margin-top:6px;border-radius:var(--radius);overflow:auto;border:1px solid var(--border);resize:both;min-height:336px;min-width:min(240px,100%);display:flex;flex-direction:column">' + previewHtml + '</div>' +
       folderHint +
       '</div>';
   }).filter(Boolean).join('');
@@ -2746,7 +2746,7 @@ function buildDrivePreviewCTV(s) {
     const commentHtml = `<div id="rv-mc-wrap-${subId}-${idx}" style="margin-top:6px">${renderRVMediaCommentBox(subId, idx)}</div>`;
     return `<div style="margin-bottom:10px">
       <a href="${link}" target="_blank" style="font-size:12px;color:var(--blue,#2563EB);text-decoration:none">📎 ${isDoc?'Mở file Google':(folderId?'Mở thư mục Drive':'Xem trên Drive')} ↗</a>
-      <div style="margin-top:6px;width:66%;min-width:280px;margin-left:auto;margin-right:auto;resize:both;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);min-height:300px;display:flex;flex-direction:column">${previewHtml}</div>
+      <div style="margin-top:6px;width:min(100%,480px);margin-left:auto;margin-right:auto;resize:both;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);min-height:300px;display:flex;flex-direction:column">${previewHtml}</div>
       ${warnHtml}${folderHint}
       ${commentHtml}
     </div>`;
