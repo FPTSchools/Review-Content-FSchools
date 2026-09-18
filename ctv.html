@@ -652,6 +652,21 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
 const APPS_SCRIPT_URL = '/api';
 // (Gemini gọi qua backend proxy — không dùng key ở frontend)
 
+// Backend mới (Supabase JSONB) trả các trường reviewers/review_history/inline_comments/
+// workflow_steps/platform/ai_scores/brand_check_result dạng OBJECT/ARRAY THẬT, khác với backend
+// cũ (Apps Script/Sheets) luôn trả CHUỖI JSON phải tự JSON.parse. Hàm này nhận cả 2 kiểu — dùng
+// thay JSON.parse() trực tiếp ở mọi nơi đọc các trường này để không bị lỗi âm thầm (JSON.parse
+// trên object/array có sẵn sẽ throw, bị catch nuốt mất, trả về rỗng).
+function parseMaybeJson(value, fallback) {
+  if (value === null || value === undefined || value === '') return fallback;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value); } catch (e) { return fallback; }
+  }
+  return value;
+}
+// is_shared cũng vậy: backend cũ lưu chuỗi 'true'/'false', backend mới lưu boolean thật.
+function isTruthyFlag(value) { return value === true || value === 'true'; }
+
 async function callBackend(payload) {
   const r = await fetch(APPS_SCRIPT_URL, {
     method: 'POST',
@@ -1178,8 +1193,7 @@ function buildBrandCheckRows(r) {
 // brandCheckResultStr: JSON dạng { "<fileId>": {...kết quả...}, ... }
 function buildBrandCheckDisplay(brandCheckResultStr) {
   if (!brandCheckResultStr) return '';
-  let data = {};
-  try { data = JSON.parse(brandCheckResultStr); } catch(e) { return ''; }
+  const data = parseMaybeJson(brandCheckResultStr, {});
   const fileIds = Object.keys(data);
   if (!fileIds.length) return '';
   const cards = fileIds.map(fid => `<div class="brand-check-card">${buildBrandCheckRows(data[fid])}</div>`).join('');
@@ -1485,8 +1499,7 @@ function renderStats() {
 function showComment(id) {
   const s = mySubmissions.find(x=>x.id===id);
   if (!s) return;
-  let history = [];
-  try { history = JSON.parse(s.review_history || '[]'); } catch(e) {}
+  const history = parseMaybeJson(s.review_history, []);
   const actionLabel = { approved:'✅ Duyệt', rejected:'❌ Từ chối', revision:'🔁 Yêu cầu sửa', forwarded:'⬆️ Chuyển lên', resubmitted:'📤 Đã sửa & gửi lại' };
   const rowsHtml = history.length
     ? [...history].reverse().map(h => {
@@ -1510,14 +1523,12 @@ function closeHistoryModal() {
 
 function parseVersionComments(version) {
   if (!version) return [];
-  if (Array.isArray(version.inline_comments_parsed)) return version.inline_comments_parsed;
-  try { return JSON.parse(version.inline_comments || '[]'); } catch(e) { return []; }
+  return parseMaybeJson(version.inline_comments_parsed || version.inline_comments, []);
 }
 
 function parseVersionReviewHistory(version) {
   if (!version) return [];
-  if (Array.isArray(version.review_history_parsed)) return version.review_history_parsed;
-  try { return JSON.parse(version.review_history || '[]'); } catch(e) { return []; }
+  return parseMaybeJson(version.review_history_parsed || version.review_history, []);
 }
 
 function countDiffChangedLines(previousText, currentText) {
@@ -2259,7 +2270,7 @@ async function loadReviewQueue() {
       let sharedFromOther = false;
       if (currentUser.campus !== 'chung') {
         const otherCampus = currentUser.campus === 'hoa_lac' ? 'tay_hn' : 'hoa_lac';
-        sharedFromOther = s.is_shared === 'true' &&
+        sharedFromOther = isTruthyFlag(s.is_shared) &&
           s.campus === otherCampus &&
           !['approved','rejected','revision'].includes(s.status);
       }
@@ -2283,8 +2294,7 @@ function renderReviewQueue() {
   const campusMap={hoa_lac:'Hòa Lạc',tay_hn:'Tây HN',chung:'Cả 2'};
 
   container.innerHTML = reviewQueue.map(s => {
-    let reviewers = [];
-    try { reviewers = JSON.parse(s.reviewers||'[]'); } catch(e){}
+    const reviewers = parseMaybeJson(s.reviewers, []);
     const reviewerChain = reviewers.map((r,i) =>
       `<span style="font-size:10px;padding:2px 7px;border-radius:12px;background:${r.id===currentUser.id?'var(--accent)':'var(--surface2)'};color:${r.id===currentUser.id?'white':'var(--text2)'}">${r.order || i+1}. ${r.name}</span>`
     ).join(' ');
@@ -2300,10 +2310,10 @@ function renderReviewQueue() {
             <span>👤 ${s.user_name}</span>
             <span>🏫 ${campusMap[s.campus]||s.campus}</span>
             <span class="tag">${typeMap[s.content_type]||s.content_type||''}</span>
-            ${platformBadgesHtml(s.platform_parsed || (function(){try{return JSON.parse(s.platform||'[]')}catch(e){return []}})())}
+            ${platformBadgesHtml(parseMaybeJson(s.platform_parsed || s.platform, []))}
             <span>📅 ${date}</span>
             ${(parseInt(s.send_count)||1)>1?`<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">🔁 Lần gửi ${s.send_count}</span>`:''}
-            ${s.is_shared==='true'?'<span style="background:var(--purple-bg,#ede9fe);color:var(--purple,#5b21b6);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">Content chung</span>':''}
+            ${isTruthyFlag(s.is_shared)?'<span style="background:var(--purple-bg,#ede9fe);color:var(--purple,#5b21b6);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">Content chung</span>':''}
             ${buildReviewHistoryTag(s)}
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">${reviewerChain}</div>
@@ -2597,7 +2607,7 @@ async function saveRVInlineComments(subId) {
 }
 
 function loadRVInlineComments(subId, rawJson) {
-  try { _rvIcMap[subId] = JSON.parse(rawJson||'[]'); } catch(e) { _rvIcMap[subId] = []; }
+  _rvIcMap[subId] = parseMaybeJson(rawJson, []);
   renderRVInlineEditor(subId);
 }
 
@@ -2758,7 +2768,7 @@ function buildDrivePreviewCTV(s) {
 function renderRVMediaCommentBox(subId, idx) {
   const s = reviewQueue.find(x => x.id === subId);
   let baseComments = _rvIcMap[subId];
-  if (!baseComments) { try { baseComments = JSON.parse((s && s.inline_comments) || '[]'); } catch(e) { baseComments = []; } }
+  if (!baseComments) { baseComments = parseMaybeJson(s && s.inline_comments, []); }
   const mc = (baseComments || []).filter(c => c.type === 'media').find(c => c.idx === idx);
   return `
     ${mc ? `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:var(--radius);padding:7px 10px;font-size:11px;margin-bottom:4px">
@@ -2797,13 +2807,20 @@ function deleteRVMediaComment(subId, idx) {
 // UTILS
 // ============================================================
 function buildReviewHistoryTag(s) {
-  let history = [];
-  try { history = JSON.parse(s.review_history || '[]'); } catch(e) {}
+  const history = parseMaybeJson(s.review_history, []);
   if (!history.length) return '';
   const actionIcon = { approved:'✅', rejected:'❌', revision:'🔁', forwarded:'⬆️', resubmitted:'📤' };
   const tip = history.map(h => (actionIcon[h.action]||'·') + ' ' + h.reviewer + ': ' + h.action + (h.comment?' — '+h.comment:'')).join('\n');
-  const latest = history[history.length - 1];
-  return `<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;cursor:help" title="${escHtml(tip)}">${actionIcon[latest.action]||'·'} ${escHtml(latest.reviewer)}</span>`;
+  // Hiện 1 tag riêng cho MỖI người đã duyệt (không chỉ người mới nhất) — để người duyệt vòng
+  // sau biết ngay ai ở vòng trước đã xem/OK, không cần mở lại lịch sử.
+  const approvals = history.filter(h => h.action === 'approved');
+  if (!approvals.length) {
+    const latest = history[history.length - 1];
+    return `<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;cursor:help" title="${escHtml(tip)}">${actionIcon[latest.action]||'·'} ${escHtml(latest.reviewer)}</span>`;
+  }
+  return approvals.map(h =>
+    `<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;cursor:help" title="${escHtml(tip)}">✅ ${escHtml(h.reviewer)}</span>`
+  ).join(' ');
 }
 
 function buildEvidenceLinksDisplay(evidenceLinksStr) {
@@ -2894,8 +2911,7 @@ function showToast(msg) {
 }
 
 function buildInlineCommentView(inlineCommentsRaw, content, title) {
-  let comments = [];
-  try { comments = JSON.parse(inlineCommentsRaw||'[]'); } catch(e) {}
+  const comments = parseMaybeJson(inlineCommentsRaw, []);
   if (!comments.length) return '';
 
   const sorted = [...comments].sort((a,b) => a.start - b.start);
@@ -2962,8 +2978,7 @@ function editAndResubmit(id) {
       if (badge) badge.style.display = 'none';
       if (label) { label.style.borderColor = 'var(--border)'; label.style.background = 'var(--surface)'; }
     });
-    let oldReviewers = [];
-    try { oldReviewers = JSON.parse(s.reviewers || '[]'); } catch(e) {}
+    const oldReviewers = parseMaybeJson(s.reviewers, []);
     oldReviewers.sort((a,b) => (a.order||0)-(b.order||0)).forEach(r => {
       window._reviewerOrder.push({ id: r.id, name: r.name, email: r.email || '', order: Number(r.order) || window._reviewerOrder.length + 1 });
       const cb = document.querySelector(`#reviewer-list input[value="${r.id}"]`);
@@ -3030,8 +3045,7 @@ function editSubmission(id) {
       if (badge) badge.style.display = 'none';
       if (label) { label.style.borderColor = 'var(--border)'; label.style.background = 'var(--surface)'; }
     });
-    let oldReviewers = [];
-    try { oldReviewers = JSON.parse(s.reviewers || '[]'); } catch(e) {}
+    const oldReviewers = parseMaybeJson(s.reviewers, []);
     oldReviewers.sort((a,b) => (a.order||0)-(b.order||0)).forEach(r => {
       window._reviewerOrder.push({ id: r.id, name: r.name, email: r.email || '', order: Number(r.order) || window._reviewerOrder.length + 1 });
       const cb = document.querySelector(`#reviewer-list input[value="${r.id}"]`);

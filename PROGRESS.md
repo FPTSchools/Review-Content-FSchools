@@ -77,6 +77,52 @@
       `getBoundingClientRect()`/`scrollWidth` (không chỉ nhìn ảnh chụp màn hình) rằng không còn
       phần tử nào tràn khỏi màn hình, và kiểm tra lại desktop không bị ảnh hưởng. Deploy lên
       https://review-content-fschools.pages.dev.
+- [x] **Sửa lỗi hệ thống nghiêm trọng: luồng duyệt "trông như sai" + email không gửi được**
+      (người dùng báo sau khi test thật với dữ liệu thật). Gồm 4 lỗi độc lập, đã sửa hết:
+      1. **⚠️ CHẶN HOÀN TOÀN việc gửi email — cần người dùng xử lý.** Resend đang ở chế độ
+         sandbox (chưa xác minh domain) → CHỈ gửi được cho đúng email chủ tài khoản
+         (`thpt@fpt.edu.vn`), mọi email khác đều bị Resend từ chối thẳng (lỗi thật: *"You can
+         only send testing emails to your own email address... verify a domain"*). Đây là lý do
+         thật của việc "không thấy gửi mail thông báo" — KHÔNG phải lỗi code, mà do tài khoản
+         Resend chưa được cấu hình đầy đủ. **Cần người dùng xác minh 1 domain trên
+         resend.com/domains (nhờ IT thêm bản ghi DNS) trước khi email thật gửi được cho bất kỳ
+         ai khác ngoài chủ tài khoản** — mục này trước đây bị ghi nhầm là "tuỳ chọn, không gấp",
+         thực ra đang chặn toàn bộ tính năng thông báo.
+      2. **Dữ liệu email nhân sự bị lỗi**: hầu hết email trong bảng `users` dính thêm dấu `.` ở
+         cuối (ví dụ `phuonglx2@fe.edu.vn.`) — khiến Resend từ chối gửi vì email không hợp lệ.
+         Đã sửa dữ liệu hiện có (8 user) và thêm kiểm tra chuẩn hoá email (trim + bỏ dấu `.`
+         thừa + validate định dạng) vào `add_user`/`update_user` (`functions/_lib/util.js`:
+         `normalizeEmail()`) để không lặp lại.
+      3. **Lỗi hệ thống (nghiêm trọng nhất) — "tag người duyệt vòng trước" biến mất + có thể ảnh
+         hưởng nhiều chỗ khác**: `boss.html`/`ctv.html` được viết cho backend cũ, nơi các trường
+         `reviewers`, `review_history`, `inline_comments`, `workflow_steps`, `platform`,
+         `brand_check_result`, `allowed_roles` LUÔN là CHUỖI JSON (Google Sheets chỉ lưu được
+         text) nên code luôn gọi `JSON.parse(s.reviewers||'[]')`. Backend mới (Supabase JSONB)
+         trả các trường này dạng OBJECT/ARRAY THẬT — gọi `JSON.parse()` trên object có sẵn sẽ
+         `throw`, bị `try/catch` xung quanh NUỐT MẤT lỗi, âm thầm trả về rỗng. Hậu quả: tag hiển
+         thị người đã duyệt biến mất, danh sách người duyệt trong thẻ bài trống, bình luận inline
+         không tải được, kết quả AI chấm ảnh không hiện... ở **~20 chỗ khác nhau** trong 2 file.
+         Đã rà soát toàn diện bằng agent con và sửa hết: thêm 1 hàm dùng chung `parseMaybeJson()`
+         (nhận cả object thật và chuỗi JSON cũ) ở đầu mỗi file, thay mọi chỗ gọi `JSON.parse`
+         trực tiếp trên các trường này bằng hàm này.
+      4. **`is_shared` (cờ "content chung") so sánh sai kiểu**: backend cũ lưu chuỗi `'true'`,
+         backend mới lưu boolean thật — code so `s.is_shared==='true'` luôn sai (luôn `false`).
+         **Nghiêm trọng nhất trong nhóm này**: `ctv.html` dùng đúng phép so sánh này để quyết
+         định có hiện bài "content chung" của **cơ sở khác** trong hàng chờ duyệt của
+         leader/leader_content hay không — bài dùng chung bị **biến mất khỏi hàng chờ duyệt**
+         một cách âm thầm. Đây rất có thể là nguyên nhân chính khiến người dùng thấy "luồng duyệt
+         không đúng". Đã sửa bằng hàm `isTruthyFlag()` (nhận cả boolean thật và chuỗi 'true' cũ).
+      Đồng thời **cải tiến thêm** theo đúng yêu cầu người dùng: tag "người đã duyệt" giờ hiện
+      **MỖI người đã duyệt** (không chỉ người mới nhất) — vd bài qua 2 vòng sẽ thấy cả
+      "✅ Người A" và "✅ Người B" ở góc thẻ bài, đúng ý "biết được bài đó đã có những người ở
+      vòng duyệt trước đã xem và ok".
+      **Đã test thật kỹ, không chỉ đọc code**: dựng lại đúng kịch bản người dùng mô tả — workflow
+      3 vòng, vòng 2 có 2 người cùng số thứ tự (song song) — submit → vòng 1 (1 người) duyệt →
+      tự chuyển vòng 2 → **chỉ 1 trong 2 người vòng 2 duyệt (người còn lại không làm gì)** → tự
+      chuyển vòng 3 → vòng 3 duyệt → trạng thái "approved". Xác nhận đúng ở mọi bước qua dữ liệu
+      Supabase thật + giao diện thật (tag hiện đúng, không lỗi JS console), và xác nhận
+      email được ghi đúng hàng đợi ở mỗi vòng chuyển tiếp (dù chưa gửi được thật — xem mục 1).
+      Dữ liệu test đã dọn sạch. Deploy lên https://review-content-fschools.pages.dev.
 
 ## Quy ước làm việc đã chốt với người dùng
 - **Làm thẳng trên nhánh `main`, không dùng quy trình branch + Pull Request** — vì chỉ có
@@ -149,9 +195,12 @@
   `review-content-fschools-email-cron`, chạy trên cùng tài khoản Cloudflare mới.
 
 ## Cần làm tiếp (thứ tự đề xuất)
-1. (Tuỳ chọn, không gấp) Xác minh domain @fpt.edu.vn trên Resend để email gửi ra trông
-   chuyên nghiệp hơn (hiện đang từ `onboarding@resend.dev`) — cần nhờ IT thêm bản ghi DNS.
-2. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
+0. **⚠️ ƯU TIÊN CAO NHẤT — KHÔNG PHẢI VIỆC KỸ THUẬT, CẦN NGƯỜI DÙNG TỰ LÀM**: xác minh 1 domain
+   trên resend.com/domains (nhờ IT thêm vài bản ghi DNS cho domain @fpt.edu.vn hoặc tương tự).
+   Nếu không làm bước này, **email thông báo sẽ KHÔNG BAO GIỜ gửi được cho bất kỳ ai** ngoài
+   đúng email chủ tài khoản Resend — đã xác nhận thật bằng lỗi trả về từ Resend, không phải
+   suy đoán. Trước đây bị ghi nhầm là "tuỳ chọn" — xem chi tiết ở mục "Đã làm".
+1. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
    bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).
 3. ~~Chuẩn bị frontend gọi backend mới~~ — **XONG.** Đã đổi giá trị hằng số `APPS_SCRIPT_URL`
    trong cả 3 file (`index.html`, `boss.html`, `ctv.html`) từ URL Google Apps Script sang `/api`

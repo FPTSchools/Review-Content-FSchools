@@ -2,6 +2,14 @@ export function asBoolean(value) {
   return value === true || String(value).trim().toLowerCase() === 'true';
 }
 
+// Chuẩn hoá email nhập vào (trim khoảng trắng, bỏ dấu "." thừa ở cuối — lỗi hay gặp khi dán
+// từ danh sách có đánh số/dấu câu). Trả về null nếu rõ ràng không phải email hợp lệ, để backend
+// từ chối lưu thay vì lưu rác (email dạng "abc@x.vn." khiến Resend từ chối gửi thẳng).
+export function normalizeEmail(value) {
+  const trimmed = String(value || '').trim().replace(/\.+$/, '');
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
+}
+
 // Frontend hiện tại có thể gửi ai_scores/brand_check_result dạng chuỗi JSON (như thời còn gọi
 // Apps Script) — cột JSONB muốn nhận object/array thật, nên parse hộ nếu là chuỗi.
 export function toJsonb(value) {

@@ -1,4 +1,5 @@
 import { newId } from '../ids.js';
+import { normalizeEmail } from '../util.js';
 
 // ============================================================
 // USERS — port 1:1 từ handleLogin/handleGetUsers/handleAddUser/handleUpdateUser/handleDeleteUser
@@ -43,10 +44,12 @@ export async function handleAddUser(supabase, p) {
   if (!p.email || !p.password || !p.name || !p.role) {
     return { ok: false, error: 'Thiếu thông tin bắt buộc (email/password/name/role)' };
   }
+  const email = normalizeEmail(p.email);
+  if (!email) return { ok: false, error: 'Email không hợp lệ: ' + p.email };
   const id = newId('USR');
   const { error } = await supabase.from('users').insert({
     id,
-    email: p.email,
+    email,
     password: p.password, // TODO bảo mật: nên hash trước khi lưu — xem ghi chú trong schema.sql
     name: p.name,
     role: p.role,
@@ -65,7 +68,11 @@ export async function handleUpdateUser(supabase, p) {
   if (!p.id) return { ok: false, error: 'Thiếu id' };
   const patch = {};
   if (p.name) patch.name = p.name;
-  if (p.email) patch.email = p.email;
+  if (p.email) {
+    const email = normalizeEmail(p.email);
+    if (!email) return { ok: false, error: 'Email không hợp lệ: ' + p.email };
+    patch.email = email;
+  }
   if (p.role) patch.role = p.role;
   if (p.campus !== undefined) patch.campus = p.campus;
   if (p.password) patch.password = p.password; // TODO bảo mật: nên hash

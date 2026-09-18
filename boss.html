@@ -593,6 +593,21 @@
 const APPS_SCRIPT_URL = '/api';
 // (Gemini gọi qua backend proxy — không dùng key ở frontend)
 
+// Backend mới (Supabase JSONB) trả các trường reviewers/review_history/inline_comments/
+// workflow_steps/platform/ai_scores/brand_check_result/allowed_roles dạng OBJECT/ARRAY THẬT,
+// khác với backend cũ (Apps Script/Sheets) luôn trả CHUỖI JSON phải tự JSON.parse. Hàm này
+// nhận cả 2 kiểu — dùng thay JSON.parse() trực tiếp ở mọi nơi đọc các trường này để không bị
+// lỗi âm thầm (JSON.parse trên object/array có sẵn sẽ throw, bị catch nuốt mất, trả về rỗng).
+function parseMaybeJson(value, fallback) {
+  if (value === null || value === undefined || value === '') return fallback;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value); } catch (e) { return fallback; }
+  }
+  return value;
+}
+// is_shared cũng vậy: backend cũ lưu chuỗi 'true'/'false', backend mới lưu boolean thật.
+function isTruthyFlag(value) { return value === true || value === 'true'; }
+
 async function callBackend(payload) {
   // Dùng chung với callAPI để có error handling nhất quán
   return callAPI(payload);
@@ -618,8 +633,7 @@ function platformBadgesHtml(platformList) {
   return list.map(p => `<span class="tag" style="background:var(--blue-bg);border-color:#b0ccf0;color:#1d4e89">${escHtml(platformMap[p]||p)}</span>`).join(' ');
 }
 function parsePlatform(s) {
-  if (Array.isArray(s.platform_parsed)) return s.platform_parsed;
-  try { return JSON.parse(s.platform || '[]'); } catch(e) { return []; }
+  return parseMaybeJson(s.platform_parsed || s.platform, []);
 }
 
 // ============================================================
@@ -1113,8 +1127,7 @@ function showAllDetail(id) {
   const panel = document.getElementById('all-detail-panel');
 
   // Parse reviewers
-  let reviewers = [];
-  try { reviewers = JSON.parse(s.reviewers||'[]'); } catch(e){}
+  const reviewers = parseMaybeJson(s.reviewers, []);
   const reviewerHtml = reviewers.length ? `
     <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;text-transform:uppercase">Vòng duyệt</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
@@ -1143,7 +1156,7 @@ function showAllDetail(id) {
           <div style="font-size:11px;color:var(--text3);margin-top:2px">
             ${s.user_name} · ${s.campus} · Gửi ${s.send_count||1} lần
             ${(parseInt(s.send_count)||1)>1?`<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:4px">🔁 Lần gửi ${s.send_count}</span>`:''}
-            ${s.is_shared==='true'?'<span style="background:var(--purple-bg);color:var(--purple);font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">Content chung</span>':''}
+            ${isTruthyFlag(s.is_shared)?'<span style="background:var(--purple-bg);color:var(--purple);font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">Content chung</span>':''}
           </div>
         </div>
         <span class="status-chip ${sMap[s.status]||'s-new'}">${sLbl[s.status]||s.status}</span>
@@ -1216,7 +1229,7 @@ function buildDrivePreviewWithComment(s) {
 function renderMediaCommentBox(subId, idx) {
   const s = allSubs.find(x => x.id === subId);
   let baseComments = _icMap[subId];
-  if (!baseComments) { try { baseComments = JSON.parse((s && s.inline_comments) || '[]'); } catch(e) { baseComments = []; } }
+  if (!baseComments) { baseComments = parseMaybeJson(s && s.inline_comments, []); }
   const mc = (baseComments || []).filter(c => c.type === 'media').find(c => c.idx === idx);
   return `
     ${mc ? `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:var(--radius);padding:7px 10px;font-size:11px;margin-bottom:4px">
@@ -1258,8 +1271,7 @@ function deleteMediaComment(subId, idx) {
 // brandCheckResultStr: JSON dạng { "<fileId>": {...kết quả...}, ... }
 function buildBrandCheckDisplay(brandCheckResultStr) {
   if (!brandCheckResultStr) return '';
-  let data = {};
-  try { data = JSON.parse(brandCheckResultStr); } catch(e) { return ''; }
+  const data = parseMaybeJson(brandCheckResultStr, {});
   const fileIds = Object.keys(data);
   if (!fileIds.length) return '';
   return fileIds.map(fid => `<div class="brand-check-card">${buildBrandCheckRows(data[fid])}</div>`).join('');
@@ -2118,13 +2130,20 @@ async function callAPI(data, _retryCount) {
   }
 }
 function buildReviewHistoryTag(s) {
-  let history = [];
-  try { history = JSON.parse(s.review_history || s.review_history_parsed && JSON.stringify(s.review_history_parsed) || '[]'); } catch(e) {}
+  const history = parseMaybeJson(s.review_history, []);
   if (!history.length) return '';
   const actionIcon = { approved:'✅', rejected:'❌', revision:'🔁', forwarded:'⬆️', resubmitted:'📤' };
   const tip = history.map(h => (actionIcon[h.action]||'·') + ' ' + h.reviewer + ': ' + h.action + (h.comment?' — '+h.comment:'')).join('\n');
-  const latest = history[history.length - 1];
-  return `<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;cursor:help" title="${escHtml(tip)}">${actionIcon[latest.action]||'·'} ${escHtml(latest.reviewer)}</span>`;
+  // Hiện 1 tag riêng cho MỖI người đã duyệt (không chỉ người mới nhất) — để người duyệt vòng
+  // sau biết ngay ai ở vòng trước đã xem/OK, không cần mở lại lịch sử.
+  const approvals = history.filter(h => h.action === 'approved');
+  if (!approvals.length) {
+    const latest = history[history.length - 1];
+    return `<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;cursor:help" title="${escHtml(tip)}">${actionIcon[latest.action]||'·'} ${escHtml(latest.reviewer)}</span>`;
+  }
+  return approvals.map(h =>
+    `<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;cursor:help" title="${escHtml(tip)}">✅ ${escHtml(h.reviewer)}</span>`
+  ).join(' ');
 }
 
 // ============================================================
@@ -2404,7 +2423,7 @@ async function saveInlineComments(subId) {
 }
 
 function loadInlineComments(subId, rawJson) {
-  try { _icMap[subId] = JSON.parse(rawJson||'[]'); } catch(e) { _icMap[subId] = []; }
+  _icMap[subId] = parseMaybeJson(rawJson, []);
   renderInlineEditor(subId);
 }
 
@@ -2510,8 +2529,7 @@ function buildBossVersionDiff(previousText, currentText) {
 
 // Comment gọn: 1 dòng, bấm để mở rộng xem đủ nội dung.
 function buildBossVersionCommentsCompact(version, roundKey) {
-  let comments = [];
-  try { comments = JSON.parse(version.inline_comments || '[]'); } catch(e) {}
+  const comments = parseMaybeJson(version.inline_comments, []);
   if (!comments.length) return '<div style="font-size:11px;color:var(--text3)">Không có comment.</div>';
   return comments.map((c, ci) => {
     const noteId = 'bvc-note-' + roundKey + '-' + ci;
@@ -2523,9 +2541,8 @@ function buildBossVersionCommentsCompact(version, roundKey) {
 }
 
 function buildBossReviewerRoundBox(version, roundKey) {
-  let comments = []; let history = [];
-  try { comments = JSON.parse(version.inline_comments || '[]'); } catch(e) {}
-  try { history = JSON.parse(version.review_history || '[]'); } catch(e) {}
+  const comments = parseMaybeJson(version.inline_comments, []);
+  const history = parseMaybeJson(version.review_history, []);
   const renderPart = (raw, zone) => {
     const source = String(raw || '');
     const relevant = comments.filter(c => (c.zone || 'content') === zone).sort((a,b) => Number(a.start || 0) - Number(b.start || 0));
@@ -2606,10 +2623,8 @@ async function showSubmissionVersionsBoss(id) {
     const lastIdx = versions.length - 1;
     body.innerHTML = versions.map((v, i) => {
       const previous = i > 0 ? versions[i - 1] : null;
-      let reviewHistory = [];
-      try { reviewHistory = JSON.parse(v.review_history || '[]'); } catch(e) {}
-      let commentCount = 0;
-      try { commentCount = JSON.parse(v.inline_comments || '[]').length; } catch(e) {}
+      const reviewHistory = parseMaybeJson(v.review_history, []);
+      const commentCount = parseMaybeJson(v.inline_comments, []).length;
       const isOpen = i === lastIdx;
       const changedLines = previous ? countBossDiffChangedLines(previous.content, v.content) : 0;
       const diffToggleLabel = previous ? (changedLines ? '✏️ ' + changedLines + ' dòng thay đổi' : '✅ Không đổi nội dung') : '📄 Nội dung vòng đầu';
@@ -2728,8 +2743,7 @@ function roleBadgesHtml(allowedRoles) {
 }
 
 function parseCategoryRoles(c) {
-  if (Array.isArray(c.allowed_roles_parsed)) return c.allowed_roles_parsed;
-  try { return JSON.parse(c.allowed_roles || '[]'); } catch(e) { return []; }
+  return parseMaybeJson(c.allowed_roles, []);
 }
 
 function renderDocCategoryManageList() {
