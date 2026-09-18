@@ -123,6 +123,21 @@
       Supabase thật + giao diện thật (tag hiện đúng, không lỗi JS console), và xác nhận
       email được ghi đúng hàng đợi ở mỗi vòng chuyển tiếp (dù chưa gửi được thật — xem mục 1).
       Dữ liệu test đã dọn sạch. Deploy lên https://review-content-fschools.pages.dev.
+- [x] **Gửi email gần như tức thì thay vì chờ Cron 2 phút** — theo yêu cầu người dùng.
+      `functions/api/index.js`: sau khi 1 action có phát sinh email (submit, resubmit, approve,
+      reject, request_revision, forward_to_next, change_reviewer) chạy xong, gọi luôn
+      `handleProcessEmailQueue` chạy NỀN qua `waitUntil` (đặc trưng của Cloudflare Workers — cho
+      phép tiếp tục xử lý sau khi đã trả lời người dùng, không làm chậm phản hồi chính) — thay vì
+      chỉ trông chờ vào Worker lập lịch `email-cron-worker` chạy mỗi 2 phút. Lưu ý thứ tự quan
+      trọng: phải trigger xử lý hàng đợi SAU khi hành động chính đã ghi email vào hàng đợi xong,
+      không phải trước (bản đầu tiên viết nhầm thứ tự, tự phát hiện và sửa lại khi test).
+      `email-cron-worker` (2 phút/lần) vẫn giữ lại làm lưới an toàn (thử lại email gửi lỗi, hoặc
+      trường hợp hiếm `waitUntil` bị dừng giữa chừng) — không xoá.
+      Đã test thật: gửi 1 bài → kiểm tra trực tiếp Supabase → email chuyển từ "queued" sang
+      "sent" chỉ sau **~0.8 giây**, không cần đợi Cron.
+- **Đang chuẩn bị đổi nhà cung cấp gửi email: Resend → Gmail API** (theo yêu cầu người dùng,
+  xem "Ghi chú/rủi ro" bên dưới để biết lý do) — CHƯA bắt đầu code, đang ở bước hướng dẫn người
+  dùng tạo Google Cloud Project (bước 1/6, xem "Cần làm tiếp").
 
 ## Quy ước làm việc đã chốt với người dùng
 - **Làm thẳng trên nhánh `main`, không dùng quy trình branch + Pull Request** — vì chỉ có
@@ -195,11 +210,31 @@
   `review-content-fschools-email-cron`, chạy trên cùng tài khoản Cloudflare mới.
 
 ## Cần làm tiếp (thứ tự đề xuất)
-0. **⚠️ ƯU TIÊN CAO NHẤT — KHÔNG PHẢI VIỆC KỸ THUẬT, CẦN NGƯỜI DÙNG TỰ LÀM**: xác minh 1 domain
-   trên resend.com/domains (nhờ IT thêm vài bản ghi DNS cho domain @fpt.edu.vn hoặc tương tự).
-   Nếu không làm bước này, **email thông báo sẽ KHÔNG BAO GIỜ gửi được cho bất kỳ ai** ngoài
-   đúng email chủ tài khoản Resend — đã xác nhận thật bằng lỗi trả về từ Resend, không phải
-   suy đoán. Trước đây bị ghi nhầm là "tuỳ chọn" — xem chi tiết ở mục "Đã làm".
+0. **⚠️ ƯU TIÊN CAO NHẤT — đang thực hiện, cần người dùng làm cùng.** Đã đổi hướng: KHÔNG dùng
+   Resend nữa (cần xác minh domain qua DNS — domain `@fpt.edu.vn` do IT trung tâm FPT quản lý,
+   quy trình xin phê duyệt quá lâu, người dùng từ chối hướng này). Chuyển sang **gửi email qua
+   Gmail API**, dùng lại đúng tài khoản `...@fpt.edu.vn` đã gửi thành công trước đây qua
+   `GmailApp` (Apps Script) — không cần domain riêng, không tốn tiền, tận dụng lại độ tin cậy
+   gửi mail đã có sẵn của tài khoản đó. Các bước cần làm (6 bước, xem chi tiết đã trao đổi với
+   người dùng trong chat — CHƯA ghi lại quy trình đầy đủ vào file này, cần bổ sung ở buổi tiếp
+   theo nếu làm dở):
+   1. Người dùng tạo Google Cloud Project (đang ở bước này — CHƯA XONG)
+   2. Bật Gmail API cho project đó
+   3. Tạo OAuth Client (loại "Desktop app" để làm được flow uỷ quyền 1 lần thủ công)
+   4. Người dùng đăng nhập bằng tài khoản `...@fpt.edu.vn`, uỷ quyền 1 lần (như bước "Cho phép"
+      của Apps Script trước đây) — lấy được "refresh token"
+   5. Refresh token + Client ID + Client Secret → lưu làm Cloudflare secret (giống
+      `OPENAI_API_KEY`/`RESEND_API_KEY` — dùng `wrangler pages secret put`, nhớ dùng cách ghi
+      file tạm + redirect stdin, KHÔNG pipe trực tiếp qua PowerShell)
+   6. Code: viết `functions/_lib/gmail.js` (đổi access token từ refresh token qua Google OAuth
+      token endpoint, gọi Gmail API `users.messages.send` với MIME message base64), thay thế
+      lời gọi `sendViaResend` trong `functions/_lib/handlers/emailQueue.js` — SAU ĐÓ mới xoá/thôi
+      dùng `functions/_lib/resend.js` và secret `RESEND_API_KEY` (giữ lại Resend cho tới khi
+      Gmail API test xong, phòng trường hợp Gmail API bị chặn bởi chính sách Workspace — xem rủi
+      ro đã nói với người dùng: có thể tổ chức chặn OAuth app ngoài dù Apps Script không bị chặn).
+   **Rủi ro cần nhớ**: nếu bước 4 (uỷ quyền OAuth) bị chặn bởi chính sách Google Workspace của
+   FPT (khác với Apps Script — có thể không được miễn trừ giống nhau), phương án dự phòng là
+   quay lại mua domain riêng cho Resend (đã tư vấn nhưng người dùng chưa chọn).
 1. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
    bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).
 3. ~~Chuẩn bị frontend gọi backend mới~~ — **XONG.** Đã đổi giá trị hằng số `APPS_SCRIPT_URL`
