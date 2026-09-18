@@ -1,0 +1,9 @@
+name = "review-content-fschools-email-cron"
+main = "index.js"
+compatibility_date = "2026-09-17"
+
+# Cứ mỗi 2 phút, "đánh thức" hàng đợi email (process_email_queue) trên project chính —
+# thay cho time-based trigger mỗi phút của Apps Script cũ. Cloudflare Pages không hỗ trợ
+# lịch chạy (Cron Trigger) trực tiếp nên phải tách ra 1 Worker riêng làm việc này.
+[triggers]
+crons = ["*/2 * * * *"]
