@@ -110,32 +110,48 @@
   hoàn toàn "khoá toàn cục" chặn mọi submission khác trong lúc 1 submission đang được xử lý.
   Deploy live tại **https://review-content-fschools.pages.dev** — đã smoke-test qua PowerShell
   (không chỉ local) trước khi coi Phase 2 là xong.
+- **Backend Phase 3 — XONG, đã test thật (kể cả gửi email thật qua Resend, không chỉ ghi hàng đợi).**
+  `ai_check_content, ai_check_brand_image, ai_suggest_review, ai_chat` — đều gọi OpenAI
+  (`gpt-4o-mini`) y hệt logic gốc, kể cả phần chặn từ cấm bằng code (không để AI tự phán) và
+  logic build ngữ cảnh quy tắc/brand guide/persona người duyệt. Test qua browser: bài chứa từ
+  cấm bị ép verdict CẦN SỬA/TỪ CHỐI đúng như kỳ vọng, bài sạch được DUYỆT với điểm hợp lý,
+  ai_chat/ai_suggest_review trả lời đúng ngữ cảnh, ai_check_brand_image chấm ảnh test theo đúng
+  4 tiêu chí (màu/logo/font/bố cục).
+  `process_email_queue` — đã chọn **Resend** làm provider (thay GmailApp), gửi thật qua
+  `functions/_lib/resend.js`. Test bằng địa chỉ test an toàn của Resend
+  (`delivered@resend.dev` — không gửi vào hộp thư thật) → `process_email_queue` trả về
+  `sent:1, failed:0`, xác nhận cơ chế gửi hoạt động đúng đầu-cuối.
+  Lưu ý quan trọng: `process_email_queue` hiện **chỉ chạy khi được gọi** (thủ công hoặc từ
+  request khác) — bản Apps Script cũ có time-based trigger tự chạy mỗi phút, còn ở đây
+  **CHƯA có lịch chạy tự động** (xem mục "Cần làm tiếp"), nên hàng đợi sẽ không tự gửi cho đến
+  khi cấu hình xong.
+  Email đang gửi từ địa chỉ mặc định của Resend (`onboarding@resend.dev`), chưa phải email
+  @fpt.edu.vn thật — cần xác minh domain trên Resend sau nếu muốn gửi từ domain trường.
 
 ## Cần làm tiếp (thứ tự đề xuất)
-1. **Backend Phase 3**: các action gọi AI (`ai_check_content, ai_check_brand_image,
-   ai_suggest_review, ai_chat`) — cần OpenAI API key mới (đưa vào biến môi trường Cloudflare,
-   KHÔNG hard-code), và `process_email_queue` — cần chọn provider gửi email thay GmailApp
-   (chưa chọn — ví dụ Resend/SendGrid), vì hiện `add_user`/`update_user` mật khẩu mới KHÔNG
-   tự gửi mail (trả `email_sent:false`, admin phải tự báo thủ công).
-2. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
+1. **Lập lịch chạy `process_email_queue` tự động** — hiện phải gọi thủ công. Cần tạo 1
+   Cloudflare Cron Trigger (trên 1 Worker riêng, hoặc nếu Cloudflare Pages đã hỗ trợ Cron
+   Triggers trực tiếp thì cấu hình ngay trong `wrangler.toml` của project này) để gọi endpoint
+   `/api` với `{action:"process_email_queue"}` mỗi 1-5 phút, y hệt tần suất bản Apps Script cũ.
+2. (Tuỳ chọn, không gấp) Xác minh domain @fpt.edu.vn trên Resend để email gửi ra trông
+   chuyên nghiệp hơn (hiện đang từ `onboarding@resend.dev`) — cần nhờ IT thêm bản ghi DNS.
+3. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
    bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).
-3. Khi Phase 3 xong và test kỹ: đổi hằng số API URL trong `index.html/boss.html/ctv.html`
-   (hiện là `APPS_SCRIPT_URL`) sang endpoint `/api` của Cloudflare Functions **trong bản deploy
-   ở tài khoản Cloudflare MỚI** (không đụng gì tới bản cũ đang chạy thật ở tài khoản Cloudflare
-   cũ) — đây là bước chuẩn bị bản mới sẵn sàng, KHÔNG phải "cắt sang cho người dùng thật" (việc
-   đó chỉ xảy ra khi người dùng chủ động chuyển qua dùng domain/bản mới sau này).
-4. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
+4. **Toàn bộ action trong `backend_apps_script.js` giờ đã có ở backend mới** (trừ
+   `save_brand_guide_image` và `fix_user_campus`/`seed_parallel_workflow` — 2 cái sau là script
+   chạy 1 lần lúc migrate dữ liệu cũ, không cần port thành action thường trực).
+   Khi đã sẵn sàng: đổi hằng số API URL trong `index.html/boss.html/ctv.html` (hiện là
+   `APPS_SCRIPT_URL`) sang endpoint `/api` của Cloudflare Functions **trong bản deploy ở tài
+   khoản Cloudflare MỚI** (không đụng gì tới bản cũ đang chạy thật) — đây là bước chuẩn bị bản
+   mới sẵn sàng, KHÔNG phải "cắt sang cho người dùng thật" (việc đó chỉ xảy ra khi người dùng
+   chủ động chuyển qua dùng domain/bản mới sau này).
+5. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
    tương ứng (data migration) — làm trước khi cắt sang thật.
-5. ~~Kết nối repo này với tài khoản Cloudflare MỚI~~ — **XONG** (project `review-content-fschools`,
-   xem "Đã làm"). Khi thêm `OPENAI_API_KEY` ở Phase 3, set thêm secret bằng cách tương tự
-   (`wrangler pages secret put OPENAI_API_KEY --project-name review-content-fschools`, nhớ dùng
-   cách ghi file tạm + redirect stdin, KHÔNG pipe trực tiếp qua PowerShell — xem ghi chú kỹ thuật
-   ở "Đã làm" — và nhớ deploy lại sau khi set secret).
 6. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
-   `.env`, thêm dòng `APP_URL=http://localhost:8788`) và chạy `npm install` trước khi
-   `npx wrangler pages dev .` test được; cũng cần tự `supabase login` và (nếu muốn tự deploy
-   Cloudflare từ máy đó) `wrangler login` 1 lần — các phiên đăng nhập CLI này không đi theo Git,
-   mỗi máy tự đăng nhập riêng.
+   `.env`, thêm `APP_URL=http://localhost:8788`, `OPENAI_API_KEY`, `RESEND_API_KEY`) và chạy
+   `npm install` trước khi `npx wrangler pages dev .` test được; cũng cần tự `supabase login`
+   và (nếu muốn tự deploy Cloudflare từ máy đó) `wrangler login` 1 lần — các phiên đăng nhập CLI
+   này không đi theo Git, mỗi máy tự đăng nhập riêng.
 
 ## Ghi chú / rủi ro cần nhớ
 - `backend_apps_script.js` hiện lưu **mật khẩu người dùng dạng plaintext** (kể cả gửi qua

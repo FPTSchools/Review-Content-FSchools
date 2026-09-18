@@ -8,6 +8,8 @@ import * as submissions from '../_lib/handlers/submissions.js';
 import * as drafts from '../_lib/handlers/drafts.js';
 import * as workflowTemplates from '../_lib/handlers/workflowTemplates.js';
 import { handleGetSubmissionVersions } from '../_lib/submissionVersions.js';
+import * as ai from '../_lib/handlers/ai.js';
+import { handleProcessEmailQueue } from '../_lib/handlers/emailQueue.js';
 
 // ============================================================
 // Router chính — thay cho doPost/doGet trong backend_apps_script.js.
@@ -98,6 +100,13 @@ export async function onRequestPost({ request, env }) {
       case 'save_workflow_template': return json(await workflowTemplates.handleSaveWorkflowTemplate(supabase, p));
       case 'delete_workflow_template': return json(await workflowTemplates.handleDeleteWorkflowTemplate(supabase, p));
       case 'validate_workflow_template': return json(workflowTemplates.handleValidateWorkflowTemplate(p));
+
+      case 'ai_check_content': return json(await ai.handleAiCheckContent(supabase, env, p));
+      case 'ai_check_brand_image': return json(await ai.handleAiCheckBrandImage(supabase, env, p));
+      case 'ai_suggest_review': return json(await ai.handleAiSuggestReview(supabase, env, p));
+      case 'ai_chat': return json(await ai.handleAiChat(supabase, env, p));
+
+      case 'process_email_queue': return json(await handleProcessEmailQueue(supabase, env));
 
       default:
         return json({
