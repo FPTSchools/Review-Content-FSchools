@@ -20,11 +20,14 @@
 - Frontend: Cloudflare Pages — **2 bản TÁCH BIỆT HOÀN TOÀN, không liên quan nhau**:
   - Bản cũ (đang chạy thật, dùng Google Apps Script + Sheets) nằm ở 1 tài khoản Cloudflare riêng —
     KHÔNG đụng vào, vẫn phục vụ người dùng thật bình thường trong suốt quá trình làm dự án này.
-  - Dự án migrate này (repo hiện tại) sẽ deploy lên 1 tài khoản Cloudflare MỚI, tạo riêng cho
-    dự án — chưa kết nối/deploy trong phiên làm việc nào tính đến nay. Vì tách biệt hoàn toàn,
-    có thể build/test/deploy thoải mái ở tài khoản mới mà không sợ ảnh hưởng bản đang chạy thật.
-    Việc "cắt sang" chỉ xảy ra khi nào người dùng chủ động chuyển hẳn (đổi domain/thông báo người
-    dùng dùng bản mới), không phải một bước kỹ thuật tự động.
+  - Dự án migrate này (repo hiện tại) **đã deploy lên tài khoản Cloudflare MỚI** (đăng nhập
+    bằng email `thpt@fpt.edu.vn`), project Pages tên `review-content-fschools`, xem preview
+    tại **https://review-content-fschools.pages.dev** (đã test `/api` thật, đọc/ghi Supabase
+    OK). Đây chỉ là bản xem trước song song — **frontend thật (index/boss/ctv.html) trong bản
+    deploy này vẫn đang gọi Google Apps Script cũ** (chưa đổi API URL), nên trang HTML hiển thị
+    y hệt bản cũ, chỉ có `/api` là backend mới đã chạy được, có thể gọi thử độc lập.
+    Việc "cắt sang" cho người dùng thật chỉ xảy ra khi người dùng chủ động chuyển hẳn (đổi domain
+    người dùng đang dùng sang trỏ về đây), không phải một bước kỹ thuật tự động.
 - `.env` (KHÔNG commit — nằm trong `.gitignore`): chứa `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
   `SUPABASE_SERVICE_ROLE_KEY`. Mỗi máy (nhà/trường) cần tự tạo file `.env` riêng, copy tay
   3 dòng này — GitHub sẽ không mang file này sang máy kia.
@@ -44,6 +47,20 @@
 - [x] `supabase init` — tạo `supabase/config.toml` (đã commit; `.temp` bị `.gitignore` loại trừ, không chứa secret)
 - [x] `supabase link --project-ref jiqnvzbyjbkkyclwecfa` — đã nối thành công tới project
       "Review_Content" (vùng ap-southeast-1, trạng thái ACTIVE_HEALTHY)
+- [x] Cài Node.js (chưa có sẵn trên máy) + `npm install` (thư viện `@supabase/supabase-js`,
+      `wrangler` là devDependency local trong `node_modules`, không cài global)
+- [x] Viết backend Cloudflare Pages Functions Phase 1 (xem mục "Đang ở bước nào") + test bằng
+      `wrangler pages dev` cục bộ (đọc/ghi Supabase thật qua API, dọn sạch dữ liệu test sau đó)
+- [x] Đăng nhập Wrangler CLI vào tài khoản Cloudflare MỚI (`thpt@fpt.edu.vn`) qua OAuth
+- [x] Tạo project Cloudflare Pages `review-content-fschools`, set 2 secret
+      (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) qua `wrangler pages secret put`, deploy
+      thành công, test `/api` thật trên https://review-content-fschools.pages.dev — hoạt động
+      đúng (đọc/ghi Supabase OK).
+      ⚠️ Lưu ý kỹ thuật: `wrangler pages secret put` set qua PowerShell pipe (`"value" | wrangler...`)
+      bị lỗi "Invalid API key" — nghi do PowerShell thêm ký tự xuống dòng vào giá trị secret.
+      Khắc phục bằng cách ghi giá trị ra file tạm (không có newline thừa) rồi redirect stdin từ
+      file đó, SAU ĐÓ **phải deploy lại 1 lần nữa** thì secret mới mới có hiệu lực (đổi secret
+      không tự áp dụng cho deployment đang chạy).
 
 ## Quy ước làm việc đã chốt với người dùng
 - **Làm thẳng trên nhánh `main`, không dùng quy trình branch + Pull Request** — vì chỉ có
@@ -91,14 +108,15 @@
    đó chỉ xảy ra khi người dùng chủ động chuyển qua dùng domain/bản mới sau này).
 5. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
    tương ứng (data migration) — làm sau khi Phase 2 xong.
-6. **Kết nối repo này với tài khoản Cloudflare MỚI** (project Pages riêng, tách biệt hoàn toàn
-   bản cũ) + cấu hình biến môi trường (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, sau này thêm
-   `OPENAI_API_KEY`) trong Cloudflare Dashboard (Pages project → Settings → Environment
-   variables) — **chưa làm**, cần làm để có 1 bản xem trước (preview) chạy thật ngoài môi trường
-   local, riêng biệt, không ảnh hưởng bản cũ.
+6. ~~Kết nối repo này với tài khoản Cloudflare MỚI~~ — **XONG** (project `review-content-fschools`,
+   xem "Đã làm"). Khi thêm `OPENAI_API_KEY` ở Phase 3, set thêm secret bằng cách tương tự
+   (`wrangler pages secret put OPENAI_API_KEY --project-name review-content-fschools`, nhớ dùng
+   cách ghi file tạm + redirect stdin, KHÔNG pipe trực tiếp qua PowerShell — xem ghi chú kỹ thuật
+   ở "Đã làm" — và nhớ deploy lại sau khi set secret).
 7. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
    `.env`) và chạy `npm install` trước khi `npx wrangler pages dev .` test được; cũng cần tự
-   `supabase login` 1 lần trước khi dùng lệnh `supabase`.
+   `supabase login` và (nếu muốn tự deploy Cloudflare từ máy đó) `wrangler login` 1 lần —
+   các phiên đăng nhập CLI này không đi theo Git, mỗi máy tự đăng nhập riêng.
 
 ## Ghi chú / rủi ro cần nhớ
 - `backend_apps_script.js` hiện lưu **mật khẩu người dùng dạng plaintext** (kể cả gửi qua

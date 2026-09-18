@@ -1,0 +1,16 @@
+node_modules
+.git
+.wrangler
+.claude
+.dev.vars
+.env
+.env.*
+package.json
+package-lock.json
+wrangler.toml
+supabase
+schema.sql
+PROGRESS.md
+backend_apps_script.js
+.gitignore
+.assetsignore
