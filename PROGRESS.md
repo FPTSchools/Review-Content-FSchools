@@ -121,23 +121,23 @@
   `functions/_lib/resend.js`. Test bằng địa chỉ test an toàn của Resend
   (`delivered@resend.dev` — không gửi vào hộp thư thật) → `process_email_queue` trả về
   `sent:1, failed:0`, xác nhận cơ chế gửi hoạt động đúng đầu-cuối.
-  Lưu ý quan trọng: `process_email_queue` hiện **chỉ chạy khi được gọi** (thủ công hoặc từ
-  request khác) — bản Apps Script cũ có time-based trigger tự chạy mỗi phút, còn ở đây
-  **CHƯA có lịch chạy tự động** (xem mục "Cần làm tiếp"), nên hàng đợi sẽ không tự gửi cho đến
-  khi cấu hình xong.
   Email đang gửi từ địa chỉ mặc định của Resend (`onboarding@resend.dev`), chưa phải email
   @fpt.edu.vn thật — cần xác minh domain trên Resend sau nếu muốn gửi từ domain trường.
+- **Lập lịch tự động cho `process_email_queue` — XONG.** Cloudflare Pages không hỗ trợ Cron
+  Trigger trực tiếp nên đã tạo 1 Cloudflare Worker riêng, nhỏ, chỉ để lập lịch:
+  `cloudflare/email-cron-worker/` (deploy độc lập bằng `wrangler deploy`, KHÁC với
+  `wrangler pages deploy` dùng cho project chính) — cứ mỗi 2 phút gọi `/api` với
+  `{action:"process_email_queue"}`. Đã test thật: chèn 1 email test vào hàng đợi, đợi đúng
+  1 chu kỳ, xác nhận qua `wrangler tail` thấy Cron chạy "Ok", và email chuyển từ trạng thái
+  "queued" sang "sent" tự động, không cần gọi tay. Worker này tên
+  `review-content-fschools-email-cron`, chạy trên cùng tài khoản Cloudflare mới.
 
 ## Cần làm tiếp (thứ tự đề xuất)
-1. **Lập lịch chạy `process_email_queue` tự động** — hiện phải gọi thủ công. Cần tạo 1
-   Cloudflare Cron Trigger (trên 1 Worker riêng, hoặc nếu Cloudflare Pages đã hỗ trợ Cron
-   Triggers trực tiếp thì cấu hình ngay trong `wrangler.toml` của project này) để gọi endpoint
-   `/api` với `{action:"process_email_queue"}` mỗi 1-5 phút, y hệt tần suất bản Apps Script cũ.
-2. (Tuỳ chọn, không gấp) Xác minh domain @fpt.edu.vn trên Resend để email gửi ra trông
+1. (Tuỳ chọn, không gấp) Xác minh domain @fpt.edu.vn trên Resend để email gửi ra trông
    chuyên nghiệp hơn (hiện đang từ `onboarding@resend.dev`) — cần nhờ IT thêm bản ghi DNS.
-3. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
+2. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
    bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).
-4. **Toàn bộ action trong `backend_apps_script.js` giờ đã có ở backend mới** (trừ
+3. **Toàn bộ action trong `backend_apps_script.js` giờ đã có ở backend mới** (trừ
    `save_brand_guide_image` và `fix_user_campus`/`seed_parallel_workflow` — 2 cái sau là script
    chạy 1 lần lúc migrate dữ liệu cũ, không cần port thành action thường trực).
    Khi đã sẵn sàng: đổi hằng số API URL trong `index.html/boss.html/ctv.html` (hiện là
@@ -145,9 +145,9 @@
    khoản Cloudflare MỚI** (không đụng gì tới bản cũ đang chạy thật) — đây là bước chuẩn bị bản
    mới sẵn sàng, KHÔNG phải "cắt sang cho người dùng thật" (việc đó chỉ xảy ra khi người dùng
    chủ động chuyển qua dùng domain/bản mới sau này).
-5. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
+4. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
    tương ứng (data migration) — làm trước khi cắt sang thật.
-6. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
+5. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
    `.env`, thêm `APP_URL=http://localhost:8788`, `OPENAI_API_KEY`, `RESEND_API_KEY`) và chạy
    `npm install` trước khi `npx wrangler pages dev .` test được; cũng cần tự `supabase login`
    và (nếu muốn tự deploy Cloudflare từ máy đó) `wrangler login` 1 lần — các phiên đăng nhập CLI
