@@ -41,21 +41,28 @@
 ## Quy ước làm việc đã chốt với người dùng
 - **Làm thẳng trên nhánh `main`, không dùng quy trình branch + Pull Request** — vì chỉ có
   1 người quản lý dự án này, không cần bước review qua PR.
+- Trước khi tạo bảng thật, đã cùng chốt 3 điểm nghiệp vụ (không đổi cấu trúc schema.sql):
+  giữ nguyên 5 vai trò hiện có; giữ cột password dạng text (sẽ hash khi viết backend mới,
+  chưa đổi vội); đồng ý hướng chuyển ảnh brand guide từ Google Drive sang Supabase Storage sau.
 
 ## Đang ở bước nào
-- **`schema.sql` mới là bản XEM TRƯỚC — chưa chạy lên Supabase thật, chưa có bảng nào tồn tại trên Supabase.**
-- Supabase CLI đã login + link xong, sẵn sàng để chạy migration khi được xác nhận.
+- **Đã tạo bảng thật trên Supabase** (project Review_Content, `jiqnvzbyjbkkyclwecfa`) — 13 bảng
+  theo đúng `schema.sql`, qua migration `supabase/migrations/20260918034517_init_schema.sql`,
+  áp dụng bằng `supabase db push`. Xác nhận qua `supabase migration list`: local và remote khớp.
+  **Database hiện đã có cấu trúc bảng nhưng CHƯA có dữ liệu thật** (chưa migrate dữ liệu từ
+  Google Sheets sang, chưa có backend mới ghi vào đây).
 
 ## Cần làm tiếp (thứ tự đề xuất)
-1. Rà lại `schema.sql` cùng nhau (đổi/thêm gì nếu cần) trước khi áp dụng thật.
-2. Khi đã chốt: áp dụng schema lên Supabase thật (tạo bảng, qua `supabase db push` hoặc chạy
-   `schema.sql` trong SQL Editor của Supabase Dashboard) — **cần người dùng xác nhận rõ ràng
-   trước khi làm bước này**, vì đây là hành động tạo dữ liệu thật trên Supabase.
-3. Sau khi có bảng thật: lên kế hoạch viết backend mới (thay Google Apps Script) để đọc/ghi
-   Supabase thay vì Google Sheets — chưa bắt đầu.
-4. Cập nhật Cloudflare Pages sang tài khoản mới (chưa làm trong phiên này).
-5. Máy còn lại (nhà/trường) cần tự chạy `supabase login` riêng 1 lần (token đăng nhập không
-   đi theo Git) trước khi dùng được lệnh `supabase` ở máy đó.
+1. Viết backend mới (thay Google Apps Script) để đọc/ghi Supabase thay vì Google Sheets —
+   **chưa bắt đầu**. Cần quyết định công nghệ backend mới (vd: Cloudflare Worker/Functions gọi
+   thẳng Supabase, hoặc Supabase Edge Functions) — sẽ bàn khi tới bước này.
+2. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
+   tương ứng (data migration) — chưa bắt đầu, chỉ nên làm sau khi backend mới đã sẵn sàng.
+3. Cập nhật Cloudflare Pages sang tài khoản mới (chưa làm trong phiên này).
+4. Máy còn lại (nhà/trường) cần tự chạy `supabase login` riêng 1 lần (token đăng nhập không
+   đi theo Git) trước khi dùng được lệnh `supabase` ở máy đó. Sau khi `git pull`, thư mục
+   `supabase/` (config + migration) đã có sẵn, chỉ cần `supabase link --project-ref jiqnvzbyjbkkyclwecfa`
+   lại (không cần link lại nếu đã pull đúng, nhưng an toàn thì chạy lại 1 lần cho chắc).
 
 ## Ghi chú / rủi ro cần nhớ
 - `backend_apps_script.js` hiện lưu **mật khẩu người dùng dạng plaintext** (kể cả gửi qua
