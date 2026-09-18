@@ -86,7 +86,9 @@
 </div>
 
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyGOy0yrfmVpP1kGkQGZXtUfPeBSzSo8AP-2ZpBonbWiw-YoQQ2-JFzfRUizVe085o/exec';
+// Backend mới (Cloudflare Pages Functions + Supabase) — cùng domain nên dùng path tương đối.
+// Bản cũ (Google Apps Script) không còn dùng ở bản deploy này (xem PROGRESS.md).
+const APPS_SCRIPT_URL = '/api';
 
 
 async function login() {

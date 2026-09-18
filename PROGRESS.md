@@ -137,16 +137,27 @@
    chuyên nghiệp hơn (hiện đang từ `onboarding@resend.dev`) — cần nhờ IT thêm bản ghi DNS.
 2. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
    bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).
-3. **Toàn bộ action trong `backend_apps_script.js` giờ đã có ở backend mới** (trừ
-   `save_brand_guide_image` và `fix_user_campus`/`seed_parallel_workflow` — 2 cái sau là script
-   chạy 1 lần lúc migrate dữ liệu cũ, không cần port thành action thường trực).
-   Khi đã sẵn sàng: đổi hằng số API URL trong `index.html/boss.html/ctv.html` (hiện là
-   `APPS_SCRIPT_URL`) sang endpoint `/api` của Cloudflare Functions **trong bản deploy ở tài
-   khoản Cloudflare MỚI** (không đụng gì tới bản cũ đang chạy thật) — đây là bước chuẩn bị bản
-   mới sẵn sàng, KHÔNG phải "cắt sang cho người dùng thật" (việc đó chỉ xảy ra khi người dùng
-   chủ động chuyển qua dùng domain/bản mới sau này).
+3. ~~Chuẩn bị frontend gọi backend mới~~ — **XONG.** Đã đổi giá trị hằng số `APPS_SCRIPT_URL`
+   trong cả 3 file (`index.html`, `boss.html`, `ctv.html`) từ URL Google Apps Script sang `/api`
+   (path tương đối — hoạt động đúng vì frontend và backend giờ chạy chung 1 domain Cloudflare
+   Pages). Không đổi tên biến hay logic gọi API nào khác — chỉ đổi giá trị URL, giảm rủi ro.
+   Đã rà soát bằng agent con: **toàn bộ 43 action mà 3 file frontend gọi tới đều đã có route
+   tương ứng trong backend mới** (không hành động nào rơi vào nhánh lỗi "chưa hỗ trợ").
+   Đã test bằng tay qua giao diện thật (không chỉ gọi API thô): tạo user CTV + Leader test,
+   đăng nhập CTV → điền form → chọn người duyệt → gửi bài → xác nhận bài hiện đúng trạng thái
+   trong "Bài của tôi" → đăng xuất → đăng nhập Leader → thấy bài trong hàng chờ duyệt → bấm
+   Duyệt → hàng chờ trống. Toàn bộ chạy đúng trên bản deploy MỚI
+   (https://review-content-fschools.pages.dev), **bản cũ đang chạy thật hoàn toàn không bị
+   động tới** (khác tài khoản Cloudflare, không tự deploy theo repo này — đã xác nhận với
+   người dùng trước khi sửa). Dữ liệu test đã dọn sạch khỏi Supabase sau khi test xong.
+   **Lưu ý quan trọng**: dù code đã sẵn sàng, bản deploy ở `review-content-fschools.pages.dev`
+   HIỆN TẠI đã là 1 bản chạy đầy đủ trên backend mới — nhưng chưa có người dùng thật nào được
+   thông báo/trỏ sang dùng nó. Việc "cắt sang thật" (báo người dùng đổi link, hoặc trỏ domain
+   chính về đây) vẫn là quyết định riêng, cần làm SAU khi di chuyển xong dữ liệu thật (mục 4).
 4. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
-   tương ứng (data migration) — làm trước khi cắt sang thật.
+   tương ứng (data migration) — làm trước khi cắt sang thật. **Cần người dùng xuất dữ liệu
+   Sheets thật và gửi cho Claude Code** (Claude không tự đăng nhập Google Sheets của người dùng
+   được) trước khi bước này có thể bắt đầu.
 5. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
    `.env`, thêm `APP_URL=http://localhost:8788`, `OPENAI_API_KEY`, `RESEND_API_KEY`) và chạy
    `npm install` trước khi `npx wrangler pages dev .` test được; cũng cần tự `supabase login`
