@@ -17,7 +17,14 @@
 ## Tài khoản/hạ tầng hiện tại (không chứa secret)
 - GitHub repo: https://github.com/FPTSchools/Review-Content-FSchools (tài khoản trường, để bàn giao sau này)
 - Supabase project ref: `jiqnvzbyjbkkyclwecfa` (project mới, tài khoản trường)
-- Frontend: Cloudflare Pages — **chưa cập nhật** sang tài khoản Cloudflare mới trong repo/phiên làm việc này
+- Frontend: Cloudflare Pages — **2 bản TÁCH BIỆT HOÀN TOÀN, không liên quan nhau**:
+  - Bản cũ (đang chạy thật, dùng Google Apps Script + Sheets) nằm ở 1 tài khoản Cloudflare riêng —
+    KHÔNG đụng vào, vẫn phục vụ người dùng thật bình thường trong suốt quá trình làm dự án này.
+  - Dự án migrate này (repo hiện tại) sẽ deploy lên 1 tài khoản Cloudflare MỚI, tạo riêng cho
+    dự án — chưa kết nối/deploy trong phiên làm việc nào tính đến nay. Vì tách biệt hoàn toàn,
+    có thể build/test/deploy thoải mái ở tài khoản mới mà không sợ ảnh hưởng bản đang chạy thật.
+    Việc "cắt sang" chỉ xảy ra khi nào người dùng chủ động chuyển hẳn (đổi domain/thông báo người
+    dùng dùng bản mới), không phải một bước kỹ thuật tự động.
 - `.env` (KHÔNG commit — nằm trong `.gitignore`): chứa `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
   `SUPABASE_SERVICE_ROLE_KEY`. Mỗi máy (nhà/trường) cần tự tạo file `.env` riêng, copy tay
   3 dòng này — GitHub sẽ không mang file này sang máy kia.
@@ -78,15 +85,17 @@
 3. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
    bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).
 4. Khi Phase 2+3 xong và test kỹ: đổi hằng số API URL trong `index.html/boss.html/ctv.html`
-   (hiện là `APPS_SCRIPT_URL`) sang endpoint `/api` của Cloudflare Functions — đây là bước
-   **cắt sang backend mới cho người dùng thật**, cần xác nhận rõ ràng trước khi làm vì ảnh
-   hưởng trực tiếp ~15-20 người đang dùng tool.
+   (hiện là `APPS_SCRIPT_URL`) sang endpoint `/api` của Cloudflare Functions **trong bản deploy
+   ở tài khoản Cloudflare MỚI** (không đụng gì tới bản cũ đang chạy thật ở tài khoản Cloudflare
+   cũ) — đây là bước chuẩn bị bản mới sẵn sàng, KHÔNG phải "cắt sang cho người dùng thật" (việc
+   đó chỉ xảy ra khi người dùng chủ động chuyển qua dùng domain/bản mới sau này).
 5. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
-   tương ứng (data migration) — làm sau khi Phase 2 xong, trước khi cắt sang thật.
-6. Cập nhật Cloudflare Pages sang tài khoản mới + cấu hình biến môi trường
-   (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, sau này thêm `OPENAI_API_KEY`) trong Cloudflare
-   Dashboard (Pages project → Settings → Environment variables) — **chưa làm**, cần làm trước
-   khi deploy backend mới lên môi trường thật (khác với test cục bộ đang làm ở máy này).
+   tương ứng (data migration) — làm sau khi Phase 2 xong.
+6. **Kết nối repo này với tài khoản Cloudflare MỚI** (project Pages riêng, tách biệt hoàn toàn
+   bản cũ) + cấu hình biến môi trường (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, sau này thêm
+   `OPENAI_API_KEY`) trong Cloudflare Dashboard (Pages project → Settings → Environment
+   variables) — **chưa làm**, cần làm để có 1 bản xem trước (preview) chạy thật ngoài môi trường
+   local, riêng biệt, không ảnh hưởng bản cũ.
 7. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
    `.env`) và chạy `npm install` trước khi `npx wrangler pages dev .` test được; cũng cần tự
    `supabase login` 1 lần trước khi dùng lệnh `supabase`.
