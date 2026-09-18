@@ -154,15 +154,34 @@
    HIỆN TẠI đã là 1 bản chạy đầy đủ trên backend mới — nhưng chưa có người dùng thật nào được
    thông báo/trỏ sang dùng nó. Việc "cắt sang thật" (báo người dùng đổi link, hoặc trỏ domain
    chính về đây) vẫn là quyết định riêng, cần làm SAU khi di chuyển xong dữ liệu thật (mục 4).
-4. Lên kế hoạch di chuyển dữ liệu thật đang có trong Google Sheets sang các bảng Supabase
-   tương ứng (data migration) — làm trước khi cắt sang thật. **Cần người dùng xuất dữ liệu
-   Sheets thật và gửi cho Claude Code** (Claude không tự đăng nhập Google Sheets của người dùng
-   được) trước khi bước này có thể bắt đầu.
+4. ~~Di chuyển dữ liệu thật từ Google Sheets sang Supabase~~ — **XONG (2026-09-18).** Người
+   dùng xuất Google Sheets ra file `.xlsx`, script `migration/migrate_from_sheets_export.mjs`
+   (đã commit, giữ làm hồ sơ — KHÔNG chạy lại trên dữ liệu đã có) đọc file đó và ghi vào Supabase.
+   Đã ghi thành công: 11 users (10 thật + 1 placeholder), 41 submissions, 32 submission_versions,
+   41 submission_steps, 3 workflow_templates, 5 workflow_steps, 8 drafts, 7 document_categories,
+   18 document_links, 22 rules, 1 brand_guide, 16 email_queue (toàn bộ đã ở trạng thái "sent" —
+   an toàn, Cron sẽ không gửi lại). Đã xác minh bằng cách gọi thật API mới
+   (`get_users`, `get_submissions`, `get_report` đều đúng số liệu) **và đăng nhập thành công
+   bằng tài khoản admin thật** (`trung@fschools.vn`) — dữ liệu thật đã sống trên Supabase.
+   2 quyết định đã thống nhất với người dùng khi di chuyển:
+   - 1 tài khoản đã bị xoá nhưng còn 2 bài viết gắn vào (`USR_1781238666751` "Hưng Đỗ") →
+     tạo lại thành user placeholder (`active:false`, không đăng nhập được) để giữ tên + bài viết.
+   - 19 dòng lịch sử (SubmissionVersions/SubmissionSteps) gắn với 5 submission đã bị xoá khỏi
+     Sheets từ trước (không rõ lý do, có thể do sửa tay) → bỏ qua, không di chuyển.
+   **Lưu ý quan trọng chưa xử lý**: vì bản Sheets cũ (Cloudflare tài khoản cũ) vẫn đang chạy
+   thật song song, dữ liệu trên Supabase sẽ dần **lệch** so với Sheets kể từ giờ (submission mới,
+   duyệt bài mới ở bản cũ sẽ KHÔNG tự động xuất hiện trên Supabase). Nếu khoảng cách tới lúc cắt
+   sang thật dài, nên chạy lại script này 1 lần nữa ngay trước khi cắt (script hiện ghi thẳng,
+   chưa có chế độ "chỉ thêm phần mới" — cần nâng cấp nếu chạy lần 2 trên dữ liệu đã có).
 5. Máy còn lại (nhà/trường): sau `git pull`, cần tự tạo file `.dev.vars` (copy nội dung giống
    `.env`, thêm `APP_URL=http://localhost:8788`, `OPENAI_API_KEY`, `RESEND_API_KEY`) và chạy
    `npm install` trước khi `npx wrangler pages dev .` test được; cũng cần tự `supabase login`
    và (nếu muốn tự deploy Cloudflare từ máy đó) `wrangler login` 1 lần — các phiên đăng nhập CLI
    này không đi theo Git, mỗi máy tự đăng nhập riêng.
+6. **Bước cuối cùng còn lại: quyết định thời điểm "cắt sang thật"** — báo người dùng thật đổi
+   sang dùng `review-content-fschools.pages.dev` (hoặc trỏ domain chính về đây), sau khi đã chạy
+   lại migration 1 lần cuối cho dữ liệu mới nhất. Đây là quyết định của người dùng, không phải
+   bước kỹ thuật — hỏi trước khi làm.
 
 ## Ghi chú / rủi ro cần nhớ
 - `backend_apps_script.js` hiện lưu **mật khẩu người dùng dạng plaintext** (kể cả gửi qua
