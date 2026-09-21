@@ -1,4 +1,4 @@
-import { sendViaResend } from '../resend.js';
+import { sendViaGmail } from '../gmail.js';
 
 // ============================================================
 // EMAIL QUEUE PROCESSOR — port từ processEmailQueue trong backend_apps_script.js.
@@ -22,7 +22,7 @@ export async function handleProcessEmailQueue(supabase, env) {
     processed++;
     await supabase.from('email_queue').update({ status: 'sending', attempts: (row.attempts || 0) + 1 }).eq('id', row.id);
     try {
-      await sendViaResend(env, { to: row.to_email, subject: row.subject, html: row.html_body, text: row.body });
+      await sendViaGmail(env, { to: row.to_email, subject: row.subject, html: row.html_body, text: row.body });
       await supabase.from('email_queue').update({ status: 'sent', sent_at: new Date().toISOString(), last_error: null }).eq('id', row.id);
       sent++;
     } catch (e) {

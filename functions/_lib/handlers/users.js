@@ -58,9 +58,9 @@ export async function handleAddUser(supabase, p) {
   });
   if (error) return { ok: false, error: error.message };
 
-  // TODO: backend cũ gửi email thông báo tài khoản mới qua GmailApp — backend mới chưa có
-  // provider gửi email (cần chọn Resend/SendGrid/... ở phase sau). Tạm thời KHÔNG gửi mail,
-  // admin cần tự báo mật khẩu cho người dùng mới qua kênh khác.
+  // TODO: backend cũ gửi email thông báo tài khoản mới qua GmailApp. Đã có sẵn Gmail API
+  // (../gmail.js) dùng cho email duyệt bài — chỉ cần nối thêm enqueueEmail() ở đây khi cần,
+  // chưa làm vì chưa được yêu cầu. Tạm thời KHÔNG gửi mail, admin tự báo mật khẩu qua kênh khác.
   return { ok: true, id, email_sent: false };
 }
 
@@ -82,7 +82,8 @@ export async function handleUpdateUser(supabase, p) {
   if (!data || !data.length) return { ok: false, error: 'Không tìm thấy user' };
 
   if (p.password) {
-    // TODO: backend cũ gửi email mật khẩu mới qua GmailApp — chưa có provider email ở backend mới.
+    // TODO: backend cũ gửi email mật khẩu mới qua GmailApp — chưa nối enqueueEmail() ở đây
+    // (đã có sẵn Gmail API, xem ghi chú ở handleAddUser).
     return { ok: true, email_sent: false };
   }
   return { ok: true };
