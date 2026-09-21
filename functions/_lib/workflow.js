@@ -12,6 +12,8 @@
 // luôn gọi resolveWorkflowForSubmission), nhánh legacy đó không thể xảy ra ở đây nên được bỏ.
 // ============================================================
 
+import { asBoolean } from './util.js';
+
 export async function getActiveUsers(supabase) {
   const { data, error } = await supabase
     .from('users')
@@ -108,7 +110,7 @@ export function workflowMatches(template, data) {
   const rule = template.match_rule || {};
   if (rule.content_types && rule.content_types.length && !rule.content_types.includes(data.content_type)) return false;
   if (rule.campuses && rule.campuses.length && !rule.campuses.includes(data.campus)) return false;
-  if (rule.is_shared !== undefined && String(rule.is_shared) !== String(!!data.is_shared)) return false;
+  if (rule.is_shared !== undefined && String(rule.is_shared) !== String(asBoolean(data.is_shared))) return false;
   return true;
 }
 

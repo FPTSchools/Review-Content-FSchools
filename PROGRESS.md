@@ -138,6 +138,25 @@
 - [x] **Đổi nhà cung cấp gửi email: Resend → Gmail API** — đã xong và gửi thật thành công, xem
       chi tiết + lưu ý bảo trì ở mục 0 của "Cần làm tiếp".
 
+- [x] **Kiểm thử lại toàn bộ luồng duyệt theo vòng + sửa lỗi gửi lại (2026-09-21)** — người dùng yêu
+      cầu xác nhận: (1) chọn bước 1,2,3 thì duyệt lần lượt; (2) 2 người cùng 1 bước thì chỉ cần
+      1 người duyệt; (3) gửi lại lần 2, 3 mà chọn lại người duyệt thì chạy theo rule MỚI.
+      **Lỗi tìm thấy (điểm 3)**: `handleResubmit` bỏ qua danh sách người duyệt mà giao diện gửi kèm
+      và dùng lại quy trình của lần gửi đầu (bản Apps Script gốc cũng vậy). Đã sửa: nếu lần gửi lại
+      có `reviewers` hoặc `workflow_id` khác `manual_chain` thì dựng quy trình mới bằng
+      `resolveWorkflowForSubmission`; chỉ khi không kèm gì mới dùng lại quy trình cũ.
+      Sửa thêm: `workflowMatches` (workflow.js) so `is_shared` bằng `asBoolean()` (chuỗi `'false'`
+      trước đây bị hiểu là true).
+      **Đã test tự động 31 kiểm tra, đạt hết** (dữ liệu Supabase thật, đã dọn sạch sau đó): A) 3 vòng
+      1→2→3: người ở bước sau/trước không duyệt được ngoài lượt, duyệt xong mới chuyển; B) vòng 2
+      có 2 người: chỉ 1 người duyệt là qua bước, người còn lại sau đó bị chặn; 2 người cùng vòng 1
+      duy nhất: 1 người duyệt là approved; C) gửi lại lần 2 (R2B→R3) và lần 3 (chỉ R1) chạy đúng rule
+      mới, người của rule cũ không duyệt được, lịch sử đủ 3 vòng gửi. Kiểm tra cả hàng đợi email:
+      mỗi bước chuyển gửi đúng người (vòng có 2 người thì gửi cho cả 2), cuối cùng gửi kết quả cho CTV.
+      Khi test local đã tạm xoá `GMAIL_REFRESH_TOKEN` trong `.dev.vars` để không gửi mail thật tới địa
+      chỉ giả (nhớ: Cron production dùng chung bảng email_queue nên hàng đợi test có thể bị gửi thật).
+      Deploy lên https://review-content-fschools.pages.dev.
+
 ## Quy ước làm việc đã chốt với người dùng
 - **Làm thẳng trên nhánh `main`, không dùng quy trình branch + Pull Request** — vì chỉ có
   1 người quản lý dự án này, không cần bước review qua PR.

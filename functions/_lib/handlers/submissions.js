@@ -93,11 +93,27 @@ export async function handleResubmit(supabase, env, p) {
 
   await ensureSubmissionVersionForRow(supabase, row);
 
-  const runtime = getRuntimeWorkflow(row);
-  if (!runtime.steps.length) return { ok: false, error: 'Submission chưa có workflow reviewer' };
-  runtime.current_step_index = 0;
-  runtime.idempotency_key = d.idempotency_key || runtime.idempotency_key || null;
-  runtime.lock_version = (Number(runtime.lock_version) || 1) + 1;
+  // Người gửi được chọn lại người duyệt ở mỗi lần gửi lại → chạy theo quy trình MỚI (số bước,
+  // ai ở bước nào), KHÔNG dùng lại quy trình của lần gửi đầu. Chỉ khi lần gửi lại không kèm
+  // người duyệt nào (client cũ/payload thiếu) mới dùng lại quy trình đã lưu.
+  const oldRuntime = getRuntimeWorkflow(row);
+  const chosenNewReviewers = Array.isArray(d.reviewers) && d.reviewers.length > 0;
+  const chosenNewWorkflow = d.workflow_id && d.workflow_id !== 'manual_chain';
+  let runtime;
+  if (chosenNewReviewers || chosenNewWorkflow) {
+    let workflow;
+    try {
+      workflow = await resolveWorkflowForSubmission(supabase, d);
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+    runtime = { ...workflow, current_step_index: 0 };
+  } else {
+    if (!oldRuntime.steps.length) return { ok: false, error: 'Submission chưa có workflow reviewer' };
+    runtime = { ...oldRuntime, current_step_index: 0 };
+  }
+  runtime.idempotency_key = d.idempotency_key || row.idempotency_key || null;
+  runtime.lock_version = (Number(row.lock_version) || 1) + 1;
   runtime.steps = runtime.steps.map(step => ({ ...step, state: 'pending', decisions: [], started_at: null, completed_at: null }));
 
   const allReviewers = runtime.steps.flatMap(s => s.reviewers || []);
