@@ -222,11 +222,17 @@
    `users.messages.send` với MIME đa phần text+html, tiêu đề mã hoá UTF-8), `emailQueue.js` gọi
    `sendViaGmail`. Đã xoá `resend.js` và secret `RESEND_API_KEY`. Script tạm chứa client secret và
    file refresh token đã xoá khỏi máy, chưa từng được commit.
-   **Cần biết khi bàn giao/bảo trì**: (a) OAuth consent screen đang ở chế độ "Testing" — với app
-   Testing, Google có thể THU HỒI refresh token sau ~7 ngày. Nếu email đột ngột ngừng gửi (lỗi
-   `invalid_grant` trong cột `last_error` của `email_queue`), cần chạy lại bước lấy refresh token
-   HOẶC chuyển consent screen sang "In production" trong Google Cloud Console (Audience → Publish
-   app; app chỉ dùng nội bộ 1 tài khoản nên không cần Google xác minh) rồi lấy lại token 1 lần.
+   **Cần biết khi bàn giao/bảo trì**: (a) OAuth consent screen đã được chuyển sang **"In
+   production"** (Google Auth Platform → Audience; phải hoàn tất trang Branding trước thì nút
+   Publish mới bấm được) và refresh token đã được lấy LẠI sau khi chuyển (token cấp lúc còn
+   "Testing" có thể hết hạn sau ~7 ngày; token cấp ở production thì không bị giới hạn này). Đã
+   test gửi thật trên Cloudflare với token mới, thành công. Google vẫn hiện cảnh báo "validation
+   needed" và màn hình "app chưa xác minh" khi đăng nhập — bình thường, app chỉ dùng 1 tài khoản
+   (giới hạn 100 người dùng trước khi phải xác minh). Nếu email vẫn đột ngột ngừng gửi (lỗi
+   `invalid_grant` trong cột `last_error` của `email_queue`), cần chạy lại bước lấy refresh
+   token 1 lần (script OAuth tạm dùng cổng localhost:53682, xoá sau khi dùng; secret cần thay:
+   `GMAIL_REFRESH_TOKEN`, nhớ deploy lại sau khi đổi secret). Token cũng sẽ mất hiệu lực nếu đổi
+   mật khẩu tài khoản `thpt@fpt.edu.vn` hoặc thu hồi quyền ứng dụng ở myaccount.google.com.
    (b) Giới hạn gửi của Gmail ~500 email/ngày (tài khoản thường) — dư xa so với ~15-20 người dùng.
    (c) Người gửi hiển thị là `FSchools Content Review <thpt@fpt.edu.vn>`.
 1. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
