@@ -1,5 +1,6 @@
 import { newId } from '../ids.js';
 import { normalizeEmail } from '../util.js';
+import { sendNewAccountEmail, sendPasswordChangedEmail } from '../email.js';
 
 // ============================================================
 // USERS — port 1:1 từ handleLogin/handleGetUsers/handleAddUser/handleUpdateUser/handleDeleteUser
@@ -40,7 +41,7 @@ export async function handleGetUsers(supabase) {
   return { ok: true, users: data };
 }
 
-export async function handleAddUser(supabase, p) {
+export async function handleAddUser(supabase, env, p) {
   if (!p.email || !p.password || !p.name || !p.role) {
     return { ok: false, error: 'Thiếu thông tin bắt buộc (email/password/name/role)' };
   }
@@ -58,13 +59,17 @@ export async function handleAddUser(supabase, p) {
   });
   if (error) return { ok: false, error: error.message };
 
-  // TODO: backend cũ gửi email thông báo tài khoản mới qua GmailApp. Đã có sẵn Gmail API
-  // (../gmail.js) dùng cho email duyệt bài — chỉ cần nối thêm enqueueEmail() ở đây khi cần,
-  // chưa làm vì chưa được yêu cầu. Tạm thời KHÔNG gửi mail, admin tự báo mật khẩu qua kênh khác.
-  return { ok: true, id, email_sent: false };
+  // Gửi email thông tin đăng nhập qua Gmail API (giữ đúng hành vi bản Apps Script cũ:
+  // best-effort, lỗi gửi mail không chặn việc tạo tài khoản).
+  let email_sent = false;
+  try {
+    const res = await sendNewAccountEmail(supabase, env, email, p.name, p.password);
+    email_sent = !!(res && res.ok);
+  } catch (e) {}
+  return { ok: true, id, email_sent };
 }
 
-export async function handleUpdateUser(supabase, p) {
+export async function handleUpdateUser(supabase, env, p) {
   if (!p.id) return { ok: false, error: 'Thiếu id' };
   const patch = {};
   if (p.name) patch.name = p.name;
@@ -77,14 +82,17 @@ export async function handleUpdateUser(supabase, p) {
   if (p.campus !== undefined) patch.campus = p.campus;
   if (p.password) patch.password = p.password; // TODO bảo mật: nên hash
 
-  const { data, error } = await supabase.from('users').update(patch).eq('id', p.id).select('id');
+  const { data, error } = await supabase.from('users').update(patch).eq('id', p.id).select('id, email, name').maybeSingle();
   if (error) return { ok: false, error: error.message };
-  if (!data || !data.length) return { ok: false, error: 'Không tìm thấy user' };
+  if (!data) return { ok: false, error: 'Không tìm thấy user' };
 
   if (p.password) {
-    // TODO: backend cũ gửi email mật khẩu mới qua GmailApp — chưa nối enqueueEmail() ở đây
-    // (đã có sẵn Gmail API, xem ghi chú ở handleAddUser).
-    return { ok: true, email_sent: false };
+    let email_sent = false;
+    try {
+      const res = await sendPasswordChangedEmail(supabase, env, data.email, data.name, p.password);
+      email_sent = !!(res && res.ok);
+    } catch (e) {}
+    return { ok: true, email_sent };
   }
   return { ok: true };
 }

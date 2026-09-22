@@ -2025,7 +2025,7 @@ async function addUser() {
   try {
     const res = await callAPI({ action:'add_user', name, email, password:pass, role, campus });
     if (res.ok) {
-      showToast('✅ Đã tạo tài khoản & gửi email thông báo');
+      showToast(res.email_sent ? '✅ Đã tạo tài khoản & gửi email thông báo' : '✅ Đã tạo tài khoản (không gửi được email — tự báo mật khẩu cho người dùng qua kênh khác)');
       document.getElementById('new-name').value='';
       document.getElementById('new-email').value='';
       document.getElementById('new-pass').value='';
@@ -2546,7 +2546,7 @@ async function saveUser(i, uid) {
   if (password) payload.password = password;
   try {
     const res = await callAPI(payload);
-    showToast(res.ok ? ('✅ Đã lưu' + (password ? ' — đã gửi email mật khẩu mới' : '')) : '❌ '+res.error);
+    showToast(res.ok ? ('✅ Đã lưu' + (password ? (res.email_sent ? ' — đã gửi email mật khẩu mới' : ' — KHÔNG gửi được email, tự báo mật khẩu mới cho người dùng') : '')) : '❌ '+res.error);
     if(res.ok) { document.getElementById('upass-'+i).value = ''; loadUsers(); }
   } catch(e) { showToast('Lỗi kết nối'); }
 }

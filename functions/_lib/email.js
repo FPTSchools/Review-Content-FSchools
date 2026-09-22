@@ -96,6 +96,36 @@ export async function sendForwardEmail(supabase, env, email, name, d, id, forwar
   return enqueueEmail(supabase, email, name, subject, body, htmlBody, `forward:${id}:${d.send_count || 1}:${orderNum || 1}:${email}`);
 }
 
+export async function sendNewAccountEmail(supabase, env, email, name, password) {
+  const appUrl = env.APP_URL || '';
+  const loginLink = String(appUrl).replace(/\/$/, '') + '/index.html';
+  const subject = `Tài khoản ${APP_NAME}`;
+  const body = `Chào ${name},\n\nTài khoản của bạn trên ${APP_NAME} đã được tạo.\n\n` +
+    `Email    : ${email}\n` +
+    `Mật khẩu : ${password}\n\n` +
+    `Đăng nhập tại: ${loginLink}\n\n${APP_NAME}`;
+  const htmlBody = `<p>Chào ${emailHtml(name)},</p>` +
+    `<p>Tài khoản của bạn trên <b>${emailHtml(APP_NAME)}</b> đã được tạo.</p>` +
+    `<p><b>Email:</b> ${emailHtml(email)}<br><b>Mật khẩu:</b> ${emailHtml(password)}</p>` +
+    openButtonHtml(loginLink, 'Đăng nhập ngay') + `<p>${emailHtml(APP_NAME)}</p>`;
+  return enqueueEmail(supabase, email, name, subject, body, htmlBody, `new_account:${email}:${Date.now()}`);
+}
+
+export async function sendPasswordChangedEmail(supabase, env, email, name, password) {
+  const appUrl = env.APP_URL || '';
+  const loginLink = String(appUrl).replace(/\/$/, '') + '/index.html';
+  const subject = `Mật khẩu mới - ${APP_NAME}`;
+  const body = `Chào ${name},\n\nMật khẩu tài khoản của bạn trên ${APP_NAME} vừa được đổi.\n\n` +
+    `Email       : ${email}\n` +
+    `Mật khẩu mới: ${password}\n\n` +
+    `Đăng nhập tại: ${loginLink}\n\n${APP_NAME}`;
+  const htmlBody = `<p>Chào ${emailHtml(name)},</p>` +
+    `<p>Mật khẩu tài khoản của bạn trên <b>${emailHtml(APP_NAME)}</b> vừa được đổi.</p>` +
+    `<p><b>Email:</b> ${emailHtml(email)}<br><b>Mật khẩu mới:</b> ${emailHtml(password)}</p>` +
+    openButtonHtml(loginLink, 'Đăng nhập ngay') + `<p>${emailHtml(APP_NAME)}</p>`;
+  return enqueueEmail(supabase, email, name, subject, body, htmlBody, `password_changed:${email}:${Date.now()}`);
+}
+
 export async function sendCTVEmail(supabase, env, email, name, title, status, comment, score, id, revisionNo) {
   const appUrl = env.APP_URL || '';
   const lbl = { approved: '✅ ĐÃ DUYỆT', revision: '🔁 CẦN SỬA', rejected: '❌ TỪ CHỐI' };

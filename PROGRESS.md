@@ -318,6 +318,30 @@
     (ảnh và định dạng chữ). Đã test lại: gửi 1 bài chọn Facebook + 1 bài chọn Email, cùng nội
     dung có định dạng `**đậm**` — xác nhận bài Facebook KHÔNG hiện khối xem trước, bài Email có
     hiện. Dữ liệu test đã xoá sạch khỏi Supabase.
+- **Gửi email thông tin đăng nhập khi tạo/đổi mật khẩu tài khoản — XONG (2026-09-22).** Người
+  dùng phát hiện: tạo tài khoản mới không thấy gửi email báo email/mật khẩu cho người đó (đây
+  là 1 khoảng trống đã ghi chú từ trước trong "Ghi chú/rủi ro cần nhớ" — `add_user`/
+  `update_user` có sẵn TODO nối Gmail API nhưng chưa làm vì "chưa được yêu cầu"). Đã nối:
+  - Thêm `sendNewAccountEmail()` và `sendPasswordChangedEmail()` trong `functions/_lib/email.js`
+    (theo đúng mẫu 3 hàm gửi email đã có — `sendReviewerEmail`/`sendForwardEmail`/`sendCTVEmail`
+    — và đúng nội dung bản Apps Script gốc: email + mật khẩu dạng chữ thường, kèm nút "Đăng
+    nhập ngay" trỏ về `index.html`).
+  - `handleAddUser`/`handleUpdateUser` (`functions/_lib/handlers/users.js`) giờ nhận thêm tham
+    số `env` (để lấy `APP_URL`) và gọi `enqueueEmail` qua 2 hàm trên — best-effort, lỗi gửi mail
+    không chặn việc tạo/sửa tài khoản (bọc try/catch, giữ đúng hành vi bản Apps Script cũ vốn
+    cũng nuốt lỗi gửi mail). Cập nhật 2 dòng gọi ở `functions/api/index.js` để truyền `env`.
+  - Thêm `add_user`/`update_user` vào `EMAIL_TRIGGER_ACTIONS` (`functions/api/index.js`) để
+    gửi NGAY qua `waitUntil` như các action duyệt bài, thay vì chờ Cron 2 phút/lần.
+  - `boss.html` (trang Admin, nơi duy nhất có form thêm/sửa user): toast sau khi tạo/đổi mật
+    khẩu giờ phản ánh đúng `res.email_sent` (trước đây toast "đã gửi email" hiển thị cố định dù
+    thực ra chưa hề gửi được) — báo rõ khi gửi thất bại để admin biết cần tự báo mật khẩu qua
+    kênh khác.
+  - Đã test thật qua local dev (KHÔNG mock) bằng script gọi thẳng `add_user`/`update_user` với
+    Gmail API thật: xác nhận `email_queue` ghi đúng subject/body/nút đăng nhập, trạng thái
+    chuyển `sent` chỉ sau ~1.4 giây — không cần chờ Cron. Dữ liệu test (user + email_queue) đã
+    xoá sạch khỏi Supabase sau khi test xong.
+  - Mật khẩu vẫn lưu dạng plaintext trong DB (TODO hash chưa làm, đã ghi ở "Ghi chú/rủi ro cần
+    nhớ" từ trước) — việc gửi email này chỉ nối thêm bước thông báo, KHÔNG đổi cách lưu trữ.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**
