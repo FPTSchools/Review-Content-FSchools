@@ -809,6 +809,7 @@ function renderQueue() {
           <div style="font-size:11px;color:var(--text3)">✍️ Bôi chọn bất kỳ đoạn nào (kể cả tiêu đề) để thêm nhận xét trực tiếp</div>
           <button class="btn btn-outline btn-sm" onclick="showReviewerHistoryBoss('${s.id}')" style="white-space:nowrap">🧾 Xem nhận xét các vòng trước</button>
         </div>
+        ${buildInlineImagePreview(s)}
         <div class="inline-editor-wrap" id="iew-${s.id}">
           <div class="inline-content" id="ic-content-${s.id}" onmouseup="onTextSelect('${s.id}',event,'content')"><div style="font-size:16px;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--border);cursor:text" onmouseup="event.stopPropagation();onTextSelect('${s.id}',event,'title')" id="ic-title-${s.id}">${escHtml(s.title||'')}</div><div style="font-size:13px;line-height:1.8" id="ic-body-${s.id}">${escHtml(s.content||'')}</div></div>
           <div class="ic-sidebar" id="ic-sidebar-${s.id}"><div style="font-size:11px;color:var(--text3);padding:8px;text-align:center">Bôi chọn đoạn văn để thêm nhận xét</div></div>
@@ -910,7 +911,7 @@ async function getAISuggest(id) {
     const res = await callBackend({
       action: 'ai_suggest_review',
       title:        s.title,
-      content:      s.content,
+      content:      stripImagePlaceholdersForAI(s.content),
       content_type: s.content_type,
       persona:      persona
     });
@@ -918,7 +919,7 @@ async function getAISuggest(id) {
     // Lưu vào history và mở chat box
     window._bossAiLatest[id] = sug;
     window._bossAiHistory[id] = [
-      { role: 'user', content: 'TIÊU ĐỀ: ' + s.title + '\n\nNỘI DUNG:\n' + (s.content||'').slice(0,800) },
+      { role: 'user', content: 'TIÊU ĐỀ: ' + s.title + '\n\nNỘI DUNG:\n' + stripImagePlaceholdersForAI(s.content||'').slice(0,800) },
       { role: 'assistant', content: sug }
     ];
     const chatBox = document.getElementById('ai-chat-box-'+id);
@@ -1162,12 +1163,12 @@ function showAllDetail(id) {
         <span class="status-chip ${sMap[s.status]||'s-new'}">${sLbl[s.status]||s.status}</span>
       </div>
       ${reviewerHtml}
-      <div class="content-block">${s.content}</div>
-      ${s.note?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">📝 ${s.note}</div>`:''}
+      <div class="content-block">${injectInlineImages(escHtml(s.content||''), s.drive_links||'')}</div>
+      ${s.note?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">📝 ${escHtml(s.note)}</div>`:''}
       ${driveLinksHtml}
       ${buildEvidenceLinksDisplay(s.evidence_links)}
       ${buildBrandCheckDisplay(s.brand_check_result)}
-      ${s.comment?`<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;text-transform:uppercase">Nhận xét</div><div class="content-block" style="background:var(--accent-bg);border-left:3px solid var(--accent)">${s.comment}</div>`:''}
+      ${s.comment?`<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;text-transform:uppercase">Nhận xét</div><div class="content-block" style="background:var(--accent-bg);border-left:3px solid var(--accent)">${escHtml(s.comment)}</div>`:''}
       ${s.score?`<div style="font-size:13px;margin-top:6px">Điểm: <strong style="color:var(--accent)">${s.score}/10</strong></div>`:''}
       <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
         ${changeBtn}${versionsBtn}
@@ -2156,6 +2157,40 @@ function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ============================================================
+// ẢNH CHÈN GIỮA NỘI DUNG (CTV chèn khi bài đăng Web/Email)
+// CTV chèn 1 điểm đánh dấu [[ANH:fileId]] vào giữa văn bản (xem ctv.html).
+// Ở đây chỉ hiển thị lại — thay điểm đánh dấu bằng ảnh thật cho các khối
+// XEM (read-only): khối "xem trước hiển thị", modal lịch sử, diff giữa các vòng.
+// KHÔNG áp dụng cho ô .inline-content dùng để bôi chọn nhận xét (ic-body/ic-content) —
+// offset bôi chọn được đo trực tiếp trên DOM nên ảnh chèn vào sẽ làm lệch vị trí highlight.
+function injectInlineImages(html, driveLinksStr) {
+  if (!html || !/\[\[ANH:/.test(html)) return html;
+  const links = String(driveLinksStr || '').split('\n').map(l => l.trim()).filter(Boolean);
+  return html.replace(/\[\[ANH:([a-zA-Z0-9_-]+)\]\]/g, function(m, fid) {
+    const found = links.some(l => l.includes(fid));
+    if (!found) return '';
+    return '<img src="https://drive.google.com/thumbnail?id=' + fid + '&sz=w1000" loading="lazy" style="max-width:100%;border-radius:8px;margin:10px 0;display:block" alt="Ảnh minh họa">';
+  });
+}
+
+function stripImagePlaceholdersForAI(text) {
+  return String(text || '').replace(/\[\[ANH:[a-zA-Z0-9_-]+\]\]/g, '[Hình ảnh minh họa]');
+}
+
+// Khối xem trước chỉ-đọc, hiện trong thẻ duyệt bài khi bài có chọn nền tảng Web/Email
+// và nội dung có chèn ảnh — giúp người duyệt thấy layout giống lúc đăng thật.
+function buildInlineImagePreview(s) {
+  const platformList = parseMaybeJson(s.platform_parsed || s.platform, []);
+  const wantsInline = Array.isArray(platformList) && (platformList.includes('web') || platformList.includes('email'));
+  const raw = s.content || '';
+  if (!wantsInline || !/\[\[ANH:/.test(raw)) return '';
+  const html = injectInlineImages(escHtml(raw), s.drive_links || '');
+  return '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;background:var(--surface2,#f8fafc)">' +
+    '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị (giống lúc đăng web/email)</div>' +
+    '<div style="font-size:13px;line-height:1.8;white-space:pre-wrap">' + html + '</div></div>';
+}
+
 function onTextSelect(subId, e, zone) {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed) return;
@@ -2255,7 +2290,7 @@ function icOpenCommentFromSelection() {
   window._icChatLatest = '';
   const s = allSubs.find(x=>x.id===subId);
   window._icContext = s ? [
-    { role:'user', content: 'Bạn hỗ trợ người duyệt content FPT Schools viết nhận xét cho ĐÚNG 1 ĐOẠN được bôi chọn bên dưới. KHÔNG dùng markdown, chỉ text thuần tiếng Việt.\n\n[Bối cảnh cả bài — chỉ để bạn hiểu ngữ cảnh, KHÔNG nhận xét toàn bộ bài]\nTiêu đề: '+(s.title||'')+'\n'+(s.content||'').slice(0,600)+'\n\n[ĐOẠN CẦN NHẬN XÉT — mọi góp ý, đề xuất chỉnh sửa của bạn PHẢI xoay quanh đúng đoạn này, không bàn về các phần khác của bài]\n"'+text+'"' },
+    { role:'user', content: 'Bạn hỗ trợ người duyệt content FPT Schools viết nhận xét cho ĐÚNG 1 ĐOẠN được bôi chọn bên dưới. KHÔNG dùng markdown, chỉ text thuần tiếng Việt.\n\n[Bối cảnh cả bài — chỉ để bạn hiểu ngữ cảnh, KHÔNG nhận xét toàn bộ bài]\nTiêu đề: '+(s.title||'')+'\n'+stripImagePlaceholdersForAI(s.content||'').slice(0,600)+'\n\n[ĐOẠN CẦN NHẬN XÉT — mọi góp ý, đề xuất chỉnh sửa của bạn PHẢI xoay quanh đúng đoạn này, không bàn về các phần khác của bài]\n"'+text+'"' },
     { role:'assistant', content: 'Đã nắm bối cảnh bài và đoạn được chọn. Bạn cần tôi hỗ trợ gì cho đoạn này?' }
   ] : [];
   const icChatArea = document.getElementById('ic-chat-area');
@@ -2560,7 +2595,7 @@ function buildBossReviewerRoundBox(version, roundKey) {
   };
   const inlineHtml = comments.length ? comments.map(c => '<div style="border-bottom:1px solid var(--border);padding:8px 0;font-size:12px"><div style="font-weight:600">' + (c.type === 'media' ? '📎' : c.zone === 'title' ? '📌' : '💬') + ' ' + escHtml(c.reviewer || 'Người duyệt') + '</div>' + (c.text ? '<div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:3px">“' + escHtml(c.text) + '”</div>' : '') + '<div style="white-space:pre-wrap;margin-top:4px;color:var(--text2)">' + escHtml(c.note || '') + '</div></div>').join('') : '<div style="font-size:12px;color:var(--text3)">Chưa có nhận xét bôi chọn ở vòng này.</div>';
   const reviewHtml = history.length ? history.map(h => '<div style="border-top:1px solid var(--border);padding:8px 0;font-size:12px"><b>' + escHtml(h.reviewer || 'Người duyệt') + '</b> · ' + escHtml(h.action || '') + (h.comment ? '<div style="white-space:pre-wrap;margin-top:4px;color:var(--text2)">' + escHtml(h.comment) + '</div>' : '') + '</div>').join('') : '';
-  return '<div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);gap:12px;align-items:start"><div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface);font-size:12px;line-height:1.65"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">NỘI DUNG VÒNG NÀY</div><div style="font-size:15px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--border)">' + renderPart(version.title || '', 'title') + '</div><div style="white-space:pre-wrap;margin-top:9px">' + renderPart(version.content || '', 'content') + '</div></div><div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface2);max-height:420px;overflow:auto"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">NHẬN XÉT CỦA NGƯỜI DUYỆT</div>' + inlineHtml + reviewHtml + '</div></div>';
+  return '<div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);gap:12px;align-items:start"><div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface);font-size:12px;line-height:1.65"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">NỘI DUNG VÒNG NÀY</div><div style="font-size:15px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--border)">' + renderPart(version.title || '', 'title') + '</div><div style="white-space:pre-wrap;margin-top:9px">' + injectInlineImages(renderPart(version.content || '', 'content'), version.drive_links || '') + '</div></div><div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface2);max-height:420px;overflow:auto"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">NHẬN XÉT CỦA NGƯỜI DUYỆT</div>' + inlineHtml + reviewHtml + '</div></div>';
 }
 
 function buildBossVersionReviewBadges(reviewHistory) {
