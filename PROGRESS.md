@@ -226,43 +226,51 @@
   1 chu kỳ, xác nhận qua `wrangler tail` thấy Cron chạy "Ok", và email chuyển từ trạng thái
   "queued" sang "sent" tự động, không cần gọi tay. Worker này tên
   `review-content-fschools-email-cron`, chạy trên cùng tài khoản Cloudflare mới.
-- **Chèn ảnh giữa nội dung khi bài đăng Web/Email — XONG (2026-09-22).** Yêu cầu người dùng:
-  khi CTV tích chọn nền tảng đăng có **Web** hoặc **Email**, cho phép chèn ảnh vào giữa các
-  đoạn văn bản, để lúc duyệt bài, leader/manager thấy layout giống hệt lúc bài lên web/email
-  thật (thay vì chỉ thấy 1 khối chữ + ảnh đính kèm tách rời bên dưới như các nền tảng khác).
-  Cách làm (KHÔNG đổi schema DB, `content` vẫn là TEXT như cũ):
-  - CTV dán link Drive ảnh vào ô "Link Drive đính kèm" như cũ; khi nền tảng có Web/Email, mỗi
-    ảnh (không áp dụng cho Google Docs/Sheets/folder) hiện thêm nút "➕ Chèn vào nội dung" — bấm
-    vào sẽ chèn 1 "điểm đánh dấu" dạng text `[[ANH:<fileId>]]` vào đúng vị trí con trỏ đang đứng
-    trong ô Nội dung (nhớ vị trí con trỏ qua `saveContentCursor()` vì bấm nút làm mất focus ô).
+- **Chèn ảnh giữa nội dung khi bài đăng Web/Email — XONG (2026-09-22, đã làm lại 1 lần
+  cho gọn hơn theo phản hồi của người dùng).** Yêu cầu người dùng: khi CTV tích chọn nền
+  tảng đăng có **Web** hoặc **Email**, cho phép chèn ảnh vào giữa các đoạn văn bản, để lúc
+  duyệt bài, leader/manager thấy layout giống hệt lúc bài lên web/email thật (thay vì chỉ
+  thấy 1 khối chữ + ảnh đính kèm tách rời bên dưới như các nền tảng khác).
+  **Bản đầu tiên** dùng token kỹ thuật `[[ANH:<fileId>]]` chèn qua 1 nút "➕ Chèn vào nội
+  dung" — người dùng phản hồi thao tác rườm rà, muốn "copy ảnh rồi paste" cho nhanh. Sau khi
+  trình bày phương án trước (paste ảnh trực tiếp/nén nhỏ vs. giữ link Drive nhưng bỏ nút bấm),
+  người dùng chọn **giữ link Drive nhưng bỏ nút bấm**. Đã làm lại theo hướng đó — **KHÔNG cần
+  token/nút bấm nữa**:
+  - CTV chỉ cần copy link Drive ảnh (link "Chia sẻ" bình thường, dạng
+    `.../file/d/<fileId>/...`) rồi dán/gõ thẳng vào đúng vị trí muốn có ảnh, ngay trong ô
+    Nội dung — không cần thao tác nào khác. Hệ thống tự nhận diện link đó bằng regex
+    (`DRIVE_IMG_URL_RE`), không cần dán thêm vào ô "Link Drive đính kèm" (dù CTV vẫn nên dán
+    thêm ở đó nếu muốn có bản gốc tải về + được AI chấm brand guide).
   - Ô Nội dung vẫn là `<textarea>` thuần (không đổi sang rich-text/contenteditable) — giữ
     nguyên toàn bộ cơ chế "bôi chọn nhận xét theo đoạn" (inline comment) đang tính offset
-    ký tự trên chuỗi thô, tránh rủi ro lệch vị trí highlight nếu chuyển sang HTML thật.
+    ký tự trên chuỗi thô; link Drive nằm trong khối bôi-chọn (`.inline-content` /
+    `ic-body`/`rvc-body`) vẫn hiện dạng chữ thô, **CỐ Ý không đổi thành ảnh** ở đúng khối đó,
+    để không phá offset bôi chọn.
   - Thêm khối "👁 Xem trước hiển thị" (chỉ đọc) ngay dưới ô Nội dung lúc CTV đang soạn, và
     trong mỗi thẻ duyệt bài của leader/manager (trên cả `ctv.html` vai trò `leader_content` và
-    `boss.html`) — hàm `injectInlineImages(html, driveLinksStr)` (khai báo riêng ở mỗi file vì
-    dự án không có JS dùng chung) thay `[[ANH:fileId]]` bằng `<img src="https://drive.google.com/
+    `boss.html`) — hàm `injectInlineImages(html)` (khai báo riêng ở mỗi file vì dự án không có
+    JS dùng chung) tự thay link Drive ảnh bằng `<img src="https://drive.google.com/
     thumbnail?id=<fileId>&sz=w1000">` (ảnh Drive share "Anyone with link" mới load được, đúng
-    yêu cầu share sẵn có). Khối bôi-chọn-nhận-xét gốc (`.inline-content` / `ic-body`/`rvc-body`)
-    **CỐ Ý không đổi** — vẫn hiện điểm đánh dấu dạng chữ thô, để không phá offset bôi chọn.
-  - Đã áp dụng `injectInlineImages` cho mọi nơi hiển thị content read-only: khối xem trước lúc
-    soạn bài, khối xem trước lúc duyệt bài, modal xem lại bài đã duyệt (kèm giữ lại nội dung gốc
-    ở `dataset.rawContent` để nút "Sao chép nội dung" không bị dính điểm đánh dấu vào text khi
-    copy dán sang nơi khác), khung so sánh diff giữa các vòng gửi
-    (`buildReviewerRoundBox`/`buildBossReviewerRoundBox`, dùng đúng `drive_links` của **từng
-    vòng** lưu trong `submission_versions`, không lấy nhầm link của vòng mới nhất), và khối
-    "Tất cả bài" bên `boss.html` (tiện thể vá luôn 1 lỗi có sẵn ở đây: `${s.content}` trước đó
-    không hề `escHtml` trước khi render — đã sửa cùng lúc).
+    yêu cầu share sẵn có). `hasInlineImageLink()` (regex không global, tránh lỗi `lastIndex`
+    khi tái dùng) kiểm tra có link ảnh Drive trong content hay không để quyết định có hiện
+    khối xem trước không.
+  - Đã áp dụng cho mọi nơi hiển thị content read-only: khối xem trước lúc soạn bài, khối xem
+    trước lúc duyệt bài, modal xem lại bài đã duyệt (kèm giữ lại nội dung gốc ở
+    `dataset.rawContent` để nút "Sao chép nội dung" copy đúng nguyên văn kể cả link — link giờ
+    là link CTV tự dán vào bài, không phải token kỹ thuật cần lọc bỏ nữa), khung so sánh diff
+    giữa các vòng gửi (`buildReviewerRoundBox`/`buildBossReviewerRoundBox`), và khối "Tất cả
+    bài" bên `boss.html` (tiện thể vá luôn 1 lỗi có sẵn ở đây: `${s.content}` trước đó không hề
+    `escHtml` trước khi render — đã sửa cùng lúc).
   - Nội dung gửi cho AI (kiểm duyệt, gợi ý nhận xét, chat) được lọc qua
-    `stripImagePlaceholdersForAI()` để thay `[[ANH:...]]` bằng chữ dễ hiểu `[Hình ảnh minh họa]`
-    trước khi gửi — AI không cần biết cú pháp kỹ thuật của điểm đánh dấu.
-  - Đã test bằng tay qua browser thật (không chỉ đọc code): tạo 1 CTV + 1 leader_content test,
-    gửi 1 bài chọn nền tảng Web+Email với nội dung có chèn điểm đánh dấu ảnh, xác nhận: (1) khối
-    "Xem trước hiển thị" render đúng `<img>` ở đúng vị trí giữa 2 đoạn văn cả ở phía CTV lẫn phía
-    leader_content; (2) khối bôi-chọn-nhận-xét (`rvc-body`) vẫn hiện điểm đánh dấu dạng chữ thô,
-    không bị đổi thành ảnh — xác nhận không phá cơ chế offset; (3) tick/bỏ tick Web/Email thì
-    nút chèn ảnh và khối xem trước hiện/ẩn đúng theo. Dữ liệu test đã xoá sạch khỏi Supabase
-    (submission, submission_steps/versions, email_queue, 2 user test) sau khi test xong.
+    `stripImagePlaceholdersForAI()` để thay link Drive bằng chữ dễ hiểu `[Hình ảnh minh họa]`
+    trước khi gửi.
+  - Đã test lại bằng tay qua browser thật sau khi làm lại: dán thẳng link Drive
+    (`https://drive.google.com/file/d/.../view?usp=sharing&resourcekey=...`, kể cả có
+    `&resourcekey` phía sau) vào giữa nội dung — không cần dán gì vào ô "Link Drive đính kèm"
+    — xác nhận: (1) khối "Xem trước hiển thị" render đúng `<img>` ở đúng vị trí cả phía CTV lẫn
+    leader_content; (2) khối bôi-chọn-nhận-xét vẫn hiện link dạng chữ thô, không đổi thành ảnh;
+    (3) tick/bỏ tick Web/Email thì khối xem trước hiện/ẩn đúng theo, không còn nút bấm nào cần
+    thao tác thêm. Dữ liệu test đã xoá sạch khỏi Supabase sau khi test xong.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**

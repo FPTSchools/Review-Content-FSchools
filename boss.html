@@ -1163,7 +1163,7 @@ function showAllDetail(id) {
         <span class="status-chip ${sMap[s.status]||'s-new'}">${sLbl[s.status]||s.status}</span>
       </div>
       ${reviewerHtml}
-      <div class="content-block">${injectInlineImages(escHtml(s.content||''), s.drive_links||'')}</div>
+      <div class="content-block">${injectInlineImages(escHtml(s.content||''))}</div>
       ${s.note?`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">📝 ${escHtml(s.note)}</div>`:''}
       ${driveLinksHtml}
       ${buildEvidenceLinksDisplay(s.evidence_links)}
@@ -2158,34 +2158,39 @@ function escHtml(s) {
 }
 
 // ============================================================
-// ẢNH CHÈN GIỮA NỘI DUNG (CTV chèn khi bài đăng Web/Email)
-// CTV chèn 1 điểm đánh dấu [[ANH:fileId]] vào giữa văn bản (xem ctv.html).
-// Ở đây chỉ hiển thị lại — thay điểm đánh dấu bằng ảnh thật cho các khối
-// XEM (read-only): khối "xem trước hiển thị", modal lịch sử, diff giữa các vòng.
+// ẢNH CHÈN GIỮA NỘI DUNG (khi bài đăng Web/Email)
+// Không cần token kỹ thuật: CTV copy link Drive ảnh (link "Chia sẻ" bình thường,
+// dạng .../file/d/<fileId>/...) rồi dán/gõ thẳng vào đúng vị trí muốn có ảnh trong
+// nội dung (xem ctv.html). Ở đây chỉ hiển thị lại — tự nhận diện link đó và thay
+// bằng ảnh thật cho các khối XEM (read-only): khối "xem trước hiển thị", diff
+// giữa các vòng, khối "Tất cả bài".
 // KHÔNG áp dụng cho ô .inline-content dùng để bôi chọn nhận xét (ic-body/ic-content) —
-// offset bôi chọn được đo trực tiếp trên DOM nên ảnh chèn vào sẽ làm lệch vị trí highlight.
-function injectInlineImages(html, driveLinksStr) {
-  if (!html || !/\[\[ANH:/.test(html)) return html;
-  const links = String(driveLinksStr || '').split('\n').map(l => l.trim()).filter(Boolean);
-  return html.replace(/\[\[ANH:([a-zA-Z0-9_-]+)\]\]/g, function(m, fid) {
-    const found = links.some(l => l.includes(fid));
-    if (!found) return '';
+// offset bôi chọn được đo trực tiếp trên DOM, để nguyên link dạng chữ không ảnh hưởng gì.
+const DRIVE_IMG_URL_RE = /https?:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)(?:\/[^\s<>"']*)?/g;
+
+function hasInlineImageLink(text) {
+  return /https?:\/\/drive\.google\.com\/file\/d\/[a-zA-Z0-9_-]+/.test(String(text || ''));
+}
+
+function injectInlineImages(html) {
+  if (!html) return html;
+  return html.replace(DRIVE_IMG_URL_RE, function(m, fid) {
     return '<img src="https://drive.google.com/thumbnail?id=' + fid + '&sz=w1000" loading="lazy" style="max-width:100%;border-radius:8px;margin:10px 0;display:block" alt="Ảnh minh họa">';
   });
 }
 
 function stripImagePlaceholdersForAI(text) {
-  return String(text || '').replace(/\[\[ANH:[a-zA-Z0-9_-]+\]\]/g, '[Hình ảnh minh họa]');
+  return String(text || '').replace(DRIVE_IMG_URL_RE, '[Hình ảnh minh họa]');
 }
 
 // Khối xem trước chỉ-đọc, hiện trong thẻ duyệt bài khi bài có chọn nền tảng Web/Email
-// và nội dung có chèn ảnh — giúp người duyệt thấy layout giống lúc đăng thật.
+// và nội dung có dán link ảnh Drive — giúp người duyệt thấy layout giống lúc đăng thật.
 function buildInlineImagePreview(s) {
   const platformList = parseMaybeJson(s.platform_parsed || s.platform, []);
   const wantsInline = Array.isArray(platformList) && (platformList.includes('web') || platformList.includes('email'));
   const raw = s.content || '';
-  if (!wantsInline || !/\[\[ANH:/.test(raw)) return '';
-  const html = injectInlineImages(escHtml(raw), s.drive_links || '');
+  if (!wantsInline || !hasInlineImageLink(raw)) return '';
+  const html = injectInlineImages(escHtml(raw));
   return '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;background:var(--surface2,#f8fafc)">' +
     '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị (giống lúc đăng web/email)</div>' +
     '<div style="font-size:13px;line-height:1.8;white-space:pre-wrap">' + html + '</div></div>';
@@ -2595,7 +2600,7 @@ function buildBossReviewerRoundBox(version, roundKey) {
   };
   const inlineHtml = comments.length ? comments.map(c => '<div style="border-bottom:1px solid var(--border);padding:8px 0;font-size:12px"><div style="font-weight:600">' + (c.type === 'media' ? '📎' : c.zone === 'title' ? '📌' : '💬') + ' ' + escHtml(c.reviewer || 'Người duyệt') + '</div>' + (c.text ? '<div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:3px">“' + escHtml(c.text) + '”</div>' : '') + '<div style="white-space:pre-wrap;margin-top:4px;color:var(--text2)">' + escHtml(c.note || '') + '</div></div>').join('') : '<div style="font-size:12px;color:var(--text3)">Chưa có nhận xét bôi chọn ở vòng này.</div>';
   const reviewHtml = history.length ? history.map(h => '<div style="border-top:1px solid var(--border);padding:8px 0;font-size:12px"><b>' + escHtml(h.reviewer || 'Người duyệt') + '</b> · ' + escHtml(h.action || '') + (h.comment ? '<div style="white-space:pre-wrap;margin-top:4px;color:var(--text2)">' + escHtml(h.comment) + '</div>' : '') + '</div>').join('') : '';
-  return '<div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);gap:12px;align-items:start"><div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface);font-size:12px;line-height:1.65"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">NỘI DUNG VÒNG NÀY</div><div style="font-size:15px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--border)">' + renderPart(version.title || '', 'title') + '</div><div style="white-space:pre-wrap;margin-top:9px">' + injectInlineImages(renderPart(version.content || '', 'content'), version.drive_links || '') + '</div></div><div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface2);max-height:420px;overflow:auto"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">NHẬN XÉT CỦA NGƯỜI DUYỆT</div>' + inlineHtml + reviewHtml + '</div></div>';
+  return '<div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);gap:12px;align-items:start"><div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface);font-size:12px;line-height:1.65"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">NỘI DUNG VÒNG NÀY</div><div style="font-size:15px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--border)">' + renderPart(version.title || '', 'title') + '</div><div style="white-space:pre-wrap;margin-top:9px">' + injectInlineImages(renderPart(version.content || '', 'content')) + '</div></div><div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface2);max-height:420px;overflow:auto"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">NHẬN XÉT CỦA NGƯỜI DUYỆT</div>' + inlineHtml + reviewHtml + '</div></div>';
 }
 
 function buildBossVersionReviewBadges(reviewHistory) {

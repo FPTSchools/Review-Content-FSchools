@@ -406,9 +406,9 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
         <!-- Nội dung (ô to) -->
         <div class="field">
           <label>Nội dung <span class="req">*</span></label>
-          <textarea id="content-input" spellcheck="false" placeholder="Paste toàn bộ nội dung vào đây..." oninput="updateChar();renderLivePreview()" onclick="saveContentCursor()" onkeyup="saveContentCursor()" onblur="saveContentCursor()"></textarea>
+          <textarea id="content-input" spellcheck="false" placeholder="Paste toàn bộ nội dung vào đây..." oninput="updateChar();renderLivePreview()"></textarea>
           <div class="char-hint" id="char-count">0 ký tự</div>
-          <div id="inline-image-hint" style="display:none;font-size:11px;color:var(--text3);margin-top:4px">🖼️ Nền tảng đăng có Web/Email — dán link Drive ảnh ở ô bên dưới rồi bấm <strong>"➕ Chèn vào nội dung"</strong> trên từng ảnh để đặt ảnh đúng vị trí giữa các đoạn, giống lúc bài lên web/email.</div>
+          <div id="inline-image-hint" style="display:none;font-size:11px;color:var(--text3);margin-top:4px">🖼️ Nền tảng đăng có Web/Email — muốn chèn ảnh vào giữa đoạn văn, chỉ cần copy link Drive ảnh rồi dán/gõ thẳng vào đúng vị trí trong ô Nội dung, hệ thống tự nhận diện và hiện ảnh ở khối xem trước bên dưới.</div>
           <div class="content-block" id="content-live-preview" style="display:none;margin-top:8px"></div>
         </div>
         <!-- Link Drive -->
@@ -1079,15 +1079,10 @@ function buildDrivePreview(driveLinksStr) {
     }
     if (!previewHtml) return '';
     const folderHint = folderId ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">📁 Link thư mục — khung trên chỉ hiển thị lưới xem trước, mở link để xem/tải từng file gốc.</div>' : '';
-    // Chỉ ảnh (có fileId, không phải doc/folder) mới chèn được vào giữa nội dung —
-    // video/doc/folder không hợp lý khi hiển thị lẫn trong đoạn văn.
-    const insertBtn = (fileId && !isDoc && platformWantsInlineImages())
-      ? '<button type="button" class="btn btn-outline btn-sm" onclick="insertImagePlaceholder(\'' + fileId + '\')" style="margin-top:6px" title="Chỉ dùng cho file ảnh — không dùng cho video">➕ Chèn vào nội dung</button>'
-      : '';
     return '<div class="drive-preview-item" style="max-width:560px;margin:0">' +
       '<a href="' + link + '" target="_blank" style="font-size:12px;color:var(--blue);text-decoration:none">📎 ' + (folderId ? 'Mở thư mục Drive' : 'Xem file Drive') + ' ↗</a>' +
       '<div style="margin-top:6px;border-radius:var(--radius);overflow:auto;border:1px solid var(--border);resize:both;min-height:336px;min-width:min(240px,100%);display:flex;flex-direction:column">' + previewHtml + '</div>' +
-      folderHint + insertBtn +
+      folderHint +
       '</div>';
   }).filter(Boolean).join('');
   if (!items) return '';
@@ -1104,66 +1099,52 @@ function updateDrivePreview() {
 
 // ============================================================
 // CHÈN ẢNH VÀO GIỮA NỘI DUNG (khi nền tảng đăng có Web/Email)
-// Ảnh vẫn là link Drive như cũ — chỉ chèn thêm 1 "điểm đánh dấu" [[ANH:fileId]]
-// vào đúng vị trí con trỏ trong ô Nội dung, để lúc xem trước/duyệt bài,
-// hệ thống thay điểm đánh dấu đó bằng ảnh thật, giống layout web/email thật.
+// Không cần nút bấm riêng: CTV copy link Drive ảnh (link "Chia sẻ" bình thường,
+// dạng .../file/d/<fileId>/...) rồi dán/gõ thẳng vào đúng vị trí muốn có ảnh trong
+// ô Nội dung — hệ thống tự nhận diện link đó và hiện ảnh thật tại đúng chỗ ở các
+// khối xem trước/duyệt bài. Link Drive vẫn nên dán thêm ở ô "Link Drive đính kèm"
+// như cũ để có bản gốc tải về + được AI chấm brand guide.
 // ============================================================
+const DRIVE_IMG_URL_RE = /https?:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)(?:\/[^\s<>"']*)?/g;
+
+// Dùng cho kiểm tra "có link ảnh Drive không" — regex riêng (không global) để tránh lỗi
+// lastIndex còn sót lại nếu tái dùng chung 1 regex global giữa nhiều lần gọi .test().
+function hasInlineImageLink(text) {
+  return /https?:\/\/drive\.google\.com\/file\/d\/[a-zA-Z0-9_-]+/.test(String(text || ''));
+}
+
 function platformWantsInlineImages() {
   return Array.from(document.querySelectorAll('.platform-cb:checked')).some(cb => cb.value === 'web' || cb.value === 'email');
 }
 
 function onPlatformChange() {
-  updateDrivePreview(); // build lại nút "Chèn vào nội dung" theo nền tảng vừa chọn
-}
-
-let _lastContentCursor = null;
-function saveContentCursor() {
-  const el = document.getElementById('content-input');
-  if (el) _lastContentCursor = el.selectionStart;
-}
-
-function insertImagePlaceholder(fileId) {
-  const el = document.getElementById('content-input');
-  if (!el) return;
-  const pos = (_lastContentCursor == null || _lastContentCursor > el.value.length) ? el.value.length : _lastContentCursor;
-  const token = (pos > 0 && el.value[pos-1] !== '\n' ? '\n' : '') + '[[ANH:' + fileId + ']]\n';
-  el.value = el.value.slice(0, pos) + token + el.value.slice(pos);
-  const newPos = pos + token.length;
-  el.focus();
-  el.setSelectionRange(newPos, newPos);
-  _lastContentCursor = newPos;
-  updateChar();
   renderLivePreview();
-  showToast('✅ Đã chèn ảnh vào nội dung — kéo xuống ô "Xem trước hiển thị" để kiểm tra vị trí');
 }
 
-// Thay [[ANH:fileId]] trong 1 chuỗi HTML (đã escHtml phần chữ) bằng thẻ <img> thật.
-// An toàn: escHtml không đổi [ ] : nên token vẫn nguyên vẹn dù đã escape hay đã
-// bị bọc trong <span class="ic-highlight"> của tính năng bôi chọn nhận xét.
-function injectInlineImages(html, driveLinksStr) {
-  if (!html || !/\[\[ANH:/.test(html)) return html;
-  const links = String(driveLinksStr || '').split('\n').map(l => l.trim()).filter(Boolean);
-  return html.replace(/\[\[ANH:([a-zA-Z0-9_-]+)\]\]/g, function(m, fid) {
-    const found = links.some(l => l.includes(fid));
-    if (!found) return ''; // ảnh đã bị xoá khỏi link Drive — bỏ điểm đánh dấu, không hiện ảnh vỡ
+// Thay link Drive ảnh nằm ngay trong 1 chuỗi HTML (đã escHtml phần chữ) bằng thẻ <img> thật.
+// Chạy SAU escHtml vẫn an toàn: escHtml chỉ đổi & < > — nếu link có &resourcekey=...
+// thì sau escHtml thành &amp;resourcekey=..., vẫn khớp regex và bị thay nguyên cụm.
+function injectInlineImages(html) {
+  if (!html) return html;
+  return html.replace(DRIVE_IMG_URL_RE, function(m, fid) {
     return '<img src="https://drive.google.com/thumbnail?id=' + fid + '&sz=w1000" loading="lazy" style="max-width:100%;border-radius:8px;margin:10px 0;display:block" alt="Ảnh minh họa">';
   });
 }
 
-// Bỏ token [[ANH:...]] khi gửi nội dung cho AI — AI chỉ cần biết "có ảnh ở đây", không cần token kỹ thuật.
+// Bỏ link ảnh khi gửi nội dung cho AI — AI chỉ cần biết "có ảnh ở đây", không cần link kỹ thuật.
 function stripImagePlaceholdersForAI(text) {
-  return String(text || '').replace(/\[\[ANH:[a-zA-Z0-9_-]+\]\]/g, '[Hình ảnh minh họa]');
+  return String(text || '').replace(DRIVE_IMG_URL_RE, '[Hình ảnh minh họa]');
 }
 
 // Khối "xem trước hiển thị" chỉ-đọc trong thẻ duyệt bài — KHÔNG dùng để bôi chọn nhận xét
 // (bôi chọn vẫn dùng ô .inline-content y như cũ, offset tính trên text gốc, không đổi).
-// Chỉ hiện khi bài có chọn nền tảng Web/Email và nội dung có chèn ảnh.
+// Chỉ hiện khi bài có chọn nền tảng Web/Email và nội dung có dán link ảnh Drive.
 function buildInlineImagePreview(s) {
   const platformList = parseMaybeJson(s.platform_parsed || s.platform, []);
   const wantsInline = Array.isArray(platformList) && (platformList.includes('web') || platformList.includes('email'));
   const raw = s.content || '';
-  if (!wantsInline || !/\[\[ANH:/.test(raw)) return '';
-  const html = injectInlineImages(escHtml(raw), s.drive_links || '');
+  if (!wantsInline || !hasInlineImageLink(raw)) return '';
+  const html = injectInlineImages(escHtml(raw));
   return '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;background:var(--surface2,#f8fafc)">' +
     '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị (giống lúc đăng web/email)</div>' +
     '<div style="font-size:13px;line-height:1.8;white-space:pre-wrap">' + html + '</div></div>';
@@ -1177,8 +1158,7 @@ function renderLivePreview() {
   if (!wrap) return;
   if (!wantsInline) { wrap.style.display = 'none'; return; }
   const raw = document.getElementById('content-input').value;
-  const driveLinks = document.getElementById('drive-links-input').value;
-  const html = injectInlineImages(escHtml(raw), driveLinks);
+  const html = injectInlineImages(escHtml(raw));
   wrap.style.display = 'block';
   wrap.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị (giống lúc đăng web/email)</div>' +
     '<div style="white-space:pre-wrap">' + html + '</div>';
@@ -1697,7 +1677,7 @@ function buildReviewerRoundBox(version, roundKey) {
     '<div style="border-top:1px solid var(--border);padding:8px 0;font-size:12px"><b>' + escHtml(h.reviewer || 'Người duyệt') + '</b> · ' + escHtml(h.action || '') + (h.comment ? '<div style="white-space:pre-wrap;margin-top:4px;color:var(--text2)">' + escHtml(h.comment) + '</div>' : '') + '</div>'
   ).join('') : '';
   return '<div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);gap:12px;align-items:start">' +
-    '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface);font-size:12px;line-height:1.65"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">NỘI DUNG VÒNG NÀY</div><div style="font-size:15px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--border)">' + renderPart(version.title || '', 'title') + '</div><div style="white-space:pre-wrap;margin-top:9px">' + injectInlineImages(renderPart(version.content || '', 'content'), version.drive_links || '') + '</div></div>' +
+    '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface);font-size:12px;line-height:1.65"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">NỘI DUNG VÒNG NÀY</div><div style="font-size:15px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--border)">' + renderPart(version.title || '', 'title') + '</div><div style="white-space:pre-wrap;margin-top:9px">' + injectInlineImages(renderPart(version.content || '', 'content')) + '</div></div>' +
     '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface2);max-height:420px;overflow:auto"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">NHẬN XÉT CỦA NGƯỜI DUYỆT</div>' + inlineHtml + reviewHtml + '</div></div>';
 }
 
@@ -1778,7 +1758,7 @@ function showHistoryContent(id) {
   document.getElementById('content-view-title').textContent = s.title || '';
   const bodyEl = document.getElementById('content-view-body');
   bodyEl.dataset.rawContent = s.content || '';
-  bodyEl.innerHTML = injectInlineImages(escHtml(s.content || ''), s.drive_links || '');
+  bodyEl.innerHTML = injectInlineImages(escHtml(s.content || ''));
   // F: bài đã duyệt trước đây chỉ hiện text, không có link ảnh/file — bổ sung xem trước Drive + link minh chứng bản quyền.
   document.getElementById('content-view-media').innerHTML = buildDrivePreview(s.drive_links || '');
   const evidenceLinks = String(s.evidence_links || '').split('\n').map(l => l.trim()).filter(Boolean);
@@ -1801,12 +1781,10 @@ function copyApprovedContent() {
   const title = document.getElementById('content-view-title').textContent;
   const bodyEl = document.getElementById('content-view-body');
   // Dùng lại nội dung gốc (đã lưu ở dataset) thay vì đọc textContent — vì textContent
-  // của bản xem trước không còn chứa điểm đánh dấu ảnh (đã thay bằng <img>).
-  // Bỏ điểm đánh dấu khi copy vì mục đích là dán sang nơi khác (Facebook, Zalo...),
-  // ảnh vẫn cần gắn thủ công ở đó như cũ.
+  // của bản xem trước không còn chứa link ảnh Drive (đã thay bằng <img>). Giữ nguyên
+  // link Drive khi copy (không phải token kỹ thuật nữa — là link CTV tự dán vào bài).
   const rawBody = bodyEl.dataset.rawContent != null ? bodyEl.dataset.rawContent : bodyEl.textContent;
-  const body = rawBody.replace(/\n?\[\[ANH:[a-zA-Z0-9_-]+\]\]\n?/g, '\n').trim();
-  const text = title + '\n\n' + body;
+  const text = title + '\n\n' + rawBody.trim();
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(
       () => showToast('✅ Đã sao chép nội dung'),
@@ -3013,7 +2991,7 @@ function showToast(msg) {
   showActionPopup(text, kind);
 }
 
-function buildInlineCommentView(inlineCommentsRaw, content, title, driveLinksStr) {
+function buildInlineCommentView(inlineCommentsRaw, content, title) {
   const comments = parseMaybeJson(inlineCommentsRaw, []);
   if (!comments.length) return '';
 
@@ -3026,7 +3004,7 @@ function buildInlineCommentView(inlineCommentsRaw, content, title, driveLinksStr
     cursor = c.end;
   });
   if (cursor < content.length) html += esc(content.slice(cursor));
-  html = injectInlineImages(html, driveLinksStr || '');
+  html = injectInlineImages(html);
 
   const notes = sorted.map(c => `
     <div class="ic-note-ctv">
@@ -3091,7 +3069,7 @@ function editAndResubmit(id) {
     updateReviewerOrder();
 
     // F19 — hiện inline comments phía trên form
-    const icHtml = buildInlineCommentView(s.inline_comments||'[]', s.content||'', s.title||'', s.drive_links||'');
+    const icHtml = buildInlineCommentView(s.inline_comments||'[]', s.content||'', s.title||'');
     const formCard = document.querySelector('#page-submit .card');
     let icPanel = document.getElementById('ic-resubmit-panel');
     if (!icPanel) {
