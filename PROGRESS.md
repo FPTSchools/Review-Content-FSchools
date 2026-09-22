@@ -303,19 +303,21 @@
     (khai báo ở cả `ctv.html` và `boss.html`, do dự án không có JS dùng chung), áp dụng ở mọi
     nơi hiện content chỉ-đọc: khối "Xem trước hiển thị" (soạn bài + duyệt bài), modal xem lại
     bài đã duyệt, khung so sánh diff giữa các vòng gửi, khối "Tất cả bài" bên `boss.html`.
-  - **Mở rộng điều kiện hiện khối "Xem trước hiển thị"**: trước đây chỉ hiện khi bài chọn nền
-    tảng Web/Email (đặc thù riêng cho tính năng chèn ảnh). Nay hiện bất kể nền tảng nào, miễn
-    nội dung có định dạng chữ HOẶC có link ảnh Drive (`hasFormattingMarkup()` /
-    `hasInlineImageLink()`) — vì định dạng chữ hữu ích cho mọi loại bài, không riêng Web/Email;
-    còn gợi ý "dán link Drive vào giữa nội dung" (hint text) vẫn chỉ hiện khi chọn Web/Email
-    (đặc thù chèn ảnh, không hợp lý với Facebook/TikTok...).
   - Đã test bằng tay qua browser thật: gõ chữ → bôi đen → bấm B/I/U và chọn cỡ chữ → xác nhận
-    định dạng hiện ngay trong ô soạn thảo + khối xem trước; gửi bài (nền tảng Facebook, KHÔNG
-    phải Web/Email, để xác nhận khối xem trước vẫn hiện đúng vì có định dạng); xác nhận nội
-    dung lưu đúng ký hiệu (`[size=20]Xin[/size] **chao** *cac ban* __hoc sinh__.`); mở lại bằng
-    "Gửi lại" (`editAndResubmit`) — nội dung nạp lại đúng định dạng vào ô soạn thảo, và
-    serialize lại ra ĐÚNG BYTE-FOR-BYTE chuỗi ban đầu (round-trip an toàn, không lệch dữ liệu
-    qua nhiều lần sửa/gửi lại). Dữ liệu test đã xoá sạch khỏi Supabase sau khi test xong.
+    định dạng hiện ngay trong ô soạn thảo + khối xem trước; xác nhận nội dung lưu đúng ký hiệu
+    (`[size=20]Xin[/size] **chao** *cac ban* __hoc sinh__.`); mở lại bằng "Gửi lại"
+    (`editAndResubmit`) — nội dung nạp lại đúng định dạng vào ô soạn thảo, và serialize lại ra
+    ĐÚNG BYTE-FOR-BYTE chuỗi ban đầu (round-trip an toàn, không lệch dữ liệu qua nhiều lần
+    sửa/gửi lại). Dữ liệu test đã xoá sạch khỏi Supabase sau khi test xong.
+  - **Sửa lại ngay sau đó (cùng ngày, theo phản hồi người dùng)**: bản đầu tiên có mở rộng điều
+    kiện hiện khối "Xem trước hiển thị" sang mọi nền tảng miễn có định dạng chữ hoặc ảnh — người
+    dùng phản hồi chỉ muốn hiện khi bài chọn Web/Email, các nền tảng khác không cần. Đã đổi lại
+    `buildInlineImagePreview()` (2 file) và `renderLivePreview()` (`ctv.html`) để thêm lại điều
+    kiện `platform includes web/email` (dùng `parseMaybeJson(s.platform_parsed || s.platform)`),
+    y hệt logic gốc của tính năng chèn ảnh trước đó — nay áp dụng chung cho cả 2 lý do hiện khối
+    (ảnh và định dạng chữ). Đã test lại: gửi 1 bài chọn Facebook + 1 bài chọn Email, cùng nội
+    dung có định dạng `**đậm**` — xác nhận bài Facebook KHÔNG hiện khối xem trước, bài Email có
+    hiện. Dữ liệu test đã xoá sạch khỏi Supabase.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**

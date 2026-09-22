@@ -1301,10 +1301,12 @@ function renderContentDisplay(html) {
 
 // Khối "xem trước hiển thị" chỉ-đọc trong thẻ duyệt bài — KHÔNG dùng để bôi chọn nhận xét
 // (bôi chọn vẫn dùng ô .inline-content y như cũ, offset tính trên text gốc, không đổi).
-// Hiện bất kể nền tảng nào, miễn nội dung có định dạng chữ hoặc link ảnh Drive.
+// Chỉ hiện khi bài có chọn nền tảng Web/Email — các nền tảng khác không cần.
 function buildInlineImagePreview(s) {
+  const platformList = parseMaybeJson(s.platform_parsed || s.platform, []);
+  const wantsInline = Array.isArray(platformList) && (platformList.includes('web') || platformList.includes('email'));
   const raw = s.content || '';
-  if (!hasInlineImageLink(raw) && !hasFormattingMarkup(raw)) return '';
+  if (!wantsInline || (!hasInlineImageLink(raw) && !hasFormattingMarkup(raw))) return '';
   const html = renderContentDisplay(escHtml(raw));
   return '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;background:var(--surface2,#f8fafc)">' +
     '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị</div>' +
@@ -1314,8 +1316,10 @@ function buildInlineImagePreview(s) {
 function renderLivePreview() {
   const wrap = document.getElementById('content-live-preview');
   const hint = document.getElementById('inline-image-hint');
-  if (hint) hint.style.display = platformWantsInlineImages() ? 'block' : 'none';
+  const wantsInline = platformWantsInlineImages();
+  if (hint) hint.style.display = wantsInline ? 'block' : 'none';
   if (!wrap) return;
+  if (!wantsInline) { wrap.style.display = 'none'; return; }
   const raw = getContentInputValue();
   if (!hasInlineImageLink(raw) && !hasFormattingMarkup(raw)) { wrap.style.display = 'none'; return; }
   const html = renderContentDisplay(escHtml(raw));
