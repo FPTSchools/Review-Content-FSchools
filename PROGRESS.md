@@ -271,6 +271,51 @@
     leader_content; (2) khối bôi-chọn-nhận-xét vẫn hiện link dạng chữ thô, không đổi thành ảnh;
     (3) tick/bỏ tick Web/Email thì khối xem trước hiện/ẩn đúng theo, không còn nút bấm nào cần
     thao tác thêm. Dữ liệu test đã xoá sạch khỏi Supabase sau khi test xong.
+- **Định dạng chữ (đậm/nghiêng/gạch chân/cỡ chữ) ở ô Nội dung — XONG (2026-09-22).** Yêu cầu
+  người dùng: cho chỉnh font chữ trong phần nội dung ở giao diện gửi bài duyệt. Đã trình bày
+  3 phương án trước khi làm (toolbar gõ-thấy-ngay / gõ ký hiệu tay / rich text HTML thật đổi
+  cả cơ chế bôi chọn); người dùng chọn **toolbar gõ-thấy-ngay**. Cách làm:
+  - Ô Nội dung (`ctv.html`, trang "Gửi bài duyệt") đổi từ `<textarea>` sang
+    `<div contenteditable>` (class `.content-editable`), có thanh công cụ nhỏ phía trên: nút
+    **B/I/U** (gọi `document.execCommand('bold'|'italic'|'underline')` — không có thư viện
+    rich-text nào trong dự án nên dùng thẳng execCommand, cũ nhưng vẫn chạy tốt trên Chrome/
+    Edge) và dropdown **cỡ chữ** (Nhỏ 12px/Vừa 16px/Lớn 20px/Rất lớn 26px — bôi đen đoạn chữ
+    trước rồi chọn, cách làm thủ công bằng Range API `extractContents()`/`insertNode()` để giữ
+    nguyên định dạng lồng bên trong, không dùng `execCommand('fontSize')` vì chỉ hỗ trợ 7 cỡ
+    cố định không tuỳ chỉnh px được).
+  - **Không đổi cấu trúc DB**: cột `content` vẫn là TEXT như cũ. Lúc gửi bài,
+    `serializeEditableContent()` duyệt cây DOM trong ô soạn thảo, "dịch" định dạng HTML sang
+    ký hiệu dạng chữ để lưu — `**đậm**`, `*nghiêng*`, `__gạch_chân__`, `[size=N]cỡ chữ[/size]`
+    (đậm+nghiêng cùng lúc dùng `***text***` theo đúng quy ước Markdown, tránh lồng ký hiệu rối).
+    `renderTextFormatting()` làm chiều ngược lại (ký hiệu → HTML thật), dùng khi hiển thị
+    chỉ-đọc và khi nạp nội dung cũ vào ô soạn thảo để sửa tiếp (`setContentInputValue()`).
+    `getContentInputValue()`/`setContentInputValue()` là 2 hàm trung gian thay cho mọi chỗ
+    trước đây đọc/ghi trực tiếp `content-input.value` (giờ không còn `.value` vì không phải
+    thẻ input/textarea nữa) — đã cập nhật toàn bộ: `runAI`, `sendAiChat`, `applyAiToContent`,
+    `submitPost`, `updateChar` (đếm theo `textContent.length` — không tính ký hiệu định dạng),
+    `clearForm`, `collectCurrentDraft`, `restoreDraft`, `editAndResubmit`, `editSubmission`.
+  - Y hệt cách làm với link ảnh Drive: khối bôi-chọn-nhận-xét (`.inline-content`/
+    `ic-body`/`rvc-body`) **CỐ Ý không đổi** — vẫn hiển thị ký hiệu `**...**` dạng chữ thô, để
+    không ảnh hưởng offset bôi chọn (đây là lần thứ 2 áp dụng đúng nguyên tắc này, sau tính
+    năng ảnh — xác nhận cách tiếp cận "giữ nguyên định dạng lưu trữ, chỉ đổi lúc hiển thị" mở
+    rộng tốt cho nhiều loại định dạng khác nhau mà không phải sửa lại cơ chế offset).
+  - Gộp việc hiển thị định dạng chữ + ảnh Drive vào 1 hàm dùng chung `renderContentDisplay()`
+    (khai báo ở cả `ctv.html` và `boss.html`, do dự án không có JS dùng chung), áp dụng ở mọi
+    nơi hiện content chỉ-đọc: khối "Xem trước hiển thị" (soạn bài + duyệt bài), modal xem lại
+    bài đã duyệt, khung so sánh diff giữa các vòng gửi, khối "Tất cả bài" bên `boss.html`.
+  - **Mở rộng điều kiện hiện khối "Xem trước hiển thị"**: trước đây chỉ hiện khi bài chọn nền
+    tảng Web/Email (đặc thù riêng cho tính năng chèn ảnh). Nay hiện bất kể nền tảng nào, miễn
+    nội dung có định dạng chữ HOẶC có link ảnh Drive (`hasFormattingMarkup()` /
+    `hasInlineImageLink()`) — vì định dạng chữ hữu ích cho mọi loại bài, không riêng Web/Email;
+    còn gợi ý "dán link Drive vào giữa nội dung" (hint text) vẫn chỉ hiện khi chọn Web/Email
+    (đặc thù chèn ảnh, không hợp lý với Facebook/TikTok...).
+  - Đã test bằng tay qua browser thật: gõ chữ → bôi đen → bấm B/I/U và chọn cỡ chữ → xác nhận
+    định dạng hiện ngay trong ô soạn thảo + khối xem trước; gửi bài (nền tảng Facebook, KHÔNG
+    phải Web/Email, để xác nhận khối xem trước vẫn hiện đúng vì có định dạng); xác nhận nội
+    dung lưu đúng ký hiệu (`[size=20]Xin[/size] **chao** *cac ban* __hoc sinh__.`); mở lại bằng
+    "Gửi lại" (`editAndResubmit`) — nội dung nạp lại đúng định dạng vào ô soạn thảo, và
+    serialize lại ra ĐÚNG BYTE-FOR-BYTE chuỗi ban đầu (round-trip an toàn, không lệch dữ liệu
+    qua nhiều lần sửa/gửi lại). Dữ liệu test đã xoá sạch khỏi Supabase sau khi test xong.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**

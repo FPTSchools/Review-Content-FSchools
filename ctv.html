@@ -231,7 +231,14 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
   .ic-note-del{position:absolute;top:4px;right:6px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;}
   /* Form layout additions */
   .form-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-  #content-input{min-height:220px;resize:vertical;}
+  .content-editable{width:100%;min-height:220px;max-height:520px;overflow-y:auto;resize:vertical;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:13px;line-height:1.7;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s;box-sizing:border-box;}
+  .content-editable:focus{border-color:var(--accent);}
+  .content-editable:empty:before{content:attr(data-placeholder);color:var(--text3);}
+  .rt-toolbar{display:flex;gap:5px;align-items:center;margin-bottom:6px;flex-wrap:wrap;}
+  .rt-btn{width:30px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:13px;color:var(--text);font-family:var(--font);}
+  .rt-btn:hover{background:var(--surface2,#f1f5f9);}
+  .rt-btn.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);}
+  #rt-font-size{width:auto;padding:5px 8px;font-size:12px;height:28px;}
   .btn-submit-main{display:block;margin:0 auto;padding:11px 48px;background:linear-gradient(135deg,#003DA5,#00843D);color:white;font-size:14px;font-weight:700;border-radius:var(--radius);border:none;cursor:pointer;font-family:var(--font);box-shadow:0 3px 12px rgba(0,61,165,.32);transition:filter .15s,box-shadow .15s;letter-spacing:.02em;}
   .btn-submit-main:hover{filter:brightness(1.08);box-shadow:0 4px 14px rgba(0,61,165,.38);}
   /* AI chat */
@@ -406,7 +413,19 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
         <!-- Nội dung (ô to) -->
         <div class="field">
           <label>Nội dung <span class="req">*</span></label>
-          <textarea id="content-input" spellcheck="false" placeholder="Paste toàn bộ nội dung vào đây..." oninput="updateChar();renderLivePreview()"></textarea>
+          <div class="rt-toolbar">
+            <button type="button" class="rt-btn" id="rt-btn-bold" onclick="rtExec('bold')" title="In đậm (Ctrl+B)"><b>B</b></button>
+            <button type="button" class="rt-btn" id="rt-btn-italic" onclick="rtExec('italic')" title="In nghiêng (Ctrl+I)"><i>I</i></button>
+            <button type="button" class="rt-btn" id="rt-btn-underline" onclick="rtExec('underline')" title="Gạch chân (Ctrl+U)"><u>U</u></button>
+            <select id="rt-font-size" onchange="rtApplyFontSize(this.value); this.value='';" title="Bôi đen đoạn chữ muốn đổi cỡ trước khi chọn">
+              <option value="">Cỡ chữ…</option>
+              <option value="12">Nhỏ</option>
+              <option value="16">Vừa</option>
+              <option value="20">Lớn</option>
+              <option value="26">Rất lớn</option>
+            </select>
+          </div>
+          <div id="content-input" class="content-editable" contenteditable="true" data-placeholder="Nhập nội dung bài viết..." oninput="onContentInputChanged()" onmouseup="updateRtToolbarState()" onkeyup="updateRtToolbarState()"></div>
           <div class="char-hint" id="char-count">0 ký tự</div>
           <div id="inline-image-hint" style="display:none;font-size:11px;color:var(--text3);margin-top:4px">🖼️ Nền tảng đăng có Web/Email — muốn chèn ảnh vào giữa đoạn văn, chỉ cần copy link Drive ảnh rồi dán/gõ thẳng vào đúng vị trí trong ô Nội dung, hệ thống tự nhận diện và hiện ảnh ở khối xem trước bên dưới.</div>
           <div class="content-block" id="content-live-preview" style="display:none;margin-top:8px"></div>
@@ -700,6 +719,10 @@ function init() {
   currentUser = JSON.parse(stored);
   if (!['ctv','leader_content'].includes(currentUser.role)) { window.location.href = 'boss.html'; return; }
 
+  // Enter trong ô Nội dung tạo 1 <div> mới cho mỗi dòng (thay vì <p> mặc định của Chrome ở
+  // vài trường hợp) — để serializeEditableContent() nhận diện xuống dòng nhất quán.
+  try { document.execCommand('defaultParagraphSeparator', false, 'div'); } catch (e) {}
+
   document.getElementById('user-name').textContent = currentUser.name;
   document.getElementById('user-campus').textContent = currentUser.campus === 'hoa_lac' ? 'FSC Hòa Lạc' : currentUser.campus === 'tay_hn' ? 'FSC Tây HN' : 'Cả 2';
   document.getElementById('user-av').textContent = currentUser.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -976,7 +999,7 @@ async function loadMySubmissions() {
 // AI CHECK
 // ============================================================
 async function runAI() {
-  const content = document.getElementById('content-input').value.trim();
+  const content = getContentInputValue().trim();
   if (!content) { showToast('Nhập nội dung bài viết trước'); return; }
 
   // Reset chat khi check lại
@@ -1136,31 +1159,168 @@ function stripImagePlaceholdersForAI(text) {
   return String(text || '').replace(DRIVE_IMG_URL_RE, '[Hình ảnh minh họa]');
 }
 
+// ============================================================
+// ĐỊNH DẠNG CHỮ (đậm/nghiêng/gạch chân/cỡ chữ) trong ô Nội dung
+// Ô Nội dung là 1 div contenteditable (không phải textarea) để gõ tới đâu thấy
+// định dạng ngay tới đó (dùng document.execCommand cho B/I/U — không có thư viện
+// rich-text nào trong dự án, execCommand tuy cũ nhưng vẫn chạy tốt trên Chrome/Edge).
+// Nội dung thật sự lưu vào DB vẫn là 1 chuỗi TEXT như cũ: lúc gửi bài,
+// serializeEditableContent() "dịch" HTML trong ô soạn thảo sang ký hiệu dạng chữ
+// (**đậm**, *nghiêng*, __gạch_chân__, [size=N]cỡ chữ[/size]) — y hệt cách Zalo/
+// Discord dùng ký hiệu để định dạng, để KHÔNG phải đổi cấu trúc cột `content` và
+// KHÔNG ảnh hưởng tính năng "bôi chọn nhận xét" (vẫn tính offset trên chuỗi thô).
+// renderTextFormatting() làm chiều ngược lại: từ ký hiệu ra HTML thật, dùng khi
+// hiển thị (chỉ đọc) và khi nạp lại nội dung cũ vào ô soạn thảo để sửa tiếp.
+// ============================================================
+function rtExec(cmd) {
+  const el = document.getElementById('content-input');
+  el.focus();
+  document.execCommand(cmd, false, null);
+  updateRtToolbarState();
+  onContentInputChanged();
+}
+
+function rtApplyFontSize(px) {
+  if (!px) return;
+  const el = document.getElementById('content-input');
+  el.focus();
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !el.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+    showToast('⚠️ Hãy bôi đen đoạn chữ muốn đổi cỡ trước');
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  const span = document.createElement('span');
+  span.style.fontSize = px + 'px';
+  try {
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+    sel.removeAllRanges();
+    const after = document.createRange();
+    after.setStartAfter(span);
+    after.collapse(true);
+    sel.addRange(after);
+  } catch (e) {}
+  onContentInputChanged();
+}
+
+function updateRtToolbarState() {
+  try {
+    const bold = document.getElementById('rt-btn-bold');
+    const italic = document.getElementById('rt-btn-italic');
+    const underline = document.getElementById('rt-btn-underline');
+    if (bold) bold.classList.toggle('active', document.queryCommandState('bold'));
+    if (italic) italic.classList.toggle('active', document.queryCommandState('italic'));
+    if (underline) underline.classList.toggle('active', document.queryCommandState('underline'));
+  } catch (e) {}
+}
+
+function onContentInputChanged() {
+  updateChar();
+  renderLivePreview();
+}
+
+// Đọc nội dung trong ô soạn thảo, "dịch" HTML sang ký hiệu dạng chữ để lưu.
+function getContentInputValue() {
+  const el = document.getElementById('content-input');
+  return el ? serializeEditableContent(el) : '';
+}
+
+// Nạp 1 chuỗi nội dung đã lưu (có thể có ký hiệu định dạng, hoặc text thường —
+// ví dụ nội dung AI gợi ý) vào ô soạn thảo, dựng lại đúng đậm/nghiêng/gạch chân/cỡ chữ.
+function setContentInputValue(rawText) {
+  const el = document.getElementById('content-input');
+  if (!el) return;
+  const formatted = renderTextFormatting(escHtml(String(rawText || '')));
+  el.innerHTML = formatted.split('\n').map(line => '<div>' + (line || '<br>') + '</div>').join('');
+  updateChar();
+}
+
+function wrapFormatted(text, fmt) {
+  if (!text) return '';
+  let t = text;
+  if (fmt.bold && fmt.italic) t = '***' + t + '***';
+  else if (fmt.bold) t = '**' + t + '**';
+  else if (fmt.italic) t = '*' + t + '*';
+  if (fmt.underline) t = '__' + t + '__';
+  if (fmt.size) t = '[size=' + fmt.size + ']' + t + '[/size]';
+  return t;
+}
+
+// Duyệt cây DOM của ô contenteditable, dịch từng đoạn chữ + định dạng đang bọc nó
+// (kế thừa từ thẻ cha: b/strong, i/em, u, span có font-size) sang ký hiệu dạng chữ.
+function serializeEditableContent(root) {
+  if (!root) return '';
+  let out = '';
+  function walk(node, fmt) {
+    if (node.nodeType === 3) { out += wrapFormatted(node.nodeValue, fmt); return; }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName;
+    if (tag === 'BR') { out += '\n'; return; }
+    const isBlock = (tag === 'DIV' || tag === 'P');
+    if (isBlock && out && !out.endsWith('\n')) out += '\n';
+    const next = {
+      bold: fmt.bold || tag === 'B' || tag === 'STRONG',
+      italic: fmt.italic || tag === 'I' || tag === 'EM',
+      underline: fmt.underline || tag === 'U',
+      size: fmt.size
+    };
+    if (node.style && node.style.fontSize) {
+      const m = /^(\d+)px$/.exec(node.style.fontSize);
+      if (m) next.size = m[1];
+    }
+    Array.from(node.childNodes).forEach(child => walk(child, next));
+    if (isBlock && !out.endsWith('\n')) out += '\n';
+  }
+  Array.from(root.childNodes).forEach(child => walk(child, { bold: false, italic: false, underline: false, size: null }));
+  return out.replace(/\n+$/, '');
+}
+
+// Chiều ngược lại: ký hiệu dạng chữ → HTML thật. Chạy SAU escHtml (an toàn — escHtml
+// không đụng tới * _ [ ] nên ký hiệu vẫn nguyên vẹn). Thứ tự quan trọng: xử lý cỡ chữ
+// (ngoài cùng) trước, rồi gạch chân, rồi đậm+nghiêng (***), rồi đậm (**), rồi nghiêng (*).
+function renderTextFormatting(html) {
+  if (!html) return html;
+  html = html.replace(/\[size=(\d{1,3})\]([\s\S]*?)\[\/size\]/g, '<span style="font-size:$1px">$2</span>');
+  html = html.replace(/__([\s\S]+?)__/g, '<u>$1</u>');
+  html = html.replace(/\*\*\*([\s\S]+?)\*\*\*/g, '<b><i>$1</i></b>');
+  html = html.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
+  html = html.replace(/\*([\s\S]+?)\*/g, '<i>$1</i>');
+  return html;
+}
+
+function hasFormattingMarkup(text) {
+  return /\*|__|\[size=\d/.test(String(text || ''));
+}
+
+// Gộp cả 2 bước hiển thị chỉ-đọc: định dạng chữ + ảnh Drive. Dùng ở MỌI nơi hiển thị
+// content dạng chỉ-đọc (không dùng ở ô .inline-content để bôi chọn nhận xét).
+function renderContentDisplay(html) {
+  return injectInlineImages(renderTextFormatting(html));
+}
+
 // Khối "xem trước hiển thị" chỉ-đọc trong thẻ duyệt bài — KHÔNG dùng để bôi chọn nhận xét
 // (bôi chọn vẫn dùng ô .inline-content y như cũ, offset tính trên text gốc, không đổi).
-// Chỉ hiện khi bài có chọn nền tảng Web/Email và nội dung có dán link ảnh Drive.
+// Hiện bất kể nền tảng nào, miễn nội dung có định dạng chữ hoặc link ảnh Drive.
 function buildInlineImagePreview(s) {
-  const platformList = parseMaybeJson(s.platform_parsed || s.platform, []);
-  const wantsInline = Array.isArray(platformList) && (platformList.includes('web') || platformList.includes('email'));
   const raw = s.content || '';
-  if (!wantsInline || !hasInlineImageLink(raw)) return '';
-  const html = injectInlineImages(escHtml(raw));
+  if (!hasInlineImageLink(raw) && !hasFormattingMarkup(raw)) return '';
+  const html = renderContentDisplay(escHtml(raw));
   return '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;background:var(--surface2,#f8fafc)">' +
-    '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị (giống lúc đăng web/email)</div>' +
+    '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị</div>' +
     '<div style="font-size:13px;line-height:1.8;white-space:pre-wrap">' + html + '</div></div>';
 }
 
 function renderLivePreview() {
   const wrap = document.getElementById('content-live-preview');
   const hint = document.getElementById('inline-image-hint');
-  const wantsInline = platformWantsInlineImages();
-  if (hint) hint.style.display = wantsInline ? 'block' : 'none';
+  if (hint) hint.style.display = platformWantsInlineImages() ? 'block' : 'none';
   if (!wrap) return;
-  if (!wantsInline) { wrap.style.display = 'none'; return; }
-  const raw = document.getElementById('content-input').value;
-  const html = injectInlineImages(escHtml(raw));
+  const raw = getContentInputValue();
+  if (!hasInlineImageLink(raw) && !hasFormattingMarkup(raw)) { wrap.style.display = 'none'; return; }
+  const html = renderContentDisplay(escHtml(raw));
   wrap.style.display = 'block';
-  wrap.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị (giống lúc đăng web/email)</div>' +
+  wrap.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị</div>' +
     '<div style="white-space:pre-wrap">' + html + '</div>';
 }
 
@@ -1295,7 +1455,7 @@ async function sendAiChat() {
   if (!msg) return;
   input.value = '';
 
-  const contentVal = document.getElementById('content-input').value.trim();
+  const contentVal = getContentInputValue().trim();
   const typeEl = document.getElementById('content-type');
   const typeTxt = typeEl.options[typeEl.selectedIndex] ? typeEl.options[typeEl.selectedIndex].text : '';
 
@@ -1355,8 +1515,7 @@ async function sendAiChat() {
 function applyAiToContent() {
   if (!window._lastAiSuggestion) { showToast('Chưa có nội dung AI gợi ý'); return; }
   if (!confirm('Ghi đè nội dung hiện tại bằng nội dung AI gợi ý?')) return;
-  document.getElementById('content-input').value = window._lastAiSuggestion;
-  updateChar();
+  setContentInputValue(window._lastAiSuggestion);
   showToast('Đã áp dụng nội dung AI vào ô bài viết');
 }
 
@@ -1368,7 +1527,7 @@ async function submitPost() {
   const cType   = document.getElementById('content-type').value;
   const aud     = document.getElementById('audience').value;
   const title   = document.getElementById('title-input').value.trim();
-  const content = document.getElementById('content-input').value.trim();
+  const content = getContentInputValue().trim();
   const driveLinks = document.getElementById('drive-links-input').value.trim();
   const evidenceLinks = document.getElementById('evidence-links-input').value.trim();
   const platform = Array.from(document.querySelectorAll('.platform-cb:checked')).map(cb => cb.value);
@@ -1677,7 +1836,7 @@ function buildReviewerRoundBox(version, roundKey) {
     '<div style="border-top:1px solid var(--border);padding:8px 0;font-size:12px"><b>' + escHtml(h.reviewer || 'Người duyệt') + '</b> · ' + escHtml(h.action || '') + (h.comment ? '<div style="white-space:pre-wrap;margin-top:4px;color:var(--text2)">' + escHtml(h.comment) + '</div>' : '') + '</div>'
   ).join('') : '';
   return '<div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);gap:12px;align-items:start">' +
-    '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface);font-size:12px;line-height:1.65"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">NỘI DUNG VÒNG NÀY</div><div style="font-size:15px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--border)">' + renderPart(version.title || '', 'title') + '</div><div style="white-space:pre-wrap;margin-top:9px">' + injectInlineImages(renderPart(version.content || '', 'content')) + '</div></div>' +
+    '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface);font-size:12px;line-height:1.65"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">NỘI DUNG VÒNG NÀY</div><div style="font-size:15px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--border)">' + renderPart(version.title || '', 'title') + '</div><div style="white-space:pre-wrap;margin-top:9px">' + renderContentDisplay(renderPart(version.content || '', 'content')) + '</div></div>' +
     '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px;background:var(--surface2);max-height:420px;overflow:auto"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px">NHẬN XÉT CỦA NGƯỜI DUYỆT</div>' + inlineHtml + reviewHtml + '</div></div>';
 }
 
@@ -1758,7 +1917,7 @@ function showHistoryContent(id) {
   document.getElementById('content-view-title').textContent = s.title || '';
   const bodyEl = document.getElementById('content-view-body');
   bodyEl.dataset.rawContent = s.content || '';
-  bodyEl.innerHTML = injectInlineImages(escHtml(s.content || ''));
+  bodyEl.innerHTML = renderContentDisplay(escHtml(s.content || ''));
   // F: bài đã duyệt trước đây chỉ hiện text, không có link ảnh/file — bổ sung xem trước Drive + link minh chứng bản quyền.
   document.getElementById('content-view-media').innerHTML = buildDrivePreview(s.drive_links || '');
   const evidenceLinks = String(s.evidence_links || '').split('\n').map(l => l.trim()).filter(Boolean);
@@ -1796,7 +1955,8 @@ function copyApprovedContent() {
 }
 
 function updateChar() {
-  document.getElementById('char-count').textContent = document.getElementById('content-input').value.length + ' ký tự';
+  const el = document.getElementById('content-input');
+  document.getElementById('char-count').textContent = (el ? el.textContent.length : 0) + ' ký tự';
 }
 
 function clearForm(options) {
@@ -1810,7 +1970,7 @@ function clearForm(options) {
 
   ['campus','content-type','audience'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('title-input').value='';
-  document.getElementById('content-input').value='';
+  document.getElementById('content-input').innerHTML='';
   document.getElementById('note-input').value='';
   const sharedCb = document.getElementById('is-shared-checkbox');
   if (sharedCb) sharedCb.checked = false;
@@ -2010,7 +2170,7 @@ function collectCurrentDraft() {
       content_type: document.getElementById('content-type')?.value || '',
       audience: document.getElementById('audience')?.value || '',
       title: document.getElementById('title-input')?.value || '',
-      content: document.getElementById('content-input')?.value || '',
+      content: getContentInputValue(),
       note: document.getElementById('note-input')?.value || '',
       drive_links: document.getElementById('drive-links-input')?.value || '',
       evidence_links: document.getElementById('evidence-links-input')?.value || '',
@@ -2166,7 +2326,7 @@ function restoreDraft(id) {
   document.getElementById('content-type').value = f.content_type || '';
   document.getElementById('audience').value = f.audience || '';
   document.getElementById('title-input').value = f.title || '';
-  document.getElementById('content-input').value = f.content || '';
+  setContentInputValue(f.content || '');
   document.getElementById('note-input').value = f.note || '';
   document.getElementById('drive-links-input').value = f.drive_links || '';
   document.getElementById('evidence-links-input').value = f.evidence_links || '';
@@ -3004,7 +3164,7 @@ function buildInlineCommentView(inlineCommentsRaw, content, title) {
     cursor = c.end;
   });
   if (cursor < content.length) html += esc(content.slice(cursor));
-  html = injectInlineImages(html);
+  html = renderContentDisplay(html);
 
   const notes = sorted.map(c => `
     <div class="ic-note-ctv">
@@ -3035,13 +3195,12 @@ function editAndResubmit(id) {
     document.getElementById('content-type').value = s.content_type || '';
     document.getElementById('audience').value = s.audience || '';
     document.getElementById('title-input').value = s.title || '';
-    document.getElementById('content-input').value = s.content || '';
+    setContentInputValue(s.content || '');
     document.getElementById('note-input').value = s.note||'';
     document.getElementById('drive-links-input').value = s.drive_links||'';
     document.getElementById('evidence-links-input').value = s.evidence_links||'';
     applyPlatformCheckboxes(s.platform_parsed || s.platform || []);
     updateDrivePreview(); // hiện lại preview + chấm brand guide cho ảnh cũ (nếu có)
-    updateChar();
     setActiveDraftId(null);
     window._resubmitId = id;
     window._sendCount = (parseInt(s.send_count)||1) + 1;
@@ -3102,7 +3261,7 @@ function editSubmission(id) {
     document.getElementById('content-type').value = s.content_type || '';
     document.getElementById('audience').value = s.audience || '';
     document.getElementById('title-input').value = s.title || '';
-    document.getElementById('content-input').value = s.content || '';
+    setContentInputValue(s.content || '');
     document.getElementById('note-input').value = s.note||'';
     document.getElementById('drive-links-input').value = s.drive_links||'';
     document.getElementById('evidence-links-input').value = s.evidence_links||'';
