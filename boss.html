@@ -1158,19 +1158,25 @@ function showAllDetail(id) {
 
   // Parse reviewers
   const reviewers = parseMaybeJson(s.reviewers, []);
+  // Bài đã có trạng thái KẾT THÚC (duyệt/từ chối/cần sửa) thì current_reviewer_id chỉ còn là dấu
+  // vết cũ của workflow (không tự xoá sau khi xong vòng) — không được hiện "đang duyệt" nữa, kẻo
+  // gây hiểu nhầm bài vẫn đang chờ người đó dù thực ra đã xong từ lâu.
+  const isTerminal = ['approved','rejected','revision'].includes(s.status);
   const reviewerHtml = reviewers.length ? `
     <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;text-transform:uppercase">Vòng duyệt</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
-      ${reviewers.map((r,i)=>`
-        <span style="font-size:11px;padding:3px 9px;border-radius:20px;background:${r.id===s.current_reviewer_id?'var(--accent)':'var(--surface2)'};color:${r.id===s.current_reviewer_id?'white':'var(--text2)'};font-weight:500">
-          ${i+1}. ${r.name}${r.id===s.current_reviewer_id?' ← đang duyệt':''}
-        </span>`).join('')}
+      ${reviewers.map((r,i)=>{
+        const isCurrent = !isTerminal && r.id===s.current_reviewer_id;
+        return `
+        <span style="font-size:11px;padding:3px 9px;border-radius:20px;background:${isCurrent?'var(--accent)':'var(--surface2)'};color:${isCurrent?'white':'var(--text2)'};font-weight:500">
+          ${i+1}. ${r.name}${isCurrent?' ← đang duyệt':''}
+        </span>`;}).join('')}
     </div>` : '';
 
   // Drive links preview (dùng hàm có comment để hiện nhận xét file)
   const driveLinksHtml = buildDrivePreviewWithComment(s);
 
-  const canAct = !['approved','rejected','revision'].includes(s.status);
+  const canAct = !isTerminal;
   // Fix: biến isCurrentReviewer chưa từng được khai báo ở đâu — gây lỗi JS (ReferenceError)
   // mỗi lần bấm xem 1 bài trong "Tất cả bài", nên trưởng ban/trưởng phòng không xem được
   // bài nào qua tab này (kể cả bài đã duyệt), dù phần render bên dưới vốn đã đủ dữ liệu.

@@ -557,6 +557,23 @@
     qua danh sách file trong bucket, không chỉ tin URL — URL công khai có thể còn trả 200 một lúc
     do cache CDN, không phản ánh đúng trạng thái xoá thật). Dữ liệu test đã xoá sạch khỏi Supabase
     và Storage.
+- **Sửa lỗi "đang duyệt" hiện sai cho bài đã xong ở "Tất cả bài" — XONG (2026-09-23).** Người dùng
+  báo: bấm xem 1 bài BẤT KỲ trong "Tất cả bài" (`boss.html`), dù bài đã có trạng thái kết thúc
+  (Đã duyệt/Từ chối/Cần sửa), khối "Vòng duyệt" vẫn hiện tên người duyệt kèm chữ "← đang duyệt".
+  - Nguyên nhân: `showAllDetail()` chỉ so `r.id === s.current_reviewer_id` để tô đậm + gắn chữ
+    "đang duyệt", không kiểm tra `s.status` — mà `current_reviewer_id` là dấu vết runtime của
+    workflow, KHÔNG tự xoá sau khi bài đã xong (vẫn giữ nguyên giá trị người duyệt cuối cùng của
+    vòng, dùng cho việc khác như xác định ai được phép "Đổi người duyệt"). Rà code thấy hàm này là
+    NƠI DUY NHẤT trong cả 2 file `boss.html`/`ctv.html` có kiểu hiển thị "đang duyệt" — mọi chỗ
+    khác dùng `current_reviewer_id` đều đã lọc đúng theo trạng thái từ trước (queue, deep link),
+    không bị lỗi tương tự.
+  - Cách sửa: thêm `isTerminal = ['approved','rejected','revision'].includes(s.status)`, chỉ tô
+    đậm/hiện "đang duyệt" khi `!isTerminal`. Đúng lúc gộp luôn với biến `canAct` (đang dùng để ẩn
+    nút "Đổi người duyệt") vì 2 biến tính cùng 1 điều kiện, chỉ khác tên — tránh trùng lặp logic.
+  - Đã test thật qua local dev: tạo 1 bài, duyệt xong (status `approved`) qua API thật, mở lại
+    trong "Tất cả bài" qua giao diện thật — xác nhận khối "Vòng duyệt" hiện tên người duyệt màu
+    xám trung tính, KHÔNG còn chữ "đang duyệt"; nút "Đổi người duyệt" cũng tự ẩn đúng vì bài đã
+    xong (chỉ còn "🔎 Vòng/diff" và "Đóng"). Dữ liệu test đã xoá sạch khỏi Supabase.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**
