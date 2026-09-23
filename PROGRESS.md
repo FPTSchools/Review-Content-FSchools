@@ -497,6 +497,36 @@
     refusal → KHÔNG thử lại. Cả 7/7 đều đúng. Sau đó gọi thật qua local wrangler dev (OpenAI thật,
     không mock) để xác nhận luồng thành công bình thường không bị chậm thêm (không có lượt thử lại
     thừa khi request thành công ngay từ đầu).
+- **Thêm ví dụ mẫu (few-shot) từ bài thật đã qua duyệt vào prompt AI — XONG (2026-09-23).** Ý
+  tưởng gốc là thêm 2-3 ví dụ nhận xét tốt/chưa tốt theo đúng giọng FPT Schools vào prompt — thay
+  vì tự bịa ví dụ (không phản ánh đúng giọng thật của trường), chọn cách **lấy trực tiếp bài thật
+  đã qua quy trình duyệt thật** — chính xác và tự cập nhật theo thời gian, không cần ai bảo trì.
+  - Hàm mới `buildFewShotExamples(supabase, contentType)`
+    (`functions/_lib/handlers/ai.js`): lấy 2 ví dụ mỗi lần AI chạy —
+    (1) **1 bài ĐÃ DUYỆT điểm cao nhất** (ví dụ tốt), (2) **1 bài CẦN SỬA/TỪ CHỐI gần nhất có
+    nhận xét cụ thể của người duyệt** (ví dụ chưa tốt kèm đúng lý do thật, không phải lý do tự
+    suy diễn). Ưu tiên cùng `content_type` với bài đang kiểm tra nếu có đủ dữ liệu; nếu loại đó
+    chưa có bài nào từng qua duyệt thì tự động dùng ví dụ chung (không giới hạn loại) thay vì bỏ
+    trống — hệ thống mới/loại content mới vẫn có ví dụ để tham khảo ngay khi có ĐỦ 1 bài đã duyệt
+    trong toàn hệ thống.
+  - Áp dụng cho `handleAiCheckContent` (mỗi CTV tự kiểm tra trước khi gửi) và
+    `handleAiSuggestReview` (AI gợi ý nhận xét cho người duyệt) — 2 chức năng chấm/góp ý content,
+    đúng nơi ví dụ thật phát huy tác dụng nhất. KHÔNG áp dụng cho `ai_chat` (hội thoại tự do,
+    không luôn có content_type cụ thể) và `ai_check_brand_image` (chấm ảnh, ví dụ dạng chữ không
+    áp dụng được) — giữ đúng phạm vi, tránh làm phức tạp `buildAiRulesContext` dùng chung cho cả
+    4 chức năng.
+  - Thêm `hasFewShotExample` vào `meta` trả về, và cập nhật dòng minh bạch "🔎 AI đã dùng" (đã làm
+    ở mục trước) hiện thêm "có/chưa có ví dụ bài thật tham khảo" — nhất quán với cách đã làm cho
+    rule/persona, giữ đúng nguyên tắc "cho người dùng tự kiểm chứng AI đang dùng gì".
+  - **Cách test**: tạm thêm 1 dòng `console.log` debug (đã gỡ trước khi commit) để đọc qua log
+    thật của `wrangler pages dev` (`preview_logs`), xác nhận đúng BÀI CỤ THỂ nào được chọn — không
+    chỉ tin vào cờ true/false. Tạo 2 bài test với `content_type` đặc thù chưa từng tồn tại: 1 bài
+    đã duyệt điểm 10, 1 bài "cần sửa" có nhận xét cụ thể. Gọi `ai_check_content` với ĐÚNG loại đó
+    → xác nhận qua log chọn đúng 2 bài test (không lẫn bài khác). Gọi lại `ai_suggest_review` với
+    loại KHÁC HẲN (chưa từng có bài nào) → xác nhận qua log tự động dùng ví dụ chung (2 bài test
+    vẫn được chọn vì đang là điểm cao nhất/gần nhất hệ thống) thay vì bỏ trống — đúng cơ chế dự
+    phòng đã thiết kế. Test thêm qua giao diện CTV thật (`runAI()`) — dòng minh bạch hiện đúng "có
+    ví dụ bài thật tham khảo". Dữ liệu test đã xoá sạch khỏi Supabase.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**

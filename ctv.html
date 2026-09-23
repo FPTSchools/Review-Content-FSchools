@@ -2884,6 +2884,9 @@ function renderAiMetaLine(elId, meta) {
   ];
   if (meta.hasBrandGuideText) parts.push('có brand guide văn bản');
   if (meta.imageGuideCount) parts.push(meta.imageGuideCount + ' ảnh mẫu brand guide');
+  if ('hasFewShotExample' in meta) {
+    parts.push(meta.hasFewShotExample ? 'có ví dụ bài thật tham khảo' : 'chưa có ví dụ bài thật để tham khảo');
+  }
   if ('personaUsed' in meta) {
     parts.push(meta.personaUsed ? 'phong cách của ' + escHtml(meta.personaName) : 'không có phong cách cá nhân');
   }

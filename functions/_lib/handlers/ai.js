@@ -88,6 +88,57 @@ function resolveImageUrl(fileId) {
   return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
 }
 
+function truncate(s, n) {
+  s = String(s || '');
+  return s.length > n ? s.slice(0, n) + '...' : s;
+}
+
+// Ví dụ mẫu (few-shot) lấy từ CHÍNH bài thật đã qua duyệt — không tự bịa ví dụ, vì bài thật đã
+// được người duyệt thật chấm điểm/góp ý mới đúng "giọng FPT Schools" thật sự, hiệu quả hơn hẳn so
+// với chỉ chỉnh câu lệnh. Lấy 1 bài ĐÃ DUYỆT điểm cao nhất (ví dụ tốt) + 1 bài CẦN SỬA/TỪ CHỐI có
+// nhận xét cụ thể (ví dụ chưa tốt kèm lý do), ưu tiên cùng loại content với bài đang kiểm tra nếu
+// có đủ dữ liệu. Không có gì phù hợp (hệ thống mới, chưa có bài nào duyệt) thì bỏ qua, không lỗi.
+async function buildFewShotExamples(supabase, contentType) {
+  async function pickGood() {
+    let q = supabase.from('submissions').select('title, content, content_type, score')
+      .eq('status', 'approved').not('score', 'is', null).not('content', 'is', null)
+      .order('score', { ascending: false }).order('submitted_at', { ascending: false }).limit(5);
+    const { data } = await q;
+    let rows = data || [];
+    if (contentType) {
+      const sameType = rows.filter(r => r.content_type === contentType);
+      if (sameType.length) rows = sameType;
+    }
+    return rows.find(r => r.content && r.content.length > 50) || null;
+  }
+  async function pickWeak() {
+    let q = supabase.from('submissions').select('title, content, content_type, comment, status')
+      .in('status', ['revision', 'rejected']).not('comment', 'is', null).not('content', 'is', null)
+      .order('reviewed_at', { ascending: false }).limit(8);
+    const { data } = await q;
+    let rows = data || [];
+    if (contentType) {
+      const sameType = rows.filter(r => r.content_type === contentType);
+      if (sameType.length) rows = sameType;
+    }
+    return rows.find(r => r.content && r.content.length > 50 && r.comment && r.comment.trim().length > 10) || null;
+  }
+
+  let good = null, weak = null;
+  try { [good, weak] = await Promise.all([pickGood(), pickWeak()]); } catch (e) {}
+  if (!good && !weak) return { promptText: '', hasExample: false };
+
+  const parts = ['\n=== VÍ DỤ THAM KHẢO TỪ BÀI THẬT ĐÃ QUA DUYỆT (để hiểu đúng chuẩn/giọng văn FPT Schools) ==='];
+  if (good) {
+    parts.push(`\n--- Ví dụ bài ĐÃ DUYỆT, điểm ${good.score}/10 ---\nTiêu đề: ${good.title}\n${truncate(good.content, 600)}`);
+  }
+  if (weak) {
+    const label = weak.status === 'rejected' ? 'BỊ TỪ CHỐI' : 'CẦN SỬA';
+    parts.push(`\n--- Ví dụ bài ${label}, kèm lý do người duyệt đã ghi ---\nTiêu đề: ${weak.title}\n${truncate(weak.content, 400)}\nLý do: ${truncate(weak.comment, 300)}`);
+  }
+  return { promptText: parts.join('\n'), hasExample: true };
+}
+
 async function buildAiRulesContext(supabase) {
   let rules = { banned_words: [], required_elements: [], brand_voice: '', logo_rules: '', history: [] };
   try {
@@ -130,6 +181,8 @@ async function buildAiRulesContext(supabase) {
 
 export async function handleAiCheckContent(supabase, env, p) {
   const aiContext = await buildAiRulesContext(supabase);
+  const fewShot = await buildFewShotExamples(supabase, p.content_type);
+  const meta = { ...aiContext.summary, hasFewShotExample: fewShot.hasExample };
   const rules = aiContext.rules;
   const voice = rules.brand_voice || 'Chuyên nghiệp, gần gũi, có CTA rõ ràng';
   const req = (rules.required_elements || []).join(', ') || 'CTA rõ ràng';
@@ -144,14 +197,14 @@ export async function handleAiCheckContent(supabase, env, p) {
   let sys = `Bạn là chuyên gia kiểm duyệt content FPT Schools. Phong cách thương hiệu: ${voice}. Yếu tố bắt buộc: ${req}.` +
     bannedNote +
     ' Viết positives/issues/suggestion bằng tiếng Việt, text thuần (không markdown, không **).';
-  sys += '\n\n' + aiContext.promptText;
+  sys += '\n\n' + aiContext.promptText + fewShot.promptText;
 
   const prompt = `${sys}\n\nLoại: ${p.content_type || ''}\nĐối tượng: ${p.audience || ''}\n\nTIÊU ĐỀ: ${p.title || ''}\n\nNỘI DUNG:\n${p.content || ''}`;
 
   let raw;
   try {
     raw = await callOpenAI(env, prompt, { jsonSchema: { name: 'content_check', schema: CONTENT_CHECK_SCHEMA } });
-  } catch (e) { return { ok: false, error: e.message, meta: aiContext.summary }; }
+  } catch (e) { return { ok: false, error: e.message, meta }; }
 
   let r = null;
   try {
@@ -169,14 +222,15 @@ export async function handleAiCheckContent(supabase, env, p) {
     // Với response_format json_schema, OpenAI đã tự validate đúng cấu trúc trước khi trả về —
     // nếu vẫn lỗi tới đây (mạng đứt giữa chừng, response bị cắt...) thì báo rõ cho người dùng
     // thay vì trả "result: null" im lặng như cách cũ.
-    return { ok: false, error: 'AI trả về không đúng định dạng, vui lòng thử lại', meta: aiContext.summary };
+    return { ok: false, error: 'AI trả về không đúng định dạng, vui lòng thử lại', meta };
   }
 
-  return { ok: true, result: r, raw, meta: aiContext.summary };
+  return { ok: true, result: r, raw, meta };
 }
 
 export async function handleAiSuggestReview(supabase, env, p) {
   const aiContext = await buildAiRulesContext(supabase);
+  const fewShot = await buildFewShotExamples(supabase, p.content_type);
 
   // Phong cách người duyệt: LUÔN tra ở server theo reviewer_id (giống hệt handleAiChat), KHÔNG
   // theo tên hiển thị — xem ghi chú ở getPersona() và migration
@@ -186,11 +240,11 @@ export async function handleAiSuggestReview(supabase, env, p) {
   const personaText = persona ? persona.content : '';
 
   let sysPrompt = 'Bạn hỗ trợ người duyệt bài content FPT Schools. Đọc bài, viết nhận xét ngắn 3-4 câu: điểm tốt, điểm cần sửa cụ thể, hướng chỉnh. Tiếng Việt, KHÔNG dùng markdown, KHÔNG dùng **, KHÔNG dùng #, chỉ text thuần.';
-  sysPrompt += '\n\n' + aiContext.promptText + '\nƯu tiên phát hiện và nêu rõ các điểm vi phạm quy tắc Admin trong nhận xét. Không tự bỏ qua từ cấm hoặc yếu tố bắt buộc.';
+  sysPrompt += '\n\n' + aiContext.promptText + fewShot.promptText + '\nƯu tiên phát hiện và nêu rõ các điểm vi phạm quy tắc Admin trong nhận xét. Không tự bỏ qua từ cấm hoặc yếu tố bắt buộc.';
   if (personaText) sysPrompt += `\n\nPhong cách và tiêu chí của người duyệt:\n${personaText}`;
 
   const prompt = `${sysPrompt}\n\nBài: ${p.title || ''}\nLoại: ${p.content_type || ''}\n\n${p.content || ''}`;
-  const meta = { ...aiContext.summary, personaUsed: !!personaText, personaName: persona ? persona.name : null };
+  const meta = { ...aiContext.summary, hasFewShotExample: fewShot.hasExample, personaUsed: !!personaText, personaName: persona ? persona.name : null };
   try {
     const suggestion = await callOpenAI(env, prompt);
     return { ok: true, suggestion, meta };
