@@ -2028,7 +2028,9 @@ function renderBrandGuideList() {
   if (!BRAND_GUIDES_CACHE.length) { container.innerHTML = '<div style="font-size:12px;color:var(--text3)">Chưa có tài liệu brand guide nào. Chọn file bên dưới để thêm.</div>'; return; }
   container.innerHTML = BRAND_GUIDES_CACHE.map(g => `
     <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:var(--radius);margin-bottom:6px;font-size:12px">
-      <span>${g.type === 'image' ? '🖼️' : '📄'}</span>
+      ${g.type === 'image' && g.file_id
+        ? `<img src="${escHtml(g.file_id)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">`
+        : `<span>${g.type === 'image' ? '🖼️' : '📄'}</span>`}
       <span style="flex:1;font-weight:500">${escHtml(g.name)}</span>
       <span style="color:var(--text3)">${g.type === 'image' ? 'Ảnh mẫu' : (g.content||'').length + ' ký tự'}</span>
       <button onclick="deleteBrandGuideItem('${g.id}','${escHtml(g.name)}')" style="font-size:11px;padding:2px 8px;border-radius:12px;background:none;border:1px solid var(--red);cursor:pointer;font-family:var(--font);color:var(--red)">Xoá</button>

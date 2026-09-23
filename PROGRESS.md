@@ -527,6 +527,36 @@
     vẫn được chọn vì đang là điểm cao nhất/gần nhất hệ thống) thay vì bỏ trống — đúng cơ chế dự
     phòng đã thiết kế. Test thêm qua giao diện CTV thật (`runAI()`) — dòng minh bạch hiện đúng "có
     ví dụ bài thật tham khảo". Dữ liệu test đã xoá sạch khỏi Supabase.
+- **Upload ảnh brand guide qua Supabase Storage — XONG (2026-09-23).** Người dùng gặp đúng thông
+  báo lỗi "Chưa hoàn tất — Upload ảnh brand guide chưa được hỗ trợ ở backend mới" khi thử upload
+  logo — đây là TODO đã ghi chú sẵn từ đợt chuyển hệ thống (`handleSaveBrandGuideImage` chỉ trả lỗi
+  rõ ràng thay vì âm thầm bỏ qua, chờ tích hợp Supabase Storage), giờ làm nốt.
+  - Tạo bucket Storage `brand-guides` qua migration
+    `supabase/migrations/20260923080026_brand_guide_storage_bucket.sql` (đã áp dụng lên Supabase
+    thật). Bucket để **public**, giới hạn 5MB/ảnh, chỉ nhận JPG/PNG/WebP — public vì (1) OpenAI
+    Vision API cần fetch ảnh trực tiếp qua URL để chấm brand guide, dùng bucket riêng tư sẽ phải tự
+    ký URL có hạn dùng, phức tạp không cần thiết; (2) mức công khai này tương đương link Drive cũ
+    vẫn đang dùng cho ảnh khác trong hệ thống (`drive.google.com/thumbnail` cũng là link công khai
+    không cần đăng nhập).
+  - `functions/_lib/handlers/brandGuides.js`: `handleSaveBrandGuideImage()` giờ giải mã base64 →
+    upload lên bucket → lưu URL công khai vào cột `content` (thay vì Drive file id như bản cũ).
+    `handleDeleteBrandGuide()` giờ xoá luôn file trên Storage khi xoá 1 ảnh (trước đây chỉ xoá
+    dòng DB, chưa cần vì chưa upload được ảnh nào). Route `save_brand_guide_image`
+    (`functions/api/index.js`) thiếu tham số `(supabase, p)` từ bản cũ (hàm cũ không nhận gì, chỉ
+    trả lỗi cố định) — đã bổ sung.
+  - Không cần sửa gì ở `ai.js`: `resolveImageUrl()` đã sẵn sàng nhận URL http(s) trực tiếp từ
+    trước (nhánh Drive file id chỉ là fallback), nên ảnh mới lưu qua Storage tự động được AI dùng
+    đúng khi chấm brand guide, không cần đổi logic.
+  - Giao diện Admin (`boss.html`): danh sách brand guide giờ hiện được ảnh thu nhỏ thật (trước đây
+    chỉ hiện icon 🖼️ chung chung vì chưa có URL nào để hiển thị).
+  - Đã test thật (không mock) qua local dev: upload ảnh qua đúng luồng file input thật (dùng
+    DataTransfer giả lập chọn file, không gọi thẳng API) → xác nhận toast thành công, ảnh thu nhỏ
+    hiện đúng trong danh sách, URL public truy cập được (status 200, đúng content-type); gọi
+    `ai_check_brand_image` → xác nhận qua `luu_y` trả về rằng AI đã đối chiếu với ảnh mẫu vừa
+    upload; xoá ảnh → xác nhận cả dòng DB lẫn file trên Storage đều mất hẳn (kiểm tra trực tiếp
+    qua danh sách file trong bucket, không chỉ tin URL — URL công khai có thể còn trả 200 một lúc
+    do cache CDN, không phản ánh đúng trạng thái xoá thật). Dữ liệu test đã xoá sạch khỏi Supabase
+    và Storage.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**
@@ -555,8 +585,10 @@
    mật khẩu tài khoản `thpt@fpt.edu.vn` hoặc thu hồi quyền ứng dụng ở myaccount.google.com.
    (b) Giới hạn gửi của Gmail ~500 email/ngày (tài khoản thường) — dư xa so với ~15-20 người dùng.
    (c) Người gửi hiển thị là `FSchools Content Review <thpt@fpt.edu.vn>`.
-1. `save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
-   bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).
+1. ~~`save_brand_guide_image` (upload ảnh mẫu) hiện trả lỗi rõ ràng "chưa hỗ trợ" — cần tạo
+   bucket Supabase Storage rồi làm sau (thay vì Google Drive cũ).~~ — **XONG (2026-09-23).**
+   Người dùng gặp đúng thông báo lỗi này lúc upload logo thật → làm nốt luôn. Chi tiết ở mục
+   "Upload ảnh brand guide qua Supabase Storage" phía trên.
 3. ~~Chuẩn bị frontend gọi backend mới~~ — **XONG.** Đã đổi giá trị hằng số `APPS_SCRIPT_URL`
    trong cả 3 file (`index.html`, `boss.html`, `ctv.html`) từ URL Google Apps Script sang `/api`
    (path tương đối — hoạt động đúng vì frontend và backend giờ chạy chung 1 domain Cloudflare

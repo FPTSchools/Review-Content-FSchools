@@ -58,7 +58,7 @@ async function routeAction(p, supabase, env) {
 
     case 'get_brand_guides': return brandGuides.handleGetBrandGuides(supabase);
     case 'save_brand_guide_text': return brandGuides.handleSaveBrandGuideText(supabase, p);
-    case 'save_brand_guide_image': return brandGuides.handleSaveBrandGuideImage();
+    case 'save_brand_guide_image': return brandGuides.handleSaveBrandGuideImage(supabase, p);
     case 'delete_brand_guide': return brandGuides.handleDeleteBrandGuide(supabase, p);
 
     case 'get_document_categories': return documents.handleGetDocumentCategories(supabase, p);

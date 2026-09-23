@@ -225,8 +225,9 @@ CREATE TABLE personas (
 -- BRAND GUIDES (brand guide dạng text markdown hoặc ảnh mẫu)
 -- Nguồn: sheet "BrandGuides"
 -- type='text'  → content chứa nội dung markdown.
--- type='image' → content hiện chứa Google Drive file id; khi lên Supabase nên đổi
---                sang lưu đường dẫn trong Supabase Storage (bucket) thay cho Drive file id.
+-- type='image' → content chứa URL công khai của ảnh trên Supabase Storage (bucket "brand-guides",
+--                xem migration 20260923080026_brand_guide_storage_bucket.sql) — đã thay cho Google
+--                Drive file id như bản Apps Script cũ.
 -- ============================================================
 CREATE TABLE brand_guides (
   id         TEXT PRIMARY KEY,
