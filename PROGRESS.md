@@ -470,6 +470,33 @@
     thay vì hiện tên cũ đã lưu snapshot lúc trước. Test thêm luồng UI thật: dropdown hiện đúng 2
     dòng "Thành Trung" tách biệt theo id; Lưu/Sửa/Xoá persona qua giao diện đều hoạt động đúng.
     Dữ liệu test đã xoá sạch khỏi Supabase.
+- **Tự động thử lại khi OpenAI lỗi tạm thời — XONG (2026-09-23).** Trước đây `callOpenAIRaw()`
+  (`functions/_lib/openai.js`) chỉ gọi OpenAI đúng 1 lần — hễ quá tải (HTTP 429), lỗi server tạm
+  thời (500/502/503/504), hay mạng chập chờn giữa Cloudflare và OpenAI là báo lỗi thẳng cho người
+  dùng ngay, dù chỉ là 1 lượt nghẽn thoáng qua đáng lẽ thử lại là qua.
+  - Thêm vòng lặp thử lại: tối đa 3 lượt gọi (1 lần đầu + 2 lần thử lại), chờ 500ms rồi 1000ms
+    giữa các lượt. Mỗi lượt gọi giới hạn tối đa 10s bằng `AbortController` — quá 10s coi như treo,
+    huỷ và thử lại thay vì chờ vô hạn (trước đây 1 request treo là treo luôn, không có gì cứu).
+  - **Chỉ thử lại với lỗi TẠM THỜI**: HTTP 429/500/502/503/504, lỗi mạng (fetch ném exception),
+    hoặc timeout (AbortError). **KHÔNG thử lại** với lỗi do chính request sai (400/401/403 — sai
+    key, sai định dạng...) hoặc khi AI "từ chối trả lời" (refusal của Structured Outputs) — các lỗi
+    này thử lại cũng ra kết quả giống hệt, chỉ tổ làm người dùng chờ lâu vô ích.
+  - Ngân sách thời gian tính toán kỹ để không vượt quá thời gian chờ mà FRONTEND tự huỷ request:
+    tối đa 3×10s + 1.5s chờ giữa các lượt ≈ 31.5s, vẫn nằm trong 40s mà `ctv.html`/`boss.html` tự
+    huỷ cho `ai_suggest_review`/`ai_check_brand_image` (2 action có ngân sách chờ ngắn nhất trong
+    4 action AI) — tránh tình huống backend còn đang thử lại mà frontend đã bỏ cuộc từ trước.
+  - Áp dụng chung cho cả 3 hàm gọi AI (`callOpenAI`/`callOpenAIVision`/`callOpenAIChat`) vì đều đi
+    qua `callOpenAIRaw()` — không cần sửa gì ở 4 handler AI (`ai_check_content`,
+    `ai_suggest_review`, `ai_check_brand_image`, `ai_chat`), thay đổi nằm gọn ở 1 lớp dùng chung.
+  - **Cách test**: không thể ép OpenAI thật trả lỗi 429/500 theo ý muốn, nên viết script Node
+    riêng giả lập `global.fetch` để kiểm tra CHÍNH XÁC logic thử lại — chạy 7 tình huống: (1)
+    thành công ngay lần đầu → đúng 1 lượt gọi, không thừa; (2) lỗi 429 hai lần rồi thành công →
+    đúng 3 lượt gọi, có thử lại; (3) lỗi 500 liên tục cả 3 lần → báo lỗi rõ ràng sau khi hết lượt
+    thử; (4) lỗi 400 → KHÔNG thử lại, báo lỗi ngay (callCount=1); (5) lỗi mạng (fetch throw) rồi
+    thành công → có thử lại; (6) AbortError (mô phỏng timeout) rồi thành công → có thử lại; (7)
+    refusal → KHÔNG thử lại. Cả 7/7 đều đúng. Sau đó gọi thật qua local wrangler dev (OpenAI thật,
+    không mock) để xác nhận luồng thành công bình thường không bị chậm thêm (không có lượt thử lại
+    thừa khi request thành công ngay từ đầu).
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**
