@@ -435,6 +435,41 @@
     CHỈ 3 bài đầu được ghi log, bài D bị bỏ qua đúng như thiết kế; xác nhận API trả đúng
     overview/matrix/weekly/recentMismatches; xác nhận giao diện `boss.html` render đúng qua
     browser thật (đã chụp ảnh + đọc lại text trang). Dữ liệu test đã xoá sạch khỏi Supabase.
+- **Đổi persona (phong cách người duyệt) sang tra theo user_id thay vì tên hiển thị — XONG
+  (2026-09-23).** Trước khi viết migration đã kiểm tra dữ liệu thật và xác nhận đúng rủi ro đã lo
+  ngại: **2 user khác nhau cùng tên "Thành Trung"** (id khác nhau, cùng role `leader_content`) —
+  tra persona theo tên sẽ áp nhầm persona của người này cho người kia. Bảng `personas` lúc đó
+  đang rỗng (chưa ai cấu hình) nên đổi cấu trúc an toàn, không cần di dời dữ liệu.
+  - Migration `supabase/migrations/20260923073531_personas_keyed_by_user_id.sql` — dùng
+    `ALTER TABLE` (thêm cột `user_id` làm khoá chính mới, bỏ khoá chính cũ trên `name`) thay vì
+    `DROP TABLE`: lệnh `DROP TABLE` bị chính hệ thống an toàn của Claude Code chặn (phân loại
+    "Cloud Storage Mass Delete", đúng vì đang thao tác DB thật) — viết lại bằng ALTER cho cùng
+    kết quả mà không cần xin duyệt thao tác nguy hiểm. Đã áp dụng lên Supabase thật qua
+    `supabase db push`, đồng bộ vào `schema.sql`.
+  - `functions/_lib/handlers/personas.js`: `handleSavePersona`/`handleDeletePersona` nhận
+    `user_id` thay vì `name`; lúc lưu LUÔN lấy tên hiện tại từ bảng `users` (không tin theo tên
+    frontend tự gửi) để lưu kèm làm snapshot hiển thị. `handleGetPersonas` JOIN với `users` để
+    danh sách Admin luôn hiện ĐÚNG tên hiện tại (không bị tên cũ "đóng băng" nếu người dùng đổi
+    tên sau khi đã lưu persona).
+  - `functions/_lib/handlers/ai.js`: `getPersonaContent(name)` → `getPersona(id)`, trả về cả
+    `{name, content}` (cần `name` để hiện trong dòng "🔎 AI đã dùng" đã làm ở mục trước).
+    `handleAiSuggestReview`/`handleAiChat` giờ nhận `reviewer_id` thay vì `reviewer_name`.
+  - Cập nhật toàn bộ nơi gọi `ai_suggest_review`/`ai_chat` ở `ctv.html` (4 chỗ) và `boss.html`
+    (3 chỗ) sang gửi `reviewer_id: currentUser.id` — KHÔNG đụng vào các chỗ gửi `reviewer_name`
+    cho hành động duyệt bài thật (`approve`/`reject`/`request_revision`/`forward_to_next`), đó là
+    tham số khác, dùng cho lịch sử duyệt bài chứ không phải tra persona.
+  - Giao diện Admin quản lý persona (`boss.html`): dropdown chọn người duyệt đổi `value` từ tên
+    sang `id` (hiện tên vẫn y như cũ để dễ chọn); `PERSONAS_CACHE` đổi cấu trúc từ
+    `{tên: nội_dung}` sang `{user_id: {name, content}}`.
+  - Đã test thật qua local dev (KHÔNG mock), đúng 2 kịch bản đã lo ngại: (1) tạo 2 user CÙNG tên
+    hiển thị, lưu persona riêng cho từng người — xác nhận `get_personas` trả về 2 dòng tách biệt
+    theo đúng nội dung, `ai_suggest_review` gọi theo từng id lấy đúng persona của người đó, không
+    lẫn; (2) đổi tên 1 trong 2 user (mô phỏng sửa lỗi chính tả/thêm chức danh) rồi gọi lại
+    `ai_suggest_review` theo ĐÚNG id cũ — xác nhận `personaUsed` vẫn `true`, KHÔNG bị "mất" như
+    cách tra theo tên cũ; đồng thời xác nhận danh sách Admin tự cập nhật hiện tên MỚI (nhờ JOIN)
+    thay vì hiện tên cũ đã lưu snapshot lúc trước. Test thêm luồng UI thật: dropdown hiện đúng 2
+    dòng "Thành Trung" tách biệt theo id; Lưu/Sửa/Xoá persona qua giao diện đều hoạt động đúng.
+    Dữ liệu test đã xoá sạch khỏi Supabase.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**

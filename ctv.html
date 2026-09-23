@@ -1498,7 +1498,7 @@ async function sendAiChat() {
       { role: 'assistant', content: 'Hiểu rồi, tôi sẽ hỗ trợ bạn theo đúng tiêu chuẩn FPT Schools.' }
     ].concat(window._aiChatHistory);
 
-    const res = await callBackend({ action: 'ai_chat', messages: messages, reviewer_name: currentUser.name });
+    const res = await callBackend({ action: 'ai_chat', messages: messages, reviewer_id: currentUser.id });
 
     document.getElementById('ai-loading') && document.getElementById('ai-loading').remove();
 
@@ -2765,7 +2765,7 @@ async function sendRVICChat() {
     // 1 lượt assistant mở đầu kiểu "tôi sẵn sàng hỗ trợ" — không phải task
     // "viết nhận xét", nên không cần switchMsg để ngắt task cũ nữa.
     const messages = [...(window._rvIcContext||[]), ...window._rvIcChatHistory];
-    const res = await callAPI({action:'ai_chat', messages, reviewer_name: currentUser.name});
+    const res = await callAPI({action:'ai_chat', messages, reviewer_id: currentUser.id});
     document.getElementById('rv-ic-loading')&&document.getElementById('rv-ic-loading').remove();
     const reply = (res.ok&&res.reply)?res.reply:'Lỗi: '+(res.error||'thử lại');
     window._rvIcChatLatest = reply;
@@ -2900,7 +2900,7 @@ async function getRVAISuggest(id) {
   const histEl = document.getElementById('rv-ai-chat-hist-'+id);
   if (histEl) histEl.innerHTML = '<div style="font-size:11px;color:var(--text3);font-style:italic">AI đang phân tích...</div>';
   try {
-    const res = await callAPI({ action:'ai_suggest_review', title:s.title, content:stripImagePlaceholdersForAI(s.content), content_type:s.content_type, reviewer_name: currentUser.name });
+    const res = await callAPI({ action:'ai_suggest_review', title:s.title, content:stripImagePlaceholdersForAI(s.content), content_type:s.content_type, reviewer_id: currentUser.id });
     const sug = (res.ok&&res.suggestion)?res.suggestion:(res.error||'Không có gợi ý');
     window._rvAiLatest[id] = sug;
     window._rvAiHistory[id] = [
@@ -2945,7 +2945,7 @@ async function sendRVAiChat(id) {
   try {
     const sysMsg = {role:'user', content:'Bạn hỗ trợ người duyệt bài FPT Schools. Gợi ý nhận xét ngắn gọn, thực tế. KHÔNG dùng markdown.'};
     const messages = [sysMsg, {role:'assistant', content:'Hiểu rồi.'}].concat(history);
-    const res = await callAPI({action:'ai_chat', messages, reviewer_name: currentUser.name});
+    const res = await callAPI({action:'ai_chat', messages, reviewer_id: currentUser.id});
     document.getElementById('rv-ai-loading-'+id)&&document.getElementById('rv-ai-loading-'+id).remove();
     const reply = (res.ok&&res.reply)?res.reply:'Lỗi: '+(res.error||'thử lại');
     window._rvAiLatest[id] = reply;

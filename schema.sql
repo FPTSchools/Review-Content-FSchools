@@ -209,10 +209,14 @@ CREATE INDEX rules_type_idx ON rules (type);
 
 -- ============================================================
 -- PERSONAS (phong cách duyệt bài riêng theo từng người duyệt — dùng cho AI gợi ý)
--- Nguồn: sheet "Personas" — khoá theo "name" (tên người duyệt)
+-- Nguồn: sheet "Personas" — ban đầu khoá theo "name" (tên người duyệt), đã đổi sang khoá theo
+-- user_id ở migration 20260923073531_personas_keyed_by_user_id.sql — tra theo tên hiển thị có
+-- rủi ro mất/nhầm dữ liệu khi đổi tên hoặc trùng tên hiển thị (đã gặp thật: 2 user tên
+-- "Thành Trung" khác id). "name" giữ lại chỉ để hiện danh sách cho gọn, KHÔNG dùng để tra cứu.
 -- ============================================================
 CREATE TABLE personas (
-  name       TEXT PRIMARY KEY,
+  user_id    TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  name       TEXT NOT NULL,
   content    TEXT NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

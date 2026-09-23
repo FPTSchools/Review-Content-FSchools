@@ -70,12 +70,15 @@ async function getImageBrandGuides(supabase) {
   return (data || []).map(r => ({ name: r.name, file_id: r.content }));
 }
 
-async function getPersonaContent(supabase, reviewerName) {
-  if (!reviewerName) return '';
+// Tra theo user_id (KHÔNG phải tên hiển thị) — xem migration
+// 20260923073531_personas_keyed_by_user_id.sql: tên hiển thị có thể trùng giữa 2 người dùng khác
+// nhau hoặc bị đổi, khiến tra theo tên mất/nhầm persona một cách âm thầm.
+async function getPersona(supabase, reviewerId) {
+  if (!reviewerId) return null;
   try {
-    const { data } = await supabase.from('personas').select('content').eq('name', reviewerName).maybeSingle();
-    return data ? data.content : '';
-  } catch (e) { return ''; }
+    const { data } = await supabase.from('personas').select('name, content').eq('user_id', reviewerId).maybeSingle();
+    return data || null;
+  } catch (e) { return null; }
 }
 
 // Ảnh cần chấm có thể là URL trực tiếp (Supabase Storage sau này) hoặc file id Google Drive
@@ -175,20 +178,19 @@ export async function handleAiCheckContent(supabase, env, p) {
 export async function handleAiSuggestReview(supabase, env, p) {
   const aiContext = await buildAiRulesContext(supabase);
 
-  // Phong cách người duyệt: LUÔN tra ở server theo reviewer_name (giống hệt handleAiChat) —
-  // KHÔNG dùng p.persona do frontend tự gửi lên nữa. Lý do: cache PERSONAS_CACHE ở phía
-  // trình duyệt (boss.html) chỉ được nạp khi vào trang "Cài đặt", mà trang đó ẨN với role
-  // leader/manager → 2 role này trước đây gửi persona rỗng dù đã lưu style trong hệ thống,
-  // AI vẫn chạy bình thường nên không ai nhận ra. Tra ở server loại bỏ hẳn lớp lỗi này.
-  const reviewerName = p.reviewer_name || '';
-  const personaText = reviewerName ? await getPersonaContent(supabase, reviewerName) : '';
+  // Phong cách người duyệt: LUÔN tra ở server theo reviewer_id (giống hệt handleAiChat), KHÔNG
+  // theo tên hiển thị — xem ghi chú ở getPersona() và migration
+  // 20260923073531_personas_keyed_by_user_id.sql. Trước đây từng có bug tương tự khi tra theo
+  // tên (đã sửa ở lần trước) — đổi sang id để loại bỏ tận gốc rủi ro trùng/đổi tên.
+  const persona = p.reviewer_id ? await getPersona(supabase, p.reviewer_id) : null;
+  const personaText = persona ? persona.content : '';
 
   let sysPrompt = 'Bạn hỗ trợ người duyệt bài content FPT Schools. Đọc bài, viết nhận xét ngắn 3-4 câu: điểm tốt, điểm cần sửa cụ thể, hướng chỉnh. Tiếng Việt, KHÔNG dùng markdown, KHÔNG dùng **, KHÔNG dùng #, chỉ text thuần.';
   sysPrompt += '\n\n' + aiContext.promptText + '\nƯu tiên phát hiện và nêu rõ các điểm vi phạm quy tắc Admin trong nhận xét. Không tự bỏ qua từ cấm hoặc yếu tố bắt buộc.';
   if (personaText) sysPrompt += `\n\nPhong cách và tiêu chí của người duyệt:\n${personaText}`;
 
   const prompt = `${sysPrompt}\n\nBài: ${p.title || ''}\nLoại: ${p.content_type || ''}\n\n${p.content || ''}`;
-  const meta = { ...aiContext.summary, personaUsed: !!personaText, personaName: personaText ? reviewerName : null };
+  const meta = { ...aiContext.summary, personaUsed: !!personaText, personaName: persona ? persona.name : null };
   try {
     const suggestion = await callOpenAI(env, prompt);
     return { ok: true, suggestion, meta };
@@ -244,7 +246,8 @@ export async function handleAiChat(supabase, env, p) {
   if (!messages.length) return { ok: false, error: 'No messages' };
 
   const aiContext = await buildAiRulesContext(supabase);
-  const personaText = await getPersonaContent(supabase, p.reviewer_name);
+  const persona = p.reviewer_id ? await getPersona(supabase, p.reviewer_id) : null;
+  const personaText = persona ? persona.content : '';
 
   messages[0].content = messages[0].content +
     '\nLưu ý quan trọng: KHÔNG dùng markdown, KHÔNG dùng **, KHÔNG dùng #, chỉ text thuần tiếng Việt.' +
@@ -255,7 +258,7 @@ export async function handleAiChat(supabase, env, p) {
       '\n\n=== PHONG CÁCH & TIÊU CHÍ NGƯỜI DUYỆT ===' + personaText;
   }
 
-  const meta = { ...aiContext.summary, personaUsed: !!personaText, personaName: personaText ? p.reviewer_name : null };
+  const meta = { ...aiContext.summary, personaUsed: !!personaText, personaName: persona ? persona.name : null };
   try {
     const reply = await callOpenAIChat(env, messages);
     return { ok: true, reply, meta };

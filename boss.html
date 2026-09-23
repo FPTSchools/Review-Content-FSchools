@@ -938,7 +938,7 @@ async function getAISuggest(id) {
       title:        s.title,
       content:      stripImagePlaceholdersForAI(s.content),
       content_type: s.content_type,
-      reviewer_name: currentUser.name
+      reviewer_id: currentUser.id
     });
     const sug = (res.ok && res.suggestion) ? res.suggestion : (res.error || 'Không có gợi ý');
     // Lưu vào history và mở chat box
@@ -991,7 +991,7 @@ async function sendBossAiChat(id) {
   try {
     const systemMsg = { role: 'user', content: 'Bạn hỗ trợ người duyệt bài FPT Schools. Gợi ý nhận xét ngắn gọn, thực tế. KHÔNG dùng markdown, KHÔNG dùng **.' };
     const messages = [systemMsg, { role: 'assistant', content: 'Hiểu rồi.' }].concat(history);
-    const res = await callBackend({ action: 'ai_chat', messages: messages, reviewer_name: currentUser.name });
+    const res = await callBackend({ action: 'ai_chat', messages: messages, reviewer_id: currentUser.id });
     document.getElementById('boss-ai-loading-'+id) && document.getElementById('boss-ai-loading-'+id).remove();
     const reply = (res.ok && res.reply) ? res.reply : ('Lỗi: ' + (res.error||'thử lại'));
     window._bossAiLatest[id] = reply;
@@ -1562,7 +1562,7 @@ async function generateAIReport(ctvList, overview) {
   var summary = lines.join('. ');
   var prompt = 'Ban la chuyen gia danh gia nhan su marketing FPT Schools. Du lieu hieu suat content trong ky: ' + summary + '. Tong quan: ' + overview.total + ' bai, ty le duyet TB ' + overview.avg_approval_rate + '%. Hay viet nhan xet danh gia TUNG NGUOI mot cach TRUNG THUC, khong ninh, khen che ro rang co can cu tu so lieu. Chi ra diem manh, diem yeu cu the va de xuat cai thien. Cuoi cung nhan xet tong the ve chat luong doi nhom. Viet bang tieng Viet, ngan gon suc tich.';
   try {
-    var res = await callBackend({ action: 'ai_chat', messages: [{ role: 'user', content: prompt }], reviewer_name: currentUser.name });
+    var res = await callBackend({ action: 'ai_chat', messages: [{ role: 'user', content: prompt }], reviewer_id: currentUser.id });
     if (res.ok && res.reply) res.suggestion = res.reply;
     var text = (res.ok && res.suggestion) ? res.suggestion : (res.error || 'Không lấy được nhận xét.');
     el.innerHTML = '<div style="line-height:1.8;white-space:pre-wrap;font-size:13px;color:var(--text)">' + text + '</div>';
@@ -1887,7 +1887,7 @@ async function loadPersonasFromServer() {
     const res = await callAPI({ action: 'get_personas' });
     if (res.ok) {
       PERSONAS_CACHE = {};
-      (res.personas || []).forEach(p => { PERSONAS_CACHE[p.name] = p.content; });
+      (res.personas || []).forEach(p => { PERSONAS_CACHE[p.user_id] = { name: p.name, content: p.content }; });
     }
   } catch(e) {}
   renderPersonaList();
@@ -1947,52 +1947,56 @@ function handlePersonaFileSelect(input) {
 function renderPersonaList() {
   const container = document.getElementById('persona-list');
   if (!container) return;
-  const keys = Object.keys(PERSONAS_CACHE);
-  if (!keys.length) { container.innerHTML = '<div style="font-size:12px;color:var(--text3)">Chưa có file nào. Tải mẫu, điền, rồi chọn file hoặc dán nội dung vào ô bên dưới.</div>'; return; }
-  container.innerHTML = keys.map(name => `
+  const ids = Object.keys(PERSONAS_CACHE);
+  if (!ids.length) { container.innerHTML = '<div style="font-size:12px;color:var(--text3)">Chưa có file nào. Tải mẫu, điền, rồi chọn file hoặc dán nội dung vào ô bên dưới.</div>'; return; }
+  container.innerHTML = ids.map(id => `
     <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:var(--radius);margin-bottom:6px;font-size:12px">
       <span>📄</span>
-      <span style="flex:1;font-weight:500">${name}</span>
-      <span style="color:var(--text3)">${(PERSONAS_CACHE[name]||'').length} ký tự</span>
-      <button onclick="editPersona('${name}')" style="font-size:11px;padding:2px 8px;border-radius:12px;background:none;border:1px solid var(--border2);cursor:pointer;font-family:var(--font);color:var(--text2)">Sửa</button>
-      <button onclick="deletePersona('${name}')" style="font-size:11px;padding:2px 8px;border-radius:12px;background:none;border:1px solid var(--red);cursor:pointer;font-family:var(--font);color:var(--red)">Xoá</button>
+      <span style="flex:1;font-weight:500">${escHtml(PERSONAS_CACHE[id].name)}</span>
+      <span style="color:var(--text3)">${(PERSONAS_CACHE[id].content||'').length} ký tự</span>
+      <button onclick="editPersona('${id}')" style="font-size:11px;padding:2px 8px;border-radius:12px;background:none;border:1px solid var(--border2);cursor:pointer;font-family:var(--font);color:var(--text2)">Sửa</button>
+      <button onclick="deletePersona('${id}')" style="font-size:11px;padding:2px 8px;border-radius:12px;background:none;border:1px solid var(--red);cursor:pointer;font-family:var(--font);color:var(--red)">Xoá</button>
     </div>`).join('');
 }
 
+// Value của option là user_id (KHÔNG phải tên hiển thị) — persona tra theo id để không mất/nhầm
+// dữ liệu khi đổi tên hoặc khi 2 người dùng trùng tên hiển thị (xem ghi chú ở personas.js).
 function fillPersonaDropdown() {
   const sel = document.getElementById('persona-user');
   if (!sel) return;
   const reviewers = allUsers.filter(u => ['leader_content','leader','manager'].includes(u.role));
   sel.innerHTML = '<option value="">-- Chọn người duyệt --</option>' +
-    reviewers.map(u => `<option value="${u.name}">${u.name} (${u.role})</option>`).join('');
+    reviewers.map(u => `<option value="${u.id}">${escHtml(u.name)} (${u.role})</option>`).join('');
 }
 
 async function savePersona() {
-  const name = document.getElementById('persona-user').value;
+  const userId = document.getElementById('persona-user').value;
   const content = document.getElementById('persona-content').value.trim();
-  if (!name || !content) { showToast('⚠️ Chọn người duyệt và nhập nội dung'); return; }
+  if (!userId || !content) { showToast('⚠️ Chọn người duyệt và nhập nội dung'); return; }
   try {
-    const res = await callAPI({ action: 'save_persona', name, content });
+    const res = await callAPI({ action: 'save_persona', user_id: userId, content });
     if (!res.ok) { showToast('❌ ' + (res.error || 'Lưu thất bại')); return; }
-    PERSONAS_CACHE[name] = content;
+    const user = allUsers.find(u => u.id === userId);
+    PERSONAS_CACHE[userId] = { name: user ? user.name : userId, content };
     document.getElementById('persona-content').value = '';
     renderPersonaList();
-    showToast('✅ Đã lưu phong cách cho ' + name);
+    showToast('✅ Đã lưu phong cách cho ' + (user ? user.name : userId));
   } catch(e) { showToast('❌ Lỗi kết nối, thử lại'); }
 }
 
-function editPersona(name) {
-  document.getElementById('persona-user').value = name;
-  document.getElementById('persona-content').value = PERSONAS_CACHE[name] || '';
+function editPersona(userId) {
+  document.getElementById('persona-user').value = userId;
+  document.getElementById('persona-content').value = (PERSONAS_CACHE[userId] && PERSONAS_CACHE[userId].content) || '';
   document.getElementById('persona-content').scrollIntoView({behavior:'smooth'});
 }
 
-async function deletePersona(name) {
+async function deletePersona(userId) {
+  const name = (PERSONAS_CACHE[userId] && PERSONAS_CACHE[userId].name) || userId;
   if (!confirm('Xoá file phong cách của ' + name + '?')) return;
   try {
-    const res = await callAPI({ action: 'delete_persona', name });
+    const res = await callAPI({ action: 'delete_persona', user_id: userId });
     if (!res.ok) { showToast('❌ ' + (res.error || 'Xoá thất bại')); return; }
-    delete PERSONAS_CACHE[name];
+    delete PERSONAS_CACHE[userId];
     renderPersonaList();
   } catch(e) { showToast('❌ Lỗi kết nối, thử lại'); }
 }
@@ -2461,7 +2465,7 @@ async function sendICChat() {
     // 1 lượt assistant mở đầu kiểu "tôi sẵn sàng hỗ trợ" — không phải task
     // "viết nhận xét", nên không cần switchMsg để ngắt task cũ nữa.
     const messages = [...(window._icContext||[]), ...window._icChatHistory];
-    const res = await callBackend({ action:'ai_chat', messages, reviewer_name: currentUser.name });
+    const res = await callBackend({ action:'ai_chat', messages, reviewer_id: currentUser.id });
     document.getElementById('ic-chat-loading') && document.getElementById('ic-chat-loading').remove();
     const reply = (res.ok&&res.reply) ? res.reply : 'Lỗi: ' + (res.error||'thử lại');
     window._icChatLatest = reply;
