@@ -822,6 +822,7 @@ function renderQueue() {
           <div class="ai-assist-title">🤖 AI gợi ý nhận xét cho bạn</div>
 
           <div id="ai-chat-box-${s.id}" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+            <div id="ai-meta-${s.id}"></div>
             <div id="ai-chat-hist-${s.id}" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
             <div style="display:flex;gap:6px;align-items:flex-end">
               <textarea id="ai-chat-input-${s.id}" spellcheck="false" placeholder="Hỏi thêm AI hoặc nhờ gợi ý cách nhận xét..." style="flex:1;min-height:48px;max-height:120px;resize:vertical;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);outline:none" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendBossAiChat('${s.id}');}"></textarea>
@@ -893,6 +894,27 @@ function confirmReject(id) {
 window._bossAiHistory = {};
 window._bossAiLatest = {};
 
+// Hiện gọn 1 dòng "AI đã dùng gì" (số từ cấm, yếu tố bắt buộc, giọng thương hiệu, quy tắc
+// logo, brand guide, phong cách người duyệt) ngay dưới kết quả AI — để người dùng tự phát
+// hiện ngay nếu thiếu rule/persona, thay vì tin AI đã đọc đủ mà không có cách nào kiểm chứng.
+function renderAiMetaLine(elId, meta) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!meta) { el.innerHTML = ''; return; }
+  const parts = [
+    meta.bannedCount + ' từ cấm',
+    meta.requiredCount + ' yêu cầu bắt buộc',
+    'giọng thương hiệu: ' + (meta.hasBrandVoice ? 'có' : 'chưa cài'),
+    'quy tắc logo: ' + (meta.hasLogoRules ? 'có' : 'chưa cài')
+  ];
+  if (meta.hasBrandGuideText) parts.push('có brand guide văn bản');
+  if (meta.imageGuideCount) parts.push(meta.imageGuideCount + ' ảnh mẫu brand guide');
+  if ('personaUsed' in meta) {
+    parts.push(meta.personaUsed ? 'phong cách của ' + escHtml(meta.personaName) : 'không có phong cách cá nhân');
+  }
+  el.innerHTML = '<div style="font-size:10px;color:var(--text3);margin-bottom:6px">🔎 AI đã dùng: ' + parts.join(' · ') + '</div>';
+}
+
 async function getAISuggest(id) {
   const s = allSubs.find(x=>x.id===id);
   if (!s) return;
@@ -907,13 +929,12 @@ async function getAISuggest(id) {
   if (histEl) histEl.innerHTML = '';
 
   try {
-    const persona = window.getPersonaForReviewer ? window.getPersonaForReviewer(currentUser.name) : '';
     const res = await callBackend({
       action: 'ai_suggest_review',
       title:        s.title,
       content:      stripImagePlaceholdersForAI(s.content),
       content_type: s.content_type,
-      persona:      persona
+      reviewer_name: currentUser.name
     });
     const sug = (res.ok && res.suggestion) ? res.suggestion : (res.error || 'Không có gợi ý');
     // Lưu vào history và mở chat box
@@ -925,6 +946,7 @@ async function getAISuggest(id) {
     const chatBox = document.getElementById('ai-chat-box-'+id);
     if (chatBox) chatBox.style.display = 'block';
     renderBossAiHistory(id);
+    renderAiMetaLine('ai-meta-'+id, res.meta);
   } catch(e) { console.error('AI suggest error', e); }
 }
 
@@ -1901,11 +1923,6 @@ async function deletePersona(name) {
     renderPersonaList();
   } catch(e) { showToast('❌ Lỗi kết nối, thử lại'); }
 }
-
-// Expose getPersonaForReviewer để AI dùng — đọc từ cache đã đồng bộ với backend
-window.getPersonaForReviewer = function(name) {
-  return PERSONAS_CACHE[name] || '';
-};
 
 function renderRulesPage() {
   document.getElementById('brand-voice').value = RULES.brand_voice||'';

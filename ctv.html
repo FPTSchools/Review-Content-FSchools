@@ -458,6 +458,7 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
         <div class="ai-panel-body" id="ai-result">
           <div class="ai-empty">Nhấn "Kiểm tra ngay" để AI đánh giá bài theo đúng rule — sau đó có thể trao đổi tiếp hoặc nhờ AI sửa bài</div>
         </div>
+        <div id="ai-result-meta" style="padding:0 14px"></div>
         <!-- Chat area, ẩn trước khi check -->
         <div class="ai-chat-area" id="ai-chat-area" style="display:none">
           <div class="ai-chat-history" id="ai-chat-history"></div>
@@ -745,7 +746,6 @@ function init() {
     document.getElementById('nav-review').style.display = 'flex';
     document.getElementById('shared-toggle-wrap').style.display = 'block';
     loadReviewQueue().then(() => { if (openId) handleOpenDeepLink(openId); });
-    loadPersonasFromServer();
   }
 
   // Khởi tạo autosave sau khi currentUser đã có giá trị.
@@ -1033,6 +1033,7 @@ async function runAI() {
     });
     if (res.ok) {
       renderAI(res.result, res.raw || '');
+      renderAiMetaLine('ai-result-meta', res.meta);
       window._aiResult = res.result;
       openAiChat();
     } else {
@@ -2585,6 +2586,7 @@ function renderReviewQueue() {
         <div class="ai-assist" id="rv-ai-assist-${s.id}">
           <div class="ai-assist-title">🤖 AI gợi ý nhận xét cho bạn</div>
           <div id="rv-ai-chat-box-${s.id}" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+            <div id="rv-ai-meta-${s.id}"></div>
             <div id="rv-ai-chat-hist-${s.id}" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
             <div style="display:flex;gap:6px;align-items:flex-end">
               <textarea id="rv-ai-chat-input-${s.id}" spellcheck="false" placeholder="Hỏi thêm AI..." style="flex:1;min-height:48px;max-height:120px;resize:vertical;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);outline:none" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendRVAiChat('${s.id}');}"></textarea>
@@ -2867,6 +2869,27 @@ document.addEventListener('mousedown', function(e) {
 window._rvAiHistory = {};
 window._rvAiLatest  = {};
 
+// Hiện gọn 1 dòng "AI đã dùng gì" (số từ cấm, yếu tố bắt buộc, giọng thương hiệu, quy tắc
+// logo, brand guide, phong cách người duyệt) ngay dưới kết quả AI — để người dùng tự phát
+// hiện ngay nếu thiếu rule/persona, thay vì tin AI đã đọc đủ mà không có cách nào kiểm chứng.
+function renderAiMetaLine(elId, meta) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!meta) { el.innerHTML = ''; return; }
+  const parts = [
+    meta.bannedCount + ' từ cấm',
+    meta.requiredCount + ' yêu cầu bắt buộc',
+    'giọng thương hiệu: ' + (meta.hasBrandVoice ? 'có' : 'chưa cài'),
+    'quy tắc logo: ' + (meta.hasLogoRules ? 'có' : 'chưa cài')
+  ];
+  if (meta.hasBrandGuideText) parts.push('có brand guide văn bản');
+  if (meta.imageGuideCount) parts.push(meta.imageGuideCount + ' ảnh mẫu brand guide');
+  if ('personaUsed' in meta) {
+    parts.push(meta.personaUsed ? 'phong cách của ' + escHtml(meta.personaName) : 'không có phong cách cá nhân');
+  }
+  el.innerHTML = '<div style="font-size:10px;color:var(--text3);margin-bottom:6px">🔎 AI đã dùng: ' + parts.join(' · ') + '</div>';
+}
+
 async function getRVAISuggest(id) {
   const s = reviewQueue.find(x=>x.id===id);
   if (!s) return;
@@ -2877,7 +2900,7 @@ async function getRVAISuggest(id) {
   const histEl = document.getElementById('rv-ai-chat-hist-'+id);
   if (histEl) histEl.innerHTML = '<div style="font-size:11px;color:var(--text3);font-style:italic">AI đang phân tích...</div>';
   try {
-    const res = await callAPI({ action:'ai_suggest_review', title:s.title, content:stripImagePlaceholdersForAI(s.content), content_type:s.content_type, persona: getPersonaForReviewer(currentUser.name) });
+    const res = await callAPI({ action:'ai_suggest_review', title:s.title, content:stripImagePlaceholdersForAI(s.content), content_type:s.content_type, reviewer_name: currentUser.name });
     const sug = (res.ok&&res.suggestion)?res.suggestion:(res.error||'Không có gợi ý');
     window._rvAiLatest[id] = sug;
     window._rvAiHistory[id] = [
@@ -2886,6 +2909,7 @@ async function getRVAISuggest(id) {
     ];
     if (chatBox) chatBox.style.display = 'block';
     renderRVAiHistory(id);
+    renderAiMetaLine('rv-ai-meta-'+id, res.meta);
   } catch(e) { if (histEl) histEl.innerHTML = '<div style="color:var(--red);font-size:12px">Lỗi kết nối</div>'; }
 }
 
@@ -3078,18 +3102,6 @@ function buildEvidenceLinksDisplay(evidenceLinksStr) {
     ${items}
   </div>`;
 }
-
-let PERSONAS_CACHE = {};
-async function loadPersonasFromServer() {
-  try {
-    const res = await callAPI({ action: 'get_personas' });
-    if (res.ok) {
-      PERSONAS_CACHE = {};
-      (res.personas || []).forEach(p => { PERSONAS_CACHE[p.name] = p.content; });
-    }
-  } catch(e) {}
-}
-function getPersonaForReviewer(name) { return PERSONAS_CACHE[name] || ''; }
 
 function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');

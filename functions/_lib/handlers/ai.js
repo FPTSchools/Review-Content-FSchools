@@ -57,7 +57,18 @@ async function buildAiRulesContext(supabase) {
       : '\nBrand guide hình ảnh chính thức: (chưa có)'
   ];
 
-  return { rules, bannedList, required, brandGuideText, imageGuides, promptText: sections.join('\n') };
+  // "summary" (khác "promptText" gửi cho AI) — dữ liệu gọn để FRONTEND hiển thị lại cho người
+  // dùng thấy AI vừa dùng những gì, tự phát hiện nếu thiếu rule/persona thay vì tin mù.
+  const summary = {
+    bannedCount: bannedList.length,
+    requiredCount: required.length,
+    hasBrandVoice: !!(rules.brand_voice && String(rules.brand_voice).trim()),
+    hasLogoRules: !!(rules.logo_rules && String(rules.logo_rules).trim()),
+    hasBrandGuideText: !!brandGuideText,
+    imageGuideCount: imageGuides.length
+  };
+
+  return { rules, bannedList, required, brandGuideText, imageGuides, promptText: sections.join('\n'), summary };
 }
 
 export async function handleAiCheckContent(supabase, env, p) {
@@ -103,21 +114,31 @@ export async function handleAiCheckContent(supabase, env, p) {
     }
   } catch (e) {}
 
-  return { ok: true, result: r, raw };
+  return { ok: true, result: r, raw, meta: aiContext.summary };
 }
 
 export async function handleAiSuggestReview(supabase, env, p) {
   const aiContext = await buildAiRulesContext(supabase);
+
+  // Phong cách người duyệt: LUÔN tra ở server theo reviewer_name (giống hệt handleAiChat) —
+  // KHÔNG dùng p.persona do frontend tự gửi lên nữa. Lý do: cache PERSONAS_CACHE ở phía
+  // trình duyệt (boss.html) chỉ được nạp khi vào trang "Cài đặt", mà trang đó ẨN với role
+  // leader/manager → 2 role này trước đây gửi persona rỗng dù đã lưu style trong hệ thống,
+  // AI vẫn chạy bình thường nên không ai nhận ra. Tra ở server loại bỏ hẳn lớp lỗi này.
+  const reviewerName = p.reviewer_name || '';
+  const personaText = reviewerName ? await getPersonaContent(supabase, reviewerName) : '';
+
   let sysPrompt = 'Bạn hỗ trợ người duyệt bài content FPT Schools. Đọc bài, viết nhận xét ngắn 3-4 câu: điểm tốt, điểm cần sửa cụ thể, hướng chỉnh. Tiếng Việt, KHÔNG dùng markdown, KHÔNG dùng **, KHÔNG dùng #, chỉ text thuần.';
   sysPrompt += '\n\n' + aiContext.promptText + '\nƯu tiên phát hiện và nêu rõ các điểm vi phạm quy tắc Admin trong nhận xét. Không tự bỏ qua từ cấm hoặc yếu tố bắt buộc.';
-  if (p.persona) sysPrompt += `\n\nPhong cách và tiêu chí của người duyệt:\n${p.persona}`;
+  if (personaText) sysPrompt += `\n\nPhong cách và tiêu chí của người duyệt:\n${personaText}`;
 
   const prompt = `${sysPrompt}\n\nBài: ${p.title || ''}\nLoại: ${p.content_type || ''}\n\n${p.content || ''}`;
+  const meta = { ...aiContext.summary, personaUsed: !!personaText, personaName: personaText ? reviewerName : null };
   try {
     const suggestion = await callOpenAI(env, prompt);
-    return { ok: true, suggestion };
+    return { ok: true, suggestion, meta };
   } catch (e) {
-    return { ok: false, error: e.message };
+    return { ok: false, error: e.message, meta };
   }
 }
 
@@ -179,10 +200,11 @@ export async function handleAiChat(supabase, env, p) {
       '\n\n=== PHONG CÁCH & TIÊU CHÍ NGƯỜI DUYỆT ===' + personaText;
   }
 
+  const meta = { ...aiContext.summary, personaUsed: !!personaText, personaName: personaText ? p.reviewer_name : null };
   try {
     const reply = await callOpenAIChat(env, messages);
-    return { ok: true, reply };
+    return { ok: true, reply, meta };
   } catch (e) {
-    return { ok: false, error: e.message };
+    return { ok: false, error: e.message, meta };
   }
 }

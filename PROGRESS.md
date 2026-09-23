@@ -342,6 +342,44 @@
     xoá sạch khỏi Supabase sau khi test xong.
   - Mật khẩu vẫn lưu dạng plaintext trong DB (TODO hash chưa làm, đã ghi ở "Ghi chú/rủi ro cần
     nhớ" từ trước) — việc gửi email này chỉ nối thêm bước thông báo, KHÔNG đổi cách lưu trữ.
+- **Sửa bug "phong cách người duyệt" (persona) không tới được AI + thêm dòng minh bạch "AI đã
+  dùng gì" — XONG (2026-09-23).** Người dùng yêu cầu rà lại xem AI có luôn đọc đủ rule + persona
+  không trước khi bàn tiếp việc cải thiện AI. Rà xong, phát hiện bug thật:
+  - **Rules Admin (từ cấm, yếu tố bắt buộc, giọng thương hiệu, quy tắc logo, brand guide chữ/ảnh)**
+    — KHÔNG có vấn đề gì, `buildAiRulesContext()` luôn truy vấn Supabase mới hoàn toàn mỗi lần
+    gọi, cho cả 4 chức năng AI.
+  - **Persona (phong cách người duyệt) — có bug thật**: nút "✨ Gợi ý nhận xét" (tính năng AI
+    dùng nhiều nhất, khác với AI Chat) trước đây lấy persona theo cách sai — frontend tự tra
+    trong biến cache `PERSONAS_CACHE` rồi gửi lên (`persona: getPersonaForReviewer(...)`), thay
+    vì để backend tự tra theo tên như `handleAiChat` vẫn làm đúng. Cache này ở `boss.html` chỉ
+    được nạp khi vào trang "Cài đặt" (`renderRulesPage()`), mà trang đó **ẩn hoàn toàn với role
+    `leader` và `manager`** (chỉ `admin` thấy `nav-rules`) — nghĩa là 2 role này **không bao giờ**
+    gửi được persona cho AI gợi ý nhận xét trong suốt session, dù đã lưu persona đầy đủ trong hệ
+    thống. AI vẫn chạy bình thường (không báo lỗi) nên không ai nhận ra.
+  - Cách sửa: đổi `handleAiSuggestReview()` (`functions/_lib/handlers/ai.js`) sang tự tra persona
+    ở server theo `reviewer_name` bằng `getPersonaContent()` — y hệt cách `handleAiChat` đã làm
+    đúng từ đầu — thay vì nhận `persona` do frontend tính sẵn. Đổi 2 nơi gọi
+    (`ctv.html:getRVAISuggest`, `boss.html:getAISuggest`) từ gửi `persona:...` sang gửi
+    `reviewer_name: currentUser.name`. Dọn theo: xoá hẳn `getPersonaForReviewer()`/
+    `window.getPersonaForReviewer` cùng `PERSONAS_CACHE`/`loadPersonasFromServer()` ở `ctv.html`
+    (chỉ tồn tại để phục vụ hàm giờ đã chết, `boss.html` vẫn giữ `PERSONAS_CACHE` vì còn dùng
+    cho UI quản lý persona ở trang Admin).
+  - **Thêm minh bạch ("AI đã dùng gì")**: `buildAiRulesContext()` giờ trả thêm `summary` (đếm số
+    từ cấm, số yêu cầu bắt buộc, có/chưa giọng thương hiệu, có/chưa quy tắc logo, có/chưa brand
+    guide chữ, số ảnh mẫu brand guide) — `handleAiCheckContent`/`handleAiSuggestReview`/
+    `handleAiChat` trả kèm `meta` (thêm `personaUsed`/`personaName` ở 2 hàm sau). Frontend hiện
+    1 dòng nhỏ "🔎 AI đã dùng: ..." ngay dưới mỗi kết quả AI (hàm `renderAiMetaLine()`, khai báo
+    riêng ở cả `ctv.html` và `boss.html` do không có JS dùng chung) — ở 3 nơi: ô "Kiểm tra AI"
+    của CTV (`ai-result-meta`), "Gợi ý nhận xét" của leader_content trong `ctv.html`
+    (`rv-ai-meta-*`), "Gợi ý nhận xét" của leader/manager/admin trong `boss.html` (`ai-meta-*`).
+    Mục đích: nếu sau này lại có lỗi tương tự (thiếu rule/persona mà AI không báo), người dùng tự
+    nhìn dòng này ra ngay, không cần đọc code.
+  - Đã test thật qua local dev (KHÔNG mock), đúng kịch bản bug cũ: tạo role `manager`, lưu persona
+    cho tên đó, đăng nhập **không hề vào trang Cài đặt** (xác nhận `nav-rules` ẩn, `PERSONAS_CACHE`
+    rỗng ở trình duyệt), bấm "Gợi ý nhận xét" — xác nhận `meta.personaUsed: true` và dòng "🔎 AI đã
+    dùng..." hiện đúng tên persona. Test tương tự cho `leader_content` (`ctv.html`) và cho CTV tự
+    kiểm tra bài (`ai_check_content`, không có persona — dòng meta tự ẩn phần persona, đúng như
+    thiết kế). Dữ liệu test đã xoá sạch khỏi Supabase.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**
