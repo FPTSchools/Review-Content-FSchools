@@ -405,6 +405,36 @@
     JSON đã validate; (3) `ai_check_brand_image` với ảnh thật qua URL công khai — trả đủ 4 mục
     đúng enum; (4) toàn bộ luồng UI CTV (`runAI`) hiển thị đúng, không cần sửa gì ở frontend vì
     hình dạng JSON trả về không đổi, chỉ đáng tin cậy hơn. Dữ liệu test đã xoá sạch.
+- **Theo dõi độ chính xác của AI theo thời gian — XONG (2026-09-23).** Đối chiếu AI nói gì lúc
+  CTV gửi bài (ai_verdict) với quyết định CUỐI CÙNG của người duyệt (approved/rejected/revision),
+  để biết AI đang đúng bao nhiêu % và có đang lệch hướng dần không.
+  - **Bảng mới `ai_accuracy_log`** (migration `supabase/migrations/20260923072709_ai_accuracy_log.sql`,
+    đã áp dụng lên Supabase thật qua `supabase db push`; đồng bộ thêm vào `schema.sql` để làm tài
+    liệu). Lý do cần bảng RIÊNG thay vì đọc lại từ `submissions`: cột `ai_verdict` trên
+    `submissions` bị **ghi đè mỗi lần CTV gửi lại bài** — chỉ còn vòng mới nhất, không đủ dữ kiện
+    để tính % chính xác "theo thời gian" hay phát hiện AI lệch hướng (đặc biệt thiên lệch với các
+    vòng "CẦN SỬA" đã được gửi lại — dữ liệu sẽ biến mất nếu chỉ đọc bảng sống).
+  - **Ghi log** (`functions/_lib/handlers/aiAccuracy.js`, hàm `logAiAccuracy()`): gọi ngay trong
+    `processDecision()` (`functions/_lib/handlers/submissions.js`) — CHỈ khi 1 vòng gửi đạt trạng
+    thái CUỐI (`terminal`: approved/rejected/revision) VÀ CTV đã chạy AI trước khi gửi
+    (`ai_verdict` khác rỗng — không có gì để so sánh thì bỏ qua im lặng). Quy đổi khớp/lệch bằng
+    ánh xạ trực tiếp theo nghĩa (`DUYỆT`↔`approved`, `CẦN SỬA`↔`revision`, `TỪ CHỐI`↔`rejected`),
+    không so chuỗi. Lỗi ghi log được bọc try/catch riêng, không được phép chặn việc duyệt bài.
+  - **Báo cáo** (`handleGetAiAccuracyReport`, action mới `get_ai_accuracy_report`): tổng số lượt
+    đối chiếu + % khớp; ma trận đối chiếu (AI nói gì × người duyệt quyết định gì, giúp thấy AI
+    lệch theo HƯỚNG nào, không chỉ 1 con số); xu hướng % khớp theo tuần (phát hiện lệch hướng dần
+    theo thời gian); danh sách 20 lượt lệch gần nhất kèm tên bài (để xem cụ thể bài nào AI đoán
+    sai, không chỉ số liệu trừu tượng).
+  - **Giao diện**: thêm khối "🎯 Độ chính xác của AI kiểm duyệt" ngay dưới khối "🤖 Nhận xét AI về
+    nhân sự" có sẵn trong trang "Báo cáo cuối kỳ" (`boss.html`, chỉ ở đây — `ctv.html` không có
+    trang báo cáo). Tải cùng lúc với báo cáo CTV khi bấm "Tạo báo cáo" (`loadAiAccuracyReport()`
+    gọi song song trong `loadReport()`), lỗi tải không chặn phần báo cáo CTV.
+  - Đã test thật qua local dev (KHÔNG mock): gửi 4 bài — (A) AI nói DUYỆT + người duyệt duyệt
+    (khớp), (B) AI nói CẦN SỬA nhưng người duyệt vẫn duyệt (LỆCH — đúng tình huống cần phát hiện),
+    (C) AI nói TỪ CHỐI + người duyệt từ chối (khớp), (D) không chạy AI trước khi gửi — xác nhận
+    CHỈ 3 bài đầu được ghi log, bài D bị bỏ qua đúng như thiết kế; xác nhận API trả đúng
+    overview/matrix/weekly/recentMismatches; xác nhận giao diện `boss.html` render đúng qua
+    browser thật (đã chụp ảnh + đọc lại text trang). Dữ liệu test đã xoá sạch khỏi Supabase.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**

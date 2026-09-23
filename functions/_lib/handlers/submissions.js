@@ -8,6 +8,7 @@ import {
   saveSubmissionVersion, ensureSubmissionVersionForRow, updateLatestVersionReview, updateLatestVersionComments
 } from '../submissionVersions.js';
 import { sendReviewerEmail, sendForwardEmail, sendCTVEmail } from '../email.js';
+import { logAiAccuracy } from './aiAccuracy.js';
 
 // ============================================================
 // SUBMISSIONS — port từ handleSubmit/handleResubmit/handleUpdateSubmission/
@@ -245,6 +246,13 @@ async function processDecision(supabase, env, p, action) {
     }
   } else if (terminal) {
     await sendCTVEmail(supabase, env, row.user_email, row.user_name, row.title, result.status, p.comment || '', p.score || '', p.id, row.send_count || 1);
+  }
+
+  // Đối chiếu AI vs người duyệt CHỈ khi vòng này đã ngã ngũ (terminal) — `row` ở đây vẫn là bản
+  // ghi TRƯỚC patch, nên row.ai_verdict đúng là AI đã chấm gì cho ĐÚNG vòng đang được quyết định
+  // (không lẫn với vòng khác). Lỗi ghi log không được chặn việc duyệt bài.
+  if (terminal) {
+    try { await logAiAccuracy(supabase, row, result.status, p.reviewer_name || p.reviewer_id || ''); } catch (e) {}
   }
 
   return {

@@ -10,6 +10,7 @@ import * as workflowTemplates from '../_lib/handlers/workflowTemplates.js';
 import { handleGetSubmissionVersions } from '../_lib/submissionVersions.js';
 import * as ai from '../_lib/handlers/ai.js';
 import { handleProcessEmailQueue } from '../_lib/handlers/emailQueue.js';
+import { handleGetAiAccuracyReport } from '../_lib/handlers/aiAccuracy.js';
 
 // ============================================================
 // Router chính — thay cho doPost/doGet trong backend_apps_script.js.
@@ -81,6 +82,7 @@ async function routeAction(p, supabase, env) {
     case 'save_inline_comments': return submissions.handleSaveInlineComments(supabase, p);
     case 'get_submissions': return submissions.handleGetSubmissions(supabase, p);
     case 'get_report': return submissions.handleGetReport(supabase, p);
+    case 'get_ai_accuracy_report': return handleGetAiAccuracyReport(supabase, p);
     case 'check_submit_result': return submissions.handleCheckSubmitResult(supabase, p);
     case 'get_submission_versions': return handleGetSubmissionVersions(supabase, p);
 

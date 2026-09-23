@@ -394,6 +394,10 @@
         <div class="card-title">🤖 Nhận xét AI về nhân sự <span style="font-size:10px;font-weight:400;color:var(--text3)">(trung thực, không nịnh)</span></div>
         <div id="ai-report-content" style="font-size:13px;color:var(--text3)">Nhấn "Tạo báo cáo" để AI phân tích</div>
       </div>
+      <div class="card" id="ai-accuracy-card" style="display:none">
+        <div class="card-title">🎯 Độ chính xác của AI kiểm duyệt <span style="font-size:10px;font-weight:400;color:var(--text3)">(AI lúc gửi bài so với quyết định cuối cùng của người duyệt)</span></div>
+        <div id="ai-accuracy-content"></div>
+      </div>
       <div style="display:none"><!-- placeholder -->
       </div>
     </div>
@@ -1444,6 +1448,75 @@ async function loadReport() {
     generateAIReport(res.ctv_list, res.overview);
     }
   } catch(e) { showToast('Lỗi tải báo cáo'); }
+  loadAiAccuracyReport(from, to);
+}
+
+// Đối chiếu AI kiểm duyệt (verdict lúc CTV gửi bài) với quyết định CUỐI CÙNG của người duyệt —
+// xem functions/_lib/handlers/aiAccuracy.js. Tải riêng, không chặn phần báo cáo CTV nếu lỗi.
+async function loadAiAccuracyReport(from, to) {
+  try {
+    const res = await callAPI({ action: 'get_ai_accuracy_report', from, to });
+    if (res.ok) renderAiAccuracyReport(res);
+  } catch(e) {}
+}
+
+function renderAiAccuracyReport(res) {
+  const card = document.getElementById('ai-accuracy-card');
+  const content = document.getElementById('ai-accuracy-content');
+  card.style.display = 'block';
+  const { overview, matrix, weekly, recentMismatches } = res;
+
+  if (!overview.total) {
+    content.innerHTML = '<div style="font-size:13px;color:var(--text3)">Chưa có dữ liệu đối chiếu trong kỳ này (cần CTV chạy AI kiểm tra trước khi gửi bài, và bài đã có quyết định cuối cùng của người duyệt).</div>';
+    return;
+  }
+
+  const rateColor = overview.matchRate>=70?'var(--green)':overview.matchRate>=40?'var(--amber)':'var(--red)';
+  const overviewHtml = `
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px">
+      <div><div style="font-size:22px;font-weight:700">${overview.total}</div><div style="font-size:11px;color:var(--text3)">Lượt đối chiếu</div></div>
+      <div><div style="font-size:22px;font-weight:700;color:${rateColor}">${overview.matchRate}%</div><div style="font-size:11px;color:var(--text3)">AI khớp quyết định cuối</div></div>
+      <div><div style="font-size:22px;font-weight:700;color:var(--red)">${overview.mismatch}</div><div style="font-size:11px;color:var(--text3)">Lượt lệch</div></div>
+    </div>`;
+
+  const sLbl = { approved:'Duyệt', revision:'Cần sửa', rejected:'Từ chối' };
+  const matrixRows = Object.keys(matrix).map(v => {
+    const row = matrix[v];
+    const rowTotal = row.approved + row.revision + row.rejected;
+    return `<tr><td style="font-weight:600">AI: ${v}</td>
+      <td>${row.approved}</td><td>${row.revision}</td><td>${row.rejected}</td>
+      <td style="color:var(--text3)">${rowTotal}</td></tr>`;
+  }).join('');
+  const matrixHtml = `
+    <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">Ma trận đối chiếu (hàng: AI nói lúc gửi · cột: người duyệt quyết định cuối)</div>
+    <div style="overflow-x:auto;margin-bottom:14px">
+      <table><thead><tr><th></th><th>Duyệt</th><th>Cần sửa</th><th>Từ chối</th><th>Tổng</th></tr></thead>
+      <tbody>${matrixRows}</tbody></table>
+    </div>`;
+
+  const weeklyHtml = weekly.length ? `
+    <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">Xu hướng theo tuần</div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:14px">
+      ${weekly.map(w => `
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+          <span style="width:82px;color:var(--text3)">${w.week_start}</span>
+          <div class="rate-bar" style="width:120px"><div class="rate-fill" style="width:${w.matchRate}%;background:${w.matchRate>=70?'var(--green)':w.matchRate>=40?'var(--amber)':'var(--red)'}"></div></div>
+          <span style="font-weight:500">${w.matchRate}%</span>
+          <span style="color:var(--text3)">(${w.total} lượt)</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  const mismatchHtml = recentMismatches.length ? `
+    <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">Lượt lệch gần nhất</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${recentMismatches.map(m => `
+        <div style="font-size:12px;border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px">
+          <div style="font-weight:500">${escHtml(m.title||'(không có tiêu đề)')}</div>
+          <div style="color:var(--text3);margin-top:2px">AI: ${escHtml(m.ai_verdict)} → Người duyệt: ${sLbl[m.human_status]||m.human_status} · ${escHtml(m.reviewer_name||'')} · ${new Date(m.decided_at).toLocaleDateString('vi-VN')}</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  content.innerHTML = overviewHtml + matrixHtml + weeklyHtml + mismatchHtml;
 }
 
 function renderReport(res) {
@@ -2056,7 +2129,7 @@ async function addUser() {
 // ============================================================
 // UTILS
 // ============================================================
-const READ_ONLY_ACTIONS = ['get_rules','get_users','get_submissions','get_workflow_templates','validate_workflow_template','get_report','get_submission_versions','ai_chat','ai_suggest_review','ai_check_content','ai_check_brand_image'];
+const READ_ONLY_ACTIONS = ['get_rules','get_users','get_submissions','get_workflow_templates','validate_workflow_template','get_report','get_ai_accuracy_report','get_submission_versions','ai_chat','ai_suggest_review','ai_check_content','ai_check_brand_image'];
 const FEEDBACK_ACTIONS = new Set(['submit','resubmit','approve','reject','request_revision','forward_to_next','change_reviewer','save_workflow_template','deactivate_workflow_template']);
 const ACTION_COPY = {
   approve: ['Đang ghi nhận duyệt', 'Đang lưu quyết định và chuyển bài theo quy trình.'],

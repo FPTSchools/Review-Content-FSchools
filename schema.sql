@@ -293,6 +293,30 @@ CREATE UNIQUE INDEX email_queue_event_key_active_uq
 CREATE INDEX email_queue_status_idx ON email_queue (status);
 
 -- ============================================================
+-- AI ACCURACY LOG (đối chiếu ai_verdict lúc gửi bài với quyết định cuối cùng của người duyệt)
+-- Nguồn: migration 20260923072709_ai_accuracy_log.sql — không có trong sheet cũ, tính năng mới.
+-- Ghi 1 dòng mỗi khi 1 vòng gửi đạt trạng thái cuối (approved/rejected/revision) VÀ CTV đã chạy
+-- AI trước khi gửi. Tách riêng khỏi "submissions" vì ai_verdict ở đó bị ghi đè mỗi lần gửi lại.
+-- ============================================================
+CREATE TABLE ai_accuracy_log (
+  id            TEXT PRIMARY KEY,
+  submission_id TEXT NOT NULL REFERENCES submissions (id) ON DELETE CASCADE,
+  send_count    INTEGER NOT NULL,
+  title         TEXT,
+  content_type  TEXT,
+  campus        TEXT,
+  ai_verdict    TEXT NOT NULL CHECK (ai_verdict IN ('DUYỆT','CẦN SỬA','TỪ CHỐI')),
+  ai_scores     JSONB,
+  human_status  TEXT NOT NULL CHECK (human_status IN ('approved','rejected','revision')),
+  is_match      BOOLEAN NOT NULL,
+  reviewer_name TEXT,
+  decided_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX ai_accuracy_log_decided_at_idx ON ai_accuracy_log (decided_at DESC);
+CREATE INDEX ai_accuracy_log_submission_idx ON ai_accuracy_log (submission_id);
+
+-- ============================================================
 -- ROW LEVEL SECURITY
 -- App hiện dùng hệ thống đăng nhập riêng (bảng users tự quản lý), không dùng Supabase Auth.
 -- Mọi truy vấn nên đi qua backend bằng service_role key (bỏ qua RLS); anon key không nên
@@ -312,3 +336,4 @@ ALTER TABLE brand_guides         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document_categories  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document_links       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_queue          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_accuracy_log      ENABLE ROW LEVEL SECURITY;
