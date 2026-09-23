@@ -380,6 +380,31 @@
     dùng..." hiện đúng tên persona. Test tương tự cho `leader_content` (`ctv.html`) và cho CTV tự
     kiểm tra bài (`ai_check_content`, không có persona — dòng meta tự ẩn phần persona, đúng như
     thiết kế). Dữ liệu test đã xoá sạch khỏi Supabase.
+- **Dùng OpenAI Structured Outputs cho 2 hàm AI trả JSON — XONG (2026-09-23).** Trước đây
+  `handleAiCheckContent` (chấm điểm bài) và `handleAiCheckBrandImage` (chấm ảnh) chỉ NHẮC trong
+  prompt "trả JSON duy nhất", rồi tự JSON.parse sau khi bóc tách markdown fence bằng regex — nếu AI
+  lỡ trả sai định dạng (thừa chữ, thiếu ngoặc), lỗi bị try/catch nuốt mất, người dùng nhận
+  `result: null` mà không rõ vì sao. Đã đổi sang `response_format: {type:"json_schema",
+  strict:true}` (OpenAI Structured Outputs) — OpenAI tự validate đúng cấu trúc khai báo trước
+  khi trả về, gpt-4o-mini hỗ trợ đầy đủ cơ chế này.
+  - Thêm `opts.jsonSchema` cho `callOpenAI()`/`callOpenAIVision()` (`functions/_lib/openai.js`);
+    `callOpenAIRaw()` cũng bắt thêm trường hợp `message.refusal` (Struct Outputs có thể "từ chối"
+    thay vì trả content) để báo lỗi rõ ràng thay vì âm thầm trả rỗng.
+  - Định nghĩa 2 schema trong `functions/_lib/handlers/ai.js`: `CONTENT_CHECK_SCHEMA` (verdict/
+    scores/positives/issues/suggestion) và `BRAND_IMAGE_SCHEMA` (mau_sac/logo/font_chu/bo_cuc/
+    luu_y). Nhân tiện bỏ luôn hack cũ `verdict.replace('DUYET','DUYỆT')...` — giờ khai enum
+    tiếng Việt có dấu thẳng trong schema (`["DUYỆT","CẦN SỬA","TỪ CHỐI"]`), OpenAI trả đúng luôn
+    không cần dịch lại.
+  - Khi JSON.parse vẫn lỗi sau Structured Outputs (trường hợp cực hiếm — mạng đứt giữa chừng,
+    response bị cắt), trả lỗi rõ ràng `"AI trả về không đúng định dạng, vui lòng thử lại"` thay
+    vì `result: null` không giải thích.
+  - `handleAiSuggestReview`/`handleAiChat` trả text thường (không phải JSON) nên không cần đổi.
+  - Đã test thật (không mock) qua local dev: (1) nội dung bình thường — đủ field, verdict đúng
+    tiếng Việt có dấu ngay từ OpenAI; (2) nội dung chứa từ cấm đã cài (`Duy nhất`, `cực kỳ`) —
+    xác nhận cơ chế ép `chinh_xac<=4` + thêm "Chứa từ cấm" vào issues vẫn hoạt động đúng trên
+    JSON đã validate; (3) `ai_check_brand_image` với ảnh thật qua URL công khai — trả đủ 4 mục
+    đúng enum; (4) toàn bộ luồng UI CTV (`runAI`) hiển thị đúng, không cần sửa gì ở frontend vì
+    hình dạng JSON trả về không đổi, chỉ đáng tin cậy hơn. Dữ liệu test đã xoá sạch.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**

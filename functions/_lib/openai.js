@@ -14,25 +14,41 @@ async function callOpenAIRaw(env, body) {
   });
   const json = await resp.json();
   if (json.error) throw new Error(json.error.message || 'OpenAI error');
-  return (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || '';
+  const msg = json.choices && json.choices[0] && json.choices[0].message;
+  // Structured Outputs có thể "từ chối" thay vì trả content (hiếm với nội dung nội bộ trường học,
+  // nhưng nếu xảy ra mà không bắt riêng thì code cũ sẽ cố JSON.parse('') và âm thầm trả về rỗng).
+  if (msg && msg.refusal) throw new Error('AI từ chối trả lời: ' + msg.refusal);
+  return (msg && msg.content) || '';
+}
+
+// Dựng response_format kiểu "json_schema" (Structured Outputs) — ép OpenAI trả ĐÚNG cấu trúc
+// khai báo, thay vì chỉ nhắc trong prompt rồi tự parse JSON bằng tay (cách cũ: AI trả sai định
+// dạng — ví dụ thừa chữ, thiếu dấu ngoặc — sẽ khiến JSON.parse ném lỗi, bị try/catch nuốt mất,
+// người dùng nhận kết quả rỗng mà không rõ vì sao). Dùng strict:true để OpenAI validate chặt.
+function jsonSchemaFormat(name, schema) {
+  return { type: 'json_schema', json_schema: { name, strict: true, schema } };
 }
 
 export function callOpenAI(env, prompt, opts = {}) {
-  return callOpenAIRaw(env, {
+  const body = {
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
     max_tokens: opts.max_tokens || 900,
     temperature: opts.temperature !== undefined ? opts.temperature : 0.3
-  });
+  };
+  if (opts.jsonSchema) body.response_format = jsonSchemaFormat(opts.jsonSchema.name, opts.jsonSchema.schema);
+  return callOpenAIRaw(env, body);
 }
 
 export function callOpenAIVision(env, contentArr, opts = {}) {
-  return callOpenAIRaw(env, {
+  const body = {
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: contentArr }],
     max_tokens: opts.max_tokens || 700,
     temperature: opts.temperature !== undefined ? opts.temperature : 0.3
-  });
+  };
+  if (opts.jsonSchema) body.response_format = jsonSchemaFormat(opts.jsonSchema.name, opts.jsonSchema.schema);
+  return callOpenAIRaw(env, body);
 }
 
 export function callOpenAIChat(env, messages, opts = {}) {

@@ -4,7 +4,61 @@ import { callOpenAI, callOpenAIVision, callOpenAIChat } from '../openai.js';
 // ============================================================
 // AI — port từ handleAiCheckContent/handleAiSuggestReview/handleAiCheckBrandImage/
 // handleAiChat/buildAiRulesContext trong backend_apps_script.js.
+//
+// handleAiCheckContent/handleAiCheckBrandImage dùng OpenAI Structured Outputs
+// (response_format: json_schema, strict:true — xem opts.jsonSchema ở openai.js) thay vì chỉ
+// nhắc "trả JSON" trong prompt rồi tự JSON.parse. Trước đây nếu AI lỡ trả sai định dạng,
+// JSON.parse ném lỗi bị try/catch nuốt mất, người dùng nhận kết quả rỗng không rõ lý do —
+// giờ OpenAI tự validate đúng cấu trúc trước khi trả về nên gần như không còn xảy ra.
 // ============================================================
+
+const CONTENT_CHECK_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdict: { type: 'string', enum: ['DUYỆT', 'CẦN SỬA', 'TỪ CHỐI'] },
+    scores: {
+      type: 'object',
+      properties: {
+        giong_van: { type: 'integer', minimum: 0, maximum: 10 },
+        cta: { type: 'integer', minimum: 0, maximum: 10 },
+        chinh_xac: { type: 'integer', minimum: 0, maximum: 10 },
+        phu_hop: { type: 'integer', minimum: 0, maximum: 10 }
+      },
+      required: ['giong_van', 'cta', 'chinh_xac', 'phu_hop'],
+      additionalProperties: false
+    },
+    positives: { type: 'array', items: { type: 'string' } },
+    issues: { type: 'array', items: { type: 'string' } },
+    suggestion: { type: 'string' }
+  },
+  required: ['verdict', 'scores', 'positives', 'issues', 'suggestion'],
+  additionalProperties: false
+};
+
+function brandCriterionSchema() {
+  return {
+    type: 'object',
+    properties: {
+      trang_thai: { type: 'string', enum: ['dat', 'chua_dat', 'khong_chac'] },
+      nhan_xet: { type: 'string' }
+    },
+    required: ['trang_thai', 'nhan_xet'],
+    additionalProperties: false
+  };
+}
+
+const BRAND_IMAGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    mau_sac: brandCriterionSchema(),
+    logo: brandCriterionSchema(),
+    font_chu: brandCriterionSchema(),
+    bo_cuc: brandCriterionSchema(),
+    luu_y: { type: 'string' }
+  },
+  required: ['mau_sac', 'logo', 'font_chu', 'bo_cuc', 'luu_y'],
+  additionalProperties: false
+};
 
 async function getTextBrandGuides(supabase) {
   const { data } = await supabase.from('brand_guides').select('name, content').eq('type', 'text');
@@ -86,24 +140,20 @@ export async function handleAiCheckContent(supabase, env, p) {
 
   let sys = `Bạn là chuyên gia kiểm duyệt content FPT Schools. Phong cách thương hiệu: ${voice}. Yếu tố bắt buộc: ${req}.` +
     bannedNote +
-    ' Phản hồi KHÔNG dùng markdown, KHÔNG dùng **, chỉ text thuần.' +
-    ' Trả về JSON DUY NHẤT không có text khác:' +
-    ' {"verdict":"DUYET hoac CAN_SUA hoac TU_CHOI","scores":{"giong_van":0-10,"cta":0-10,"chinh_xac":0-10,"phu_hop":0-10}' +
-    ',"positives":["nhan xet diem tot cu the bang tieng Viet"]' +
-    ',"issues":["nhan xet diem can sua cu the bang tieng Viet"]' +
-    ',"suggestion":"goi y sua cu the bang text thuan tieng Viet"}';
+    ' Viết positives/issues/suggestion bằng tiếng Việt, text thuần (không markdown, không **).';
   sys += '\n\n' + aiContext.promptText;
 
   const prompt = `${sys}\n\nLoại: ${p.content_type || ''}\nĐối tượng: ${p.audience || ''}\n\nTIÊU ĐỀ: ${p.title || ''}\n\nNỘI DUNG:\n${p.content || ''}`;
 
   let raw;
-  try { raw = await callOpenAI(env, prompt); } catch (e) { return { ok: false, error: e.message }; }
+  try {
+    raw = await callOpenAI(env, prompt, { jsonSchema: { name: 'content_check', schema: CONTENT_CHECK_SCHEMA } });
+  } catch (e) { return { ok: false, error: e.message, meta: aiContext.summary }; }
 
   let r = null;
   try {
-    r = JSON.parse(raw.replace(/```json|```/g, '').trim());
-    if (r && r.verdict) r.verdict = r.verdict.replace('DUYET', 'DUYỆT').replace('CAN_SUA', 'CẦN SỬA').replace('TU_CHOI', 'TỪ CHỐI');
-    if (r && hasBanned) {
+    r = JSON.parse(raw);
+    if (hasBanned) {
       r.scores = r.scores || {};
       if (!r.scores.chinh_xac || r.scores.chinh_xac > 4) r.scores.chinh_xac = 3;
       if (r.verdict === 'DUYỆT') r.verdict = 'CẦN SỬA';
@@ -112,7 +162,12 @@ export async function handleAiCheckContent(supabase, env, p) {
       if (!alreadyHas) issues.unshift(`Từ cấm: ${foundBanned.join(', ')}`);
       r.issues = issues;
     }
-  } catch (e) {}
+  } catch (e) {
+    // Với response_format json_schema, OpenAI đã tự validate đúng cấu trúc trước khi trả về —
+    // nếu vẫn lỗi tới đây (mạng đứt giữa chừng, response bị cắt...) thì báo rõ cho người dùng
+    // thay vì trả "result: null" im lặng như cách cũ.
+    return { ok: false, error: 'AI trả về không đúng định dạng, vui lòng thử lại', meta: aiContext.summary };
+  }
 
   return { ok: true, result: r, raw, meta: aiContext.summary };
 }
@@ -163,12 +218,8 @@ export async function handleAiCheckBrandImage(supabase, env, p) {
       : ' Lưu ý: hệ thống hiện CHƯA có brand guide hình ảnh chính thức (chưa có mã màu hex cụ thể, chưa có logo mẫu, chưa có font chuẩn được nạp sẵn) — bạn chỉ có thể suy luận dựa trên mô tả phong cách thương hiệu nói trên và kiến thức chung về thiết kế nhận diện trường học/giáo dục tại Việt Nam (tông màu FPT thường dùng cam/xanh dương/xanh lá, phong cách chuyên nghiệp, rõ ràng).') +
     ' Đánh giá 4 mục: mau_sac (màu sắc có hài hoà, có dùng tông thương hiệu hợp lý không), logo (có logo/nhận diện rõ ràng, đúng vị trí, không bị che/méo không), font_chu (font có dễ đọc, nhất quán, chuyên nghiệp không), bo_cuc (bố cục có cân đối, rõ thông tin chính, không rối không).' +
     ' Với mỗi mục, trả "dat" nếu đạt yêu cầu cơ bản, "chua_dat" nếu có vấn đề rõ ràng, "khong_chac" nếu không đủ căn cứ để kết luận (ví dụ không có brand guide chi tiết để so sánh màu chính xác).' +
-    ' Phản hồi KHÔNG dùng markdown, chỉ text thuần. Trả về JSON DUY NHẤT, không kèm text khác:' +
-    ' {"mau_sac":{"trang_thai":"dat/chua_dat/khong_chac","nhan_xet":"..."}' +
-    ',"logo":{"trang_thai":"dat/chua_dat/khong_chac","nhan_xet":"..."}' +
-    ',"font_chu":{"trang_thai":"dat/chua_dat/khong_chac","nhan_xet":"..."}' +
-    ',"bo_cuc":{"trang_thai":"dat/chua_dat/khong_chac","nhan_xet":"..."}' +
-    `,"luu_y":"1 câu nhắc rằng đây là đánh giá tham khảo${hasImageGuides ? ', đã đối chiếu với brand guide chính thức từ HO' : ' do chưa có brand guide hình ảnh chính thức'}"}`;
+    ' Viết nhan_xet/luu_y bằng tiếng Việt, text thuần (không markdown).' +
+    ` luu_y: 1 câu nhắc rằng đây là đánh giá tham khảo${hasImageGuides ? ', đã đối chiếu với brand guide chính thức từ HO' : ' do chưa có brand guide hình ảnh chính thức'}.`;
 
   const contentArr = [
     { type: 'text', text: sys },
@@ -177,10 +228,14 @@ export async function handleAiCheckBrandImage(supabase, env, p) {
   ];
 
   let raw;
-  try { raw = await callOpenAIVision(env, contentArr); } catch (e) { return { ok: false, error: e.message }; }
+  try {
+    raw = await callOpenAIVision(env, contentArr, { jsonSchema: { name: 'brand_image_check', schema: BRAND_IMAGE_SCHEMA } });
+  } catch (e) { return { ok: false, error: e.message }; }
 
   let result = null;
-  try { result = JSON.parse(raw.replace(/```json|```/g, '').trim()); } catch (e) {}
+  try { result = JSON.parse(raw); } catch (e) {
+    return { ok: false, error: 'AI trả về không đúng định dạng, vui lòng thử lại' };
+  }
   return { ok: true, result, raw };
 }
 
