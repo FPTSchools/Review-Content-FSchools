@@ -26,6 +26,30 @@
   đổi toàn bộ khoá** (xem danh sách trên), cập nhật lại `.dev.vars` + secret Cloudflare Pages, rồi xoá
   các bản deploy cũ.
 
+### Tiến độ xử lý (cập nhật 2026-09-25) — làm lần lượt: tạo khoá mới → `.dev.vars` → cập nhật secret Cloudflare + deploy + kiểm tra → MỚI thu hồi khoá cũ
+1. **Supabase — ĐÃ ĐỔI KHOÁ, CHỜ XOÁ KHOÁ CŨ.** Khoá mới `sb_secret_…` (tên `fschools-2026-09`) đã vào `.dev.vars`
+   và secret `SUPABASE_SERVICE_ROLE_KEY` trên Cloudflare Pages; đã deploy lại (`node scripts/build-public.mjs`
+   rồi `wrangler pages deploy dist`); đã kiểm tra bản thật `/api` chạy bằng khoá mới (`get_users` → 12 tài
+   khoản). **Còn lại: người dùng xoá khoá cũ ở Supabase → Project Settings → API Keys**, rồi kiểm tra khoá bị
+   lộ (`sb_secret_06pJbly5…`) bị Supabase từ chối và tool vẫn chạy. Sau đó xem Logs → API Gateway có truy
+   cập lạ không.
+2. **OpenAI — CHƯA LÀM.** Tạo key mới, dán vào `.dev.vars` (`OPENAI_API_KEY`), báo để cập nhật secret Cloudflare
+   (`wrangler pages secret put OPENAI_API_KEY`), test AI, rồi thu hồi key cũ; xem trang Usage có chi phí lạ không.
+3. **Gmail — CHƯA LÀM.** Chỉ cần thêm Client secret mới ở Google Cloud (project `fschools-content-review`) →
+   `.dev.vars` `GMAIL_CLIENT_SECRET` → cập nhật secret Cloudflare → gửi mail thử → xoá secret cũ. Refresh
+   token cũ vẫn dùng được với secret mới; nếu console không có nút Add secret thì phải lấy lại refresh token.
+4. **Đổi mật khẩu người dùng — CHƯA LÀM** (chỉ làm SAU khi khoá Supabase cũ đã bị xoá). Cách A: Admin đổi từng
+   người ở Nhân sự (tool tự gửi mail). Cách B: script đặt mật khẩu ngẫu nhiên hàng loạt + gửi mail (cần người
+   dùng đồng ý trước).
+5. **Xoá 24 bản deploy cũ — CHƯA LÀM, chờ người dùng đồng ý** (không hoàn tác được; chúng vẫn phục vụ
+   `.dev.vars` cũ qua URL riêng từng bản). `wrangler pages deployment list --project-name review-content-fschools`.
+6. **Lỗ hổng lớn hơn, chưa sửa: `/api` KHÔNG kiểm tra đăng nhập** — ai biết địa chỉ cũng gọi được mọi action
+   (tạo user admin, đổi mật khẩu người khác, đọc dữ liệu...); `login` chỉ kiểm tra mật khẩu rồi trả user, không
+   cấp token. Mật khẩu còn lưu dạng chữ thường. Cần làm: phiên đăng nhập có hạn (token) + kiểm tra quyền ở
+   router + băm mật khẩu (nhớ mã hoá lại bằng cách buộc đổi mật khẩu lần đăng nhập kế tiếp).
+- Việc khác vẫn dở: `persona_interview_prompt.md` chưa commit (bản nháp prompt cho trưởng phòng — cũng phải tránh
+  đưa vào `dist/` nếu không muốn công khai); giai đoạn 2 kế hoạch (kho thông tin chuẩn, AI viết từ dàn ý).
+
 ## Bối cảnh dự án
 - Công cụ nội bộ "FSchools Content Review" cho ~15-20 người dùng cùng lúc.
 - Hiện trạng cũ: Frontend tĩnh (index.html/boss.html/ctv.html) trên Cloudflare Pages,
