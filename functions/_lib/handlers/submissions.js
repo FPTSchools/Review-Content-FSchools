@@ -9,6 +9,7 @@ import {
 } from '../submissionVersions.js';
 import { sendReviewerEmail, sendForwardEmail, sendCTVEmail } from '../email.js';
 import { logAiAccuracy } from './aiAccuracy.js';
+import { linkPlanItemToSubmission } from './planning.js';
 
 // ============================================================
 // SUBMISSIONS — port từ handleSubmit/handleResubmit/handleUpdateSubmission/
@@ -73,6 +74,12 @@ export async function handleSubmit(supabase, env, p) {
     platform: d.platform || [], reviewers: allReviewers, inline_comments: [], review_history: [],
     submitted_at: submittedAt, status: 'new'
   });
+
+  // Bài viết từ 1 đầu việc kế hoạch tháng (nút "Viết bài" ở trang Kế hoạch) — nối lại để trang
+  // Kế hoạch tự hiện tiến độ theo trạng thái duyệt. Lỗi nối không được chặn việc gửi bài.
+  if (d.plan_item_id) {
+    try { await linkPlanItemToSubmission(supabase, d.plan_item_id, id); } catch (e) {}
+  }
 
   const firstStep = workflow.steps[0];
   for (const reviewer of (firstStep && firstStep.reviewers) || []) {

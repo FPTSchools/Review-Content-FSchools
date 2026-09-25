@@ -11,6 +11,7 @@ import { handleGetSubmissionVersions } from '../_lib/submissionVersions.js';
 import * as ai from '../_lib/handlers/ai.js';
 import { handleProcessEmailQueue } from '../_lib/handlers/emailQueue.js';
 import { handleGetAiAccuracyReport } from '../_lib/handlers/aiAccuracy.js';
+import * as planning from '../_lib/handlers/planning.js';
 
 // ============================================================
 // Router chính — thay cho doPost/doGet trong backend_apps_script.js.
@@ -100,6 +101,14 @@ async function routeAction(p, supabase, env) {
     case 'ai_check_brand_image': return ai.handleAiCheckBrandImage(supabase, env, p);
     case 'ai_suggest_review': return ai.handleAiSuggestReview(supabase, env, p);
     case 'ai_chat': return ai.handleAiChat(supabase, env, p);
+
+    case 'get_content_pillars': return planning.handleGetContentPillars(supabase, p);
+    case 'save_content_pillar': return planning.handleSaveContentPillar(supabase, p);
+    case 'get_school_events': return planning.handleGetSchoolEvents(supabase, p);
+    case 'save_school_event': return planning.handleSaveSchoolEvent(supabase, p);
+    case 'get_plan_items': return planning.handleGetPlanItems(supabase, p);
+    case 'save_plan_item': return planning.handleSavePlanItem(supabase, p);
+    case 'delete_plan_item': return planning.handleDeletePlanItem(supabase, p);
 
     case 'process_email_queue': return handleProcessEmailQueue(supabase, env);
 

@@ -575,6 +575,67 @@
     xám trung tính, KHÔNG còn chữ "đang duyệt"; nút "Đổi người duyệt" cũng tự ẩn đúng vì bài đã
     xong (chỉ còn "🔎 Vòng/diff" và "Đóng"). Dữ liệu test đã xoá sạch khỏi Supabase.
 
+## Định hướng tiếp theo đã thống nhất (2026-09-25)
+Luồng mục tiêu: **Kế hoạch năm/tháng → Gợi ý việc cần viết → Dàn ý → AI viết (theo rule + phong
+cách sếp + kho thông tin chuẩn) → CTV soát → AI kiểm tra → Trưởng phòng/Ban duyệt → Lịch đăng →
+Đăng đa kênh → Học lại / báo cáo tự động.** Các quyết định người dùng đã chốt:
+- Trưởng phòng/Ban **vẫn duyệt tất cả bài** trong thời gian đầu; "duyệt theo mức rủi ro" để thành
+  công tắc bật sau, dựa trên số liệu (bảng ai_accuracy_log, tỷ lệ duyệt ngay lần đầu theo tuyến bài).
+- **Kho thông tin chuẩn từng cơ sở**: Admin bổ sung + CTV/Leader đóng góp (cần luồng
+  chờ xác minh → đã xác minh → hết hạn; AI chỉ dùng thông tin đã xác minh). CHƯA làm.
+- Nguồn kế hoạch: file Excel "Kế hoạch truyền thông THPT FPT Hà Nội năm 2025-2026" (cơ sở Hòa
+  Lạc, 50 sheet) — dùng chung form cho mọi cơ sở. Leader Content xác nhận ngày sự kiện năm học mới.
+- Hướng UI/UX mới (tham khảo PostĐaKênh): nền sáng tối giản, giữ cam FPT làm màu nhấn, menu trái
+  dùng chung, form soạn bài chia bước + xem trước theo kênh. Trang `plan.html` là trang đầu tiên
+  làm theo hướng này.
+
+- **Giai đoạn 1 — Kế hoạch & Lịch — XONG (2026-09-25).**
+  - Migration `supabase/migrations/20260925041244_planning_calendar.sql` (đã `db push` lên Supabase
+    thật; đồng bộ `schema.sql`): 3 bảng `content_pillars` (seed sẵn 5 trụ: Tin tức-thông báo-hoạt
+    động-sự kiện, Môi trường học tập, Humans, Thế mạnh đào tạo, Content tương tác-sáng tạo — Admin/
+    Manager sửa được), `school_events` (lịch sự kiện theo năm học + cơ sở, trạng thái chờ xác nhận/
+    đã xác nhận/huỷ, số ngày chuẩn bị truyền thông `lead_days`), `plan_items` (đầu việc kế hoạch tháng
+    — thay sheet "Kế hoạch content Tháng XX": trụ, tiêu đề, highlight, ref, kênh, hình thức, phụ
+    trách, deadline, ngày đăng, link bài; nối `submission_id` khi viết bài).
+  - Backend `functions/_lib/handlers/planning.js` — 7 action mới: get/save_content_pillar(s),
+    get/save_school_event(s), get/save/delete_plan_item(s). **Phân quyền tra lại vai trò từ bảng
+    users theo user_id** (không tin trường role trình duyệt gửi — khác các handler cũ): sửa kế hoạch/
+    lịch = leader_content, leader, manager, admin; sửa trụ content = manager, admin; người không
+    thuộc campus 'chung' (và không phải manager/admin) chỉ sửa được cơ sở của mình. Trạng thái đầu
+    việc **suy ra** từ bài đã nối (chưa làm / đang duyệt / cần sửa / đã duyệt / từ chối / đã đăng khi
+    có link) — không lưu riêng để khỏi lệch với luồng duyệt. Không xoá được đầu việc đã có bài.
+  - `handleSubmit` nhận thêm `plan_item_id` → nối bài vừa gửi vào đầu việc (bọc try/catch, lỗi nối
+    không chặn gửi bài).
+  - Nhập lịch sự kiện: script `migration/import_school_events_hoa_lac.mjs` (chạy thử khô trước, thêm
+    `--apply` mới ghi; chạy lại tự dừng nếu đã nhập) đọc sheet "Hoạt động sự kiện của trường" → **đã
+    nhập 105 sự kiện cho Hòa Lạc, năm học 2026-2027, trạng thái chờ xác nhận**. Ngày trong file là
+    của năm trước nên chỉ dùng làm NGÀY GỢI Ý (đọc được các dạng "23-24/10", "9/12 - 23/12", "Tối
+    26/3", "20/10: Pink Day"...; tháng 8-12 → 2026, 1-7 → 2027); text thời gian gốc giữ ở
+    `time_note` ("Năm trước: ..."); 3 sự kiện có tên còn ghi năm cũ được đánh dấu "cần sửa". Trung
+    Thu/Tết theo âm lịch nên ngày gợi ý chắc chắn lệch — đây đúng là lý do bắt buộc xác nhận.
+  - Trang mới **`plan.html`** (dùng chung mọi vai trò; menu "🗓️ Kế hoạch & Lịch" thêm vào cả
+    `ctv.html` và `boss.html`): tab **Kế hoạch tháng** (thống kê tiến độ, "sự kiện trong tháng chưa
+    có bài", đầu việc nhóm theo trụ content, lọc "chỉ việc của tôi", thêm/sửa/xoá đầu việc), tab
+    **Lịch sự kiện** (nhóm theo tháng năm học, nhắc "N sự kiện chờ xác nhận", mục "Sắp diễn ra" và
+    "đã tới lúc chuẩn bị truyền thông" theo `lead_days`, nút Xác nhận — bắt buộc có ngày), tab **Trụ
+    content** (chỉ manager/admin). Nút **"Tạo chuỗi bài"** từ 1 sự kiện sinh 3 đầu việc Trước (đăng
+    trước 3 ngày) / Trong (đúng ngày) / Sau (sau ngày kết thúc 1 ngày), theo mẫu "Kế hoạch sự kiện"
+    trong file. CTV chỉ xem, có nút "Viết bài" cho việc được giao.
+  - `ctv.html?plan_item=<id>`: điền sẵn tiêu đề, cơ sở, kênh đăng, ghi chú (highlight + ref), hiện
+    banner "Đang viết bài cho đầu việc…" (có "Bỏ liên kết"); gửi bài kèm `plan_item_id` (chỉ bài
+    mới, không áp cho sửa/gửi lại); `clearForm` tự bỏ liên kết.
+  - Đã test thật qua local dev + browser: 4 trường hợp phân quyền bị chặn đúng; Leader Content thêm
+    sự kiện → xác nhận (chặn khi thiếu ngày) → tạo chuỗi bài (ngày tính đúng) → giao việc cho CTV;
+    CTV thấy đúng việc của mình, bấm Viết bài → form điền sẵn → gửi duyệt → đầu việc "Đang duyệt" →
+    manager duyệt → "Đã duyệt" → điền link → "Đã đăng"; xoá đầu việc đã có bài bị chặn; manager thêm/
+    ẩn trụ content; giao diện điện thoại không tràn ngang. Sửa 2 lỗi phát hiện khi test (ô ngày xuống
+    3 dòng; ô ghi chú là input 1 dòng nên nối bằng " — " thay vì xuống dòng). Dữ liệu test đã xoá
+    sạch, **giữ nguyên 105 sự kiện thật và 5 trụ content**.
+  - Chưa làm ở giai đoạn này (để sau): định mức theo kênh (Fanpage 7 bài/tuần...), thay danh mục
+    "Loại content" bằng 7 nhóm/25 dạng bài trong file, mở rộng "Đối tượng" theo Chân dung khách
+    hàng, nhập kế hoạch năm, mẫu chiến dịch nhiều bài (Học bổng Hành trình toả sáng...), báo cáo
+    tháng tự sinh, lưu `plan_item_id` vào bản nháp.
+
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**
    (người dùng xác nhận đã nhận được email test ở hộp thư `thpt@fpt.edu.vn`, cả từ local lẫn từ

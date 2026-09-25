@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kế hoạch & Lịch — FSchools Content</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F7F7F5; --surface:#FFFFFF; --surface2:#F4F4F2; --border:#E6E6E3; --border2:#D2D2CE;
+    --text:#1B1B1F; --text2:#5C5C66; --text3:#8E8E98;
+    --accent:#F26522; --accent-bg:#FEF1E8; --accent-text:#B8440F;
+    --blue:#1F5FBF; --blue-bg:#E9F0FB; --green:#1E7B45; --green-bg:#E7F4EC;
+    --amber:#9A5B00; --amber-bg:#FDF3E1; --red:#B3261E; --red-bg:#FCEBEA;
+    --radius:10px; --font:'Be Vietnam Pro',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.55;min-height:100vh}
+  button,input,select,textarea{font-family:inherit;font-size:13px;color:inherit}
+  a{color:inherit}
+
+  .topbar{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:10px 20px}
+  .brand{font-weight:700;font-size:15px;letter-spacing:-.01em}
+  .brand span{color:var(--accent)}
+  .back{font-size:13px;color:var(--text2);text-decoration:none;padding:6px 10px;border-radius:8px}
+  .back:hover{background:var(--surface2)}
+  .who{margin-left:auto;font-size:12px;color:var(--text2);text-align:right}
+
+  .wrap{max-width:1100px;margin:0 auto;padding:20px}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  h1{font-size:24px;font-weight:700;letter-spacing:-.02em}
+  .sub{color:var(--text2);font-size:13px;margin-top:2px}
+
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto}
+  .tab{background:none;border:none;padding:10px 12px;cursor:pointer;color:var(--text2);font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
+  .tab.active{color:var(--text);border-bottom-color:var(--accent)}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+  .toolbar .spacer{flex:1}
+  select,input[type=text],input[type=date],input[type=month],input[type=number],input[type=url],textarea{
+    border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:7px 10px;outline:none}
+  select:focus,input:focus,textarea:focus{border-color:var(--accent)}
+  textarea{width:100%;resize:vertical;min-height:64px}
+
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border2);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:500;white-space:nowrap}
+  .btn:hover{background:var(--surface2)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(1.05)}
+  .btn.sm{padding:4px 9px;font-size:12px}
+  .btn.ghost{border-color:transparent;background:none;color:var(--text2)}
+  .btn.ghost:hover{background:var(--surface2)}
+  .btn.danger{color:var(--red)}
+
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--text2)}
+  .chip.active{background:var(--text);border-color:var(--text);color:#fff}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+  .card-title{font-weight:600;font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .muted{color:var(--text3);font-size:12px}
+
+  .notice{border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .notice.amber{background:var(--amber-bg);color:var(--amber)}
+  .notice.blue{background:var(--blue-bg);color:var(--blue)}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+  .stat .n{font-size:22px;font-weight:700;letter-spacing:-.02em}
+  .stat .l{font-size:12px;color:var(--text2)}
+
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .p-gray{background:var(--surface2);color:var(--text2)}
+  .p-blue{background:var(--blue-bg);color:var(--blue)}
+  .p-amber{background:var(--amber-bg);color:var(--amber)}
+  .p-green{background:var(--green-bg);color:var(--green)}
+  .p-red{background:var(--red-bg);color:var(--red)}
+  .p-accent{background:var(--accent-bg);color:var(--accent-text)}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;background:var(--surface2);color:var(--text2);margin-right:3px}
+
+  .group-head{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--text2);margin:18px 0 8px}
+  .group-head .count{font-weight:500;color:var(--text3)}
+
+  .row{display:grid;grid-template-columns:78px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+  .row.cancelled{opacity:.55}
+  .row.cancelled .r-title{text-decoration:line-through}
+  .date-box{text-align:center;border-radius:8px;background:var(--surface2);padding:5px 0;line-height:1.2}
+  .date-box .d{font-size:17px;font-weight:700}
+  .date-box .m{font-size:11px;color:var(--text2)}
+  .date-box.suggested{background:var(--amber-bg);color:var(--amber)}
+  .date-box.none{color:var(--text3)}
+  .r-title{font-weight:600;font-size:13.5px;overflow-wrap:anywhere}
+  .r-meta{font-size:12px;color:var(--text2);margin-top:2px;overflow-wrap:anywhere}
+  .r-actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+
+  .item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+  .overdue{color:var(--red);font-weight:600}
+
+  .empty{text-align:center;color:var(--text3);padding:30px 10px;font-size:13px}
+
+  .modal-back{position:fixed;inset:0;background:rgba(20,20,25,.42);display:none;align-items:flex-start;justify-content:center;z-index:50;padding:40px 12px;overflow-y:auto}
+  .modal-back.open{display:flex}
+  .modal{background:var(--surface);border-radius:14px;width:100%;max-width:560px;padding:18px 20px}
+  .modal h2{font-size:17px;font-weight:700;margin-bottom:12px}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px}
+  .field input,.field select{width:100%}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .checks{display:flex;flex-wrap:wrap;gap:6px 12px}
+  .checks label{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;color:var(--text);margin:0}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+  .hint{font-size:12px;color:var(--text3);margin-top:3px}
+
+  .pillar-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  .pillar-row input[type=text]{flex:1}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;z-index:80;display:none;max-width:90vw}
+
+  @media (max-width:640px){
+    .wrap{padding:14px 12px}
+    .topbar{padding:10px 12px}
+    .who{display:none}
+    h1{font-size:20px}
+    .row{grid-template-columns:60px minmax(0,1fr)}
+    .row .r-actions{grid-column:1 / -1;justify-content:flex-start}
+    .item{grid-template-columns:minmax(0,1fr)}
+    .item .r-actions{justify-content:flex-start}
+    .grid2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="back" id="back-link" href="index.html">← Trang chính</a>
+  <div class="brand">FSchools <span>Content</span></div>
+  <div class="who" id="who"></div>
+</div>
+
+<div class="wrap">
+  <div class="page-head">
+    <div>
+      <h1>Kế hoạch & Lịch</h1>
+      <div class="sub">Lịch sự kiện năm học và kế hoạch content từng tháng</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="plan" onclick="switchTab('plan')">Kế hoạch tháng</button>
+    <button class="tab" data-tab="events" onclick="switchTab('events')">Lịch sự kiện</button>
+    <button class="tab" data-tab="pillars" id="tab-pillars" style="display:none" onclick="switchTab('pillars')">Trụ content</button>
+  </div>
+
+  <!-- KẾ HOẠCH THÁNG -->
+  <section id="view-plan">
+    <div class="toolbar">
+      <select id="plan-campus" onchange="loadPlan()"></select>
+      <input type="month" id="plan-month" onchange="loadPlan()">
+      <label class="chip" id="mine-chip" onclick="toggleMine()">Chỉ việc của tôi</label>
+      <span class="spacer"></span>
+      <button class="btn primary editor-only" onclick="openItemModal()">+ Thêm đầu việc</button>
+    </div>
+    <div class="stats" id="plan-stats"></div>
+    <div id="plan-events"></div>
+    <div id="plan-list"><div class="empty">Đang tải…</div></div>
+  </section>
+
+  <!-- LỊCH SỰ KIỆN -->
+  <section id="view-events" style="display:none">
+    <div class="toolbar">
+      <select id="ev-campus" onchange="loadEvents()"></select>
+      <select id="ev-year" onchange="loadEvents()"></select>
+      <div class="chips" id="ev-filter">
+        <span class="chip active" data-f="all" onclick="setEvFilter('all')">Tất cả</span>
+        <span class="chip" data-f="cho_xac_nhan" onclick="setEvFilter('cho_xac_nhan')">Chờ xác nhận</span>
+        <span class="chip" data-f="da_xac_nhan" onclick="setEvFilter('da_xac_nhan')">Đã xác nhận</span>
+        <span class="chip" data-f="huy" onclick="setEvFilter('huy')">Đã huỷ</span>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn primary editor-only" onclick="openEventModal()">+ Thêm sự kiện</button>
+    </div>
+    <div id="ev-notice"></div>
+    <div id="ev-upcoming"></div>
+    <div id="ev-list"><div class="empty">Đang tải…</div></div>
+  </section>
+
+  <!-- TRỤ CONTENT -->
+  <section id="view-pillars" style="display:none">
+    <div class="card">
+      <div class="card-title">Danh sách trụ content</div>
+      <div class="muted" style="margin-bottom:10px">Dùng để phân loại đầu việc trong kế hoạch tháng. Ẩn một trụ sẽ không xoá các đầu việc đã gán trụ đó.</div>
+      <div id="pillar-list"></div>
+      <div class="pillar-row" style="margin-top:10px">
+        <input type="text" id="new-pillar" placeholder="Tên trụ content mới">
+        <button class="btn primary" onclick="addPillar()">Thêm</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- MODAL: đầu việc -->
+<div class="modal-back" id="item-modal" onclick="if(event.target===this)closeModal('item-modal')">
+  <div class="modal">
+    <h2 id="item-modal-title">Thêm đầu việc</h2>
+    <input type="hidden" id="it-id">
+    <div class="field"><label>Tiêu đề *</label><input type="text" id="it-title" placeholder="Lễ tri ân thầy cô giáo 20/11"></div>
+    <div class="grid2">
+      <div class="field"><label>Tháng kế hoạch *</label><input type="month" id="it-month"></div>
+      <div class="field"><label>Cơ sở *</label><select id="it-campus"></select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Trụ content</label><select id="it-pillar"></select></div>
+      <div class="field"><label>Gắn với sự kiện</label><select id="it-event"></select></div>
+    </div>
+    <div class="field"><label>Highlight nội dung</label><textarea id="it-highlight" placeholder="Thông điệp chính, điểm nhấn của bài"></textarea></div>
+    <div class="field"><label>Chi tiết / Ref</label><textarea id="it-reference" placeholder="Link tham khảo, ghi chú chi tiết"></textarea></div>
+    <div class="field"><label>Kênh đăng</label><div class="checks" id="it-channels"></div></div>
+    <div class="grid2">
+      <div class="field"><label>Hình thức</label><input type="text" id="it-format" list="format-list" placeholder="Bài viết + album ảnh"></div>
+      <div class="field"><label>Phụ trách</label><select id="it-assignee"></select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Deadline gửi</label><input type="date" id="it-deadline"></div>
+      <div class="field"><label>Ngày đăng dự kiến</label><input type="date" id="it-publish"></div>
+    </div>
+    <div class="field"><label>Link bài đã đăng</label><input type="url" id="it-link" placeholder="https://facebook.com/..."><div class="hint">Điền sau khi bài lên sóng — đầu việc chuyển sang "Đã đăng".</div></div>
+    <div class="modal-actions">
+      <button class="btn danger" id="it-delete" onclick="deleteItem()" style="margin-right:auto;display:none">Xoá</button>
+      <button class="btn" onclick="closeModal('item-modal')">Huỷ</button>
+      <button class="btn primary" onclick="saveItem()">Lưu</button>
+    </div>
+  </div>
+</div>
+<datalist id="format-list">
+  <option value="Bài viết + album ảnh"><option value="Ảnh thiết kế"><option value="Clip reels"><option value="Video">
+  <option value="Bài website"><option value="Booking báo chí"><option value="Livestream">
+</datalist>
+
+<!-- MODAL: sự kiện -->
+<div class="modal-back" id="event-modal" onclick="if(event.target===this)closeModal('event-modal')">
+  <div class="modal">
+    <h2 id="event-modal-title">Thêm sự kiện</h2>
+    <input type="hidden" id="ev-id">
+    <div id="ev-origin" class="notice amber" style="display:none"></div>
+    <div class="field"><label>Tên sự kiện *</label><input type="text" id="ev-title"></div>
+    <div class="grid2">
+      <div class="field"><label>Ngày bắt đầu</label><input type="date" id="ev-start"></div>
+      <div class="field"><label>Ngày kết thúc (nếu nhiều ngày)</label><input type="date" id="ev-end"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Tháng *</label><select id="ev-month"></select></div>
+      <div class="field"><label>Cơ sở *</label><select id="ev-campus-f"></select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Tổ/Phòng phụ trách</label><input type="text" id="ev-dept"></div>
+      <div class="field"><label>Chuẩn bị truyền thông trước (ngày)</label><input type="number" id="ev-lead" min="0" max="90" value="14"></div>
+    </div>
+    <div class="field"><label>Giờ, địa điểm, ghi chú</label><input type="text" id="ev-note" placeholder="Tối, 19h-20h, sân trường"></div>
+    <div class="field"><label>Trạng thái</label>
+      <select id="ev-status">
+        <option value="cho_xac_nhan">Chờ xác nhận ngày</option>
+        <option value="da_xac_nhan">Đã xác nhận</option>
+        <option value="huy">Huỷ (năm nay không tổ chức)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('event-modal')">Huỷ</button>
+      <button class="btn primary" onclick="saveEvent()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/api';
+const CAMPUS_LABEL = { hoa_lac: 'Hòa Lạc', tay_hn: 'Tây HN', chung: 'Cả 2 cơ sở' };
+const CHANNELS = [['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok'],['youtube','Youtube'],['zalo','Zalo'],['web','Web'],['email','Email'],['sms','SMS']];
+const EDITOR_ROLES = ['leader_content','leader','manager','admin'];
+const PLAN_STATUS = {
+  chua_lam: ['Chưa làm','p-gray'], dang_duyet: ['Đang duyệt','p-blue'], can_sua: ['Cần sửa','p-amber'],
+  da_duyet: ['Đã duyệt','p-green'], tu_choi: ['Từ chối','p-red'], da_dang: ['Đã đăng','p-accent']
+};
+const EVENT_STATUS = { cho_xac_nhan: ['Chờ xác nhận','p-amber'], da_xac_nhan: ['Đã xác nhận','p-green'], huy: ['Đã huỷ','p-gray'] };
+const SCHOOL_MONTHS = [8,9,10,11,12,1,2,3,4,5,6,7];
+
+let me = null, isEditor = false;
+let pillars = [], users = [], events = [], planItems = [], planEvents = [];
+let evFilter = 'all', mineOnly = false;
+
+function escHtml(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2800); }
+async function api(action, data) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action, user_id: me.id, ...data }) });
+  return r.json();
+}
+function todayIso() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function fmtDate(iso) { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; }
+function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+function addDays(iso, n) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function currentSchoolYear() { const d = new Date(); const y = d.getFullYear(); return d.getMonth() + 1 >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`; }
+function yearOfMonth(schoolYear, month) { const [a, b] = schoolYear.split('-').map(Number); return month >= 8 ? a : b; }
+function userName(id) { const u = users.find(x => x.id === id); return u ? u.name : ''; }
+function pillarName(id) { const p = pillars.find(x => x.id === id); return p ? p.name : ''; }
+
+function campusOptions() {
+  const all = ['manager','admin','leader'].includes(me.role) || me.campus === 'chung';
+  return all ? ['hoa_lac','tay_hn'] : [me.campus];
+}
+function editableCampuses() {
+  const all = ['manager','admin'].includes(me.role) || me.campus === 'chung';
+  return all ? ['hoa_lac','tay_hn','chung'] : [me.campus, 'chung'];
+}
+function fillSelect(el, pairs, selected) {
+  el.innerHTML = pairs.map(([v, l]) => `<option value="${escHtml(v)}"${v === selected ? ' selected' : ''}>${escHtml(l)}</option>`).join('');
+}
+
+// ---------------- Khởi động ----------------
+async function init() {
+  const stored = localStorage.getItem('fsc_user');
+  if (!stored) { location.href = 'index.html'; return; }
+  me = JSON.parse(stored);
+  isEditor = EDITOR_ROLES.includes(me.role);
+  document.getElementById('who').innerHTML = `${escHtml(me.name)}<br><span class="muted">${escHtml(CAMPUS_LABEL[me.campus] || me.campus || '')}</span>`;
+  document.getElementById('back-link').href = ['ctv','leader_content'].includes(me.role) ? 'ctv.html' : 'boss.html';
+  if (!isEditor) document.querySelectorAll('.editor-only').forEach(el => el.style.display = 'none');
+  if (['manager','admin'].includes(me.role)) document.getElementById('tab-pillars').style.display = '';
+
+  const campuses = campusOptions().map(c => [c, 'Cơ sở ' + CAMPUS_LABEL[c]]);
+  fillSelect(document.getElementById('plan-campus'), campuses, campuses[0][0]);
+  fillSelect(document.getElementById('ev-campus'), campuses, campuses[0][0]);
+  const sy = currentSchoolYear(); const [a] = sy.split('-').map(Number);
+  fillSelect(document.getElementById('ev-year'), [[`${a-1}-${a}`, `Năm học ${a-1}-${a}`], [sy, `Năm học ${sy}`], [`${a+1}-${a+2}`, `Năm học ${a+1}-${a+2}`]], sy);
+  document.getElementById('plan-month').value = todayIso().slice(0, 7);
+  document.getElementById('it-channels').innerHTML = CHANNELS.map(([v, l]) => `<label><input type="checkbox" value="${v}">${l}</label>`).join('');
+  fillSelect(document.getElementById('ev-month'), SCHOOL_MONTHS.map(m => [String(m), 'Tháng ' + m]), '9');
+
+  const [pRes, uRes] = await Promise.all([api('get_content_pillars', { include_inactive: true }), api('get_users', {})]);
+  pillars = (pRes.pillars || []);
+  users = (uRes.users || []).filter(u => u.active !== false);
+
+  const tab = new URLSearchParams(location.search).get('tab');
+  switchTab(['events','pillars'].includes(tab) ? tab : 'plan');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  ['plan','events','pillars'].forEach(v => document.getElementById('view-' + v).style.display = v === tab ? '' : 'none');
+  if (tab === 'plan') loadPlan();
+  if (tab === 'events') loadEvents();
+  if (tab === 'pillars') renderPillars();
+}
+
+// ---------------- Lịch sự kiện ----------------
+async function loadEvents() {
+  document.getElementById('ev-list').innerHTML = '<div class="empty">Đang tải…</div>';
+  const res = await api('get_school_events', { campus: document.getElementById('ev-campus').value, school_year: document.getElementById('ev-year').value });
+  if (!res.ok) { document.getElementById('ev-list').innerHTML = `<div class="empty">${escHtml(res.error || 'Lỗi tải lịch')}</div>`; return; }
+  events = res.events || [];
+  renderEvents();
+}
+
+function setEvFilter(f) {
+  evFilter = f;
+  document.querySelectorAll('#ev-filter .chip').forEach(c => c.classList.toggle('active', c.dataset.f === f));
+  renderEvents();
+}
+
+function dateBox(e) {
+  if (!e.start_date) return '<div class="date-box none"><div class="d">—</div><div class="m">Chưa có ngày</div></div>';
+  const [, m, d] = e.start_date.split('-');
+  const pending = e.status === 'cho_xac_nhan';
+  return `<div class="date-box${pending ? ' suggested' : ''}"><div class="d">${d}</div><div class="m">Tháng ${Number(m)}</div>${pending ? '<div class="m">gợi ý</div>' : ''}</div>`;
+}
+
+function eventRow(e) {
+  const [lbl, cls] = EVENT_STATUS[e.status] || [e.status, 'p-gray'];
+  const range = e.end_date ? ` → ${fmtDate(e.end_date)}` : '';
+  const meta = [e.department, e.start_date ? fmtDate(e.start_date) + range : '', e.time_note].filter(Boolean).map(escHtml).join(' · ');
+  const actions = isEditor ? `
+    ${e.status === 'cho_xac_nhan' ? `<button class="btn sm primary" onclick="openEventModal('${e.id}', true)">Xác nhận</button>` : ''}
+    ${e.status !== 'huy' ? `<button class="btn sm" onclick="createSeries('${e.id}')" title="Tạo 3 đầu việc Trước/Trong/Sau sự kiện">Tạo chuỗi bài</button>` : ''}
+    <button class="btn sm ghost" onclick="openEventModal('${e.id}')">Sửa</button>` : '';
+  return `<div class="row${e.status === 'huy' ? ' cancelled' : ''}">
+    ${dateBox(e)}
+    <div style="min-width:0"><div class="r-title">${escHtml(e.title)} <span class="pill ${cls}">${lbl}</span></div><div class="r-meta">${meta}</div></div>
+    <div class="r-actions">${actions}</div>
+  </div>`;
+}
+
+function renderEvents() {
+  const sy = document.getElementById('ev-year').value;
+  const pending = events.filter(e => e.status === 'cho_xac_nhan').length;
+  document.getElementById('ev-notice').innerHTML = pending && isEditor
+    ? `<div class="notice amber"><b>${pending} sự kiện chờ xác nhận ngày</b> cho năm học ${escHtml(sy)}. Ngày đang hiện là gợi ý lấy theo năm trước — bấm "Xác nhận" để chốt ngày thật, hoặc Sửa → Huỷ nếu năm nay không tổ chức.</div>` : '';
+
+  // Sắp tới: sự kiện đã xác nhận trong 45 ngày tới, đánh dấu cái nào đã tới lúc chuẩn bị truyền thông.
+  const today = todayIso();
+  const upcoming = events.filter(e => e.status === 'da_xac_nhan' && e.start_date && e.start_date >= today && daysBetween(today, e.start_date) <= 45);
+  document.getElementById('ev-upcoming').innerHTML = upcoming.length ? `<div class="card"><div class="card-title">Sắp diễn ra</div>${upcoming.map(e => {
+    const left = daysBetween(today, e.start_date);
+    const prep = left <= e.lead_days ? '<span class="pill p-accent">Đã tới lúc chuẩn bị truyền thông</span>' : '';
+    return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 0;font-size:13px"><b>${fmtDate(e.start_date)}</b><span>${escHtml(e.title)}</span><span class="muted">còn ${left} ngày</span>${prep}</div>`;
+  }).join('')}</div>` : '';
+
+  const list = events.filter(e => evFilter === 'all' || e.status === evFilter);
+  if (!list.length) { document.getElementById('ev-list').innerHTML = '<div class="empty">Chưa có sự kiện nào trong bộ lọc này.</div>'; return; }
+  document.getElementById('ev-list').innerHTML = SCHOOL_MONTHS.map(m => {
+    const inMonth = list.filter(e => e.month === m).sort((a, b) => (a.start_date || '9999').localeCompare(b.start_date || '9999'));
+    if (!inMonth.length) return '';
+    return `<div class="group-head">Tháng ${m}/${yearOfMonth(sy, m)} <span class="count">· ${inMonth.length} sự kiện</span></div>${inMonth.map(eventRow).join('')}`;
+  }).join('');
+}
+
+function openEventModal(id, confirmMode) {
+  const e = id ? events.find(x => x.id === id) : null;
+  const campuses = editableCampuses().map(c => [c, CAMPUS_LABEL[c]]);
+  document.getElementById('event-modal-title').textContent = confirmMode ? 'Xác nhận ngày sự kiện' : (e ? 'Sửa sự kiện' : 'Thêm sự kiện');
+  document.getElementById('ev-id').value = e ? e.id : '';
+  document.getElementById('ev-title').value = e ? e.title : '';
+  document.getElementById('ev-start').value = e && e.start_date ? e.start_date : '';
+  document.getElementById('ev-end').value = e && e.end_date ? e.end_date : '';
+  document.getElementById('ev-month').value = String(e ? e.month : new Date().getMonth() + 1);
+  fillSelect(document.getElementById('ev-campus-f'), campuses, e ? e.campus : document.getElementById('ev-campus').value);
+  document.getElementById('ev-dept').value = e ? (e.department || '') : '';
+  document.getElementById('ev-lead').value = e ? e.lead_days : 14;
+  document.getElementById('ev-note').value = e ? (e.time_note || '') : '';
+  document.getElementById('ev-status').value = confirmMode ? 'da_xac_nhan' : (e ? e.status : 'da_xac_nhan');
+  const origin = document.getElementById('ev-origin');
+  if (e && e.status === 'cho_xac_nhan') {
+    origin.style.display = 'flex';
+    origin.textContent = 'Ngày đang điền là GỢI Ý theo năm trước. Kiểm tra lại ngày thật của năm học này trước khi lưu.';
+  } else origin.style.display = 'none';
+  openModal('event-modal');
+}
+
+async function saveEvent() {
+  const start = document.getElementById('ev-start').value;
+  let month = Number(document.getElementById('ev-month').value);
+  if (start) month = Number(start.slice(5, 7));
+  const status = document.getElementById('ev-status').value;
+  if (status === 'da_xac_nhan' && !start) { toast('Nhập ngày bắt đầu trước khi xác nhận'); return; }
+  const event = {
+    id: document.getElementById('ev-id').value || undefined,
+    title: document.getElementById('ev-title').value,
+    start_date: start, end_date: document.getElementById('ev-end').value,
+    month, campus: document.getElementById('ev-campus-f').value,
+    school_year: document.getElementById('ev-year').value,
+    department: document.getElementById('ev-dept').value,
+    lead_days: document.getElementById('ev-lead').value,
+    time_note: document.getElementById('ev-note').value, status
+  };
+  const res = await api('save_school_event', { event });
+  if (!res.ok) { toast(res.error || 'Lưu thất bại'); return; }
+  closeModal('event-modal');
+  toast(status === 'da_xac_nhan' ? 'Đã xác nhận sự kiện' : 'Đã lưu sự kiện');
+  loadEvents();
+}
+
+// Tạo 3 đầu việc Trước / Trong / Sau sự kiện (theo mẫu "Kế hoạch sự kiện" trong file kế hoạch).
+async function createSeries(eventId) {
+  const e = events.find(x => x.id === eventId) || planEvents.find(x => x.id === eventId);
+  if (!e) return;
+  if (!confirm(`Tạo 3 đầu việc (Trước, Trong, Sau sự kiện) cho "${e.title}"?`)) return;
+  const sy = e.school_year;
+  const fallbackMonth = `${yearOfMonth(sy, e.month)}-${String(e.month).padStart(2, '0')}`;
+  const start = e.start_date, end = e.end_date || e.start_date;
+  const campus = e.campus === 'chung' ? document.getElementById('plan-campus').value : e.campus;
+  const specs = [
+    ['Trước sự kiện — Thông báo, nhá hàng: ', start ? addDays(start, -3) : null],
+    ['Trong sự kiện — Cập nhật không khí: ', start],
+    ['Sau sự kiện — Recap, cảm nhận: ', end ? addDays(end, 1) : null]
+  ];
+  let ok = 0;
+  for (const [prefix, pub] of specs) {
+    const res = await api('save_plan_item', { item: {
+      campus, month: pub ? pub.slice(0, 7) : fallbackMonth, title: prefix + e.title,
+      pillar_id: 'PIL_tin_tuc', event_id: e.id, channels: ['facebook'], format: 'Bài viết + album ảnh',
+      publish_date: pub, deadline: pub ? addDays(pub, -1) : null
+    } });
+    if (res.ok) ok++;
+  }
+  toast(ok === 3 ? 'Đã tạo 3 đầu việc — xem ở tab Kế hoạch tháng' : `Tạo được ${ok}/3 đầu việc`);
+  if (document.getElementById('view-plan').style.display !== 'none') loadPlan();
+}
+
+// ---------------- Kế hoạch tháng ----------------
+function toggleMine() {
+  mineOnly = !mineOnly;
+  document.getElementById('mine-chip').classList.toggle('active', mineOnly);
+  renderPlan();
+}
+
+async function loadPlan() {
+  document.getElementById('plan-list').innerHTML = '<div class="empty">Đang tải…</div>';
+  const campus = document.getElementById('plan-campus').value;
+  const month = document.getElementById('plan-month').value;
+  if (!month) return;
+  const m = Number(month.slice(5, 7)), y = Number(month.slice(0, 4));
+  const schoolYear = m >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+  const [iRes, eRes] = await Promise.all([
+    api('get_plan_items', { campus, month }),
+    api('get_school_events', { campus, school_year: schoolYear })
+  ]);
+  if (!iRes.ok) { document.getElementById('plan-list').innerHTML = `<div class="empty">${escHtml(iRes.error || 'Lỗi tải kế hoạch')}</div>`; return; }
+  planItems = iRes.items || [];
+  planEvents = (eRes.events || []).filter(e => e.month === m && e.status !== 'huy');
+  renderPlan();
+}
+
+function planStatusPill(it) { const [l, c] = PLAN_STATUS[it.plan_status] || [it.plan_status, 'p-gray']; return `<span class="pill ${c}">${l}</span>`; }
+
+function itemRow(it) {
+  const today = todayIso();
+  const done = ['da_duyet','da_dang'].includes(it.plan_status);
+  const dl = it.deadline ? `<span class="${!done && it.deadline < today ? 'overdue' : ''}">Hạn ${fmtDate(it.deadline)}</span>` : '';
+  const pub = it.publish_date ? `Đăng ${fmtDate(it.publish_date)}` : '';
+  const ev = it.event_id ? (planEvents.find(e => e.id === it.event_id) || {}).title : '';
+  const meta = [userName(it.assignee_id) ? '👤 ' + escHtml(userName(it.assignee_id)) : '<span class="muted">Chưa giao</span>', it.format ? escHtml(it.format) : '', dl, pub].filter(Boolean).join(' · ');
+  const channels = (it.channels || []).map(c => `<span class="tag">${escHtml((CHANNELS.find(x => x[0] === c) || [c, c])[1])}</span>`).join('');
+  const canWrite = ['ctv','leader_content'].includes(me.role) && !it.submission_id && (isEditor || it.assignee_id === me.id);
+  const subLink = it.submission_id
+    ? `<a class="btn sm" href="${['ctv','leader_content'].includes(me.role) ? 'ctv.html' : 'boss.html'}?open=${encodeURIComponent(it.submission_id)}">Xem bài</a>` : '';
+  const actions = `${canWrite ? `<a class="btn sm primary" href="ctv.html?plan_item=${encodeURIComponent(it.id)}">Viết bài</a>` : ''}${subLink}${isEditor ? `<button class="btn sm ghost" onclick="openItemModal('${it.id}')">Sửa</button>` : ''}`;
+  return `<div class="item">
+    <div style="min-width:0">
+      <div class="r-title">${escHtml(it.title)} ${planStatusPill(it)}</div>
+      ${it.highlight ? `<div class="r-meta">${escHtml(it.highlight)}</div>` : ''}
+      <div class="r-meta">${channels}${ev ? `<span class="tag">📅 ${escHtml(ev)}</span>` : ''} ${meta}</div>
+    </div>
+    <div class="r-actions">${actions}</div>
+  </div>`;
+}
+
+function renderPlan() {
+  const list = planItems.filter(it => !mineOnly || it.assignee_id === me.id);
+  const count = s => list.filter(it => it.plan_status === s).length;
+  const doneN = count('da_duyet') + count('da_dang');
+  document.getElementById('plan-stats').innerHTML = `
+    <div class="stat"><div class="n">${list.length}</div><div class="l">Đầu việc trong tháng</div></div>
+    <div class="stat"><div class="n">${count('chua_lam')}</div><div class="l">Chưa làm</div></div>
+    <div class="stat"><div class="n">${count('dang_duyet') + count('can_sua')}</div><div class="l">Đang duyệt / cần sửa</div></div>
+    <div class="stat"><div class="n">${doneN}${list.length ? `<span class="muted" style="font-size:13px;font-weight:500"> · ${Math.round(doneN / list.length * 100)}%</span>` : ''}</div><div class="l">Đã duyệt / đã đăng</div></div>`;
+
+  // Sự kiện trong tháng chưa có đầu việc nào gắn vào — nhắc tạo chuỗi bài.
+  const covered = new Set(planItems.map(it => it.event_id).filter(Boolean));
+  const uncovered = planEvents.filter(e => !covered.has(e.id));
+  document.getElementById('plan-events').innerHTML = uncovered.length ? `<div class="card"><div class="card-title">Sự kiện trong tháng chưa có bài <span class="pill p-amber">${uncovered.length}</span></div>${uncovered.map(e => `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:13px">
+      <b style="min-width:84px">${e.start_date ? fmtDate(e.start_date) : 'Chưa có ngày'}</b>
+      <span style="flex:1;min-width:160px">${escHtml(e.title)} ${e.status === 'cho_xac_nhan' ? '<span class="pill p-amber">Chờ xác nhận</span>' : ''}</span>
+      ${isEditor ? `<button class="btn sm" onclick="createSeries('${e.id}')">Tạo chuỗi bài</button>` : ''}
+    </div>`).join('')}</div>` : '';
+
+  if (!list.length) {
+    document.getElementById('plan-list').innerHTML = `<div class="empty">${mineOnly ? 'Bạn chưa được giao đầu việc nào trong tháng này.' : 'Tháng này chưa có đầu việc nào.' + (isEditor ? ' Bấm "+ Thêm đầu việc" hoặc "Tạo chuỗi bài" từ sự kiện.' : '')}</div>`;
+    return;
+  }
+  const groups = pillars.map(p => [p.id, p.name]).concat([[null, 'Chưa gán trụ content']]);
+  document.getElementById('plan-list').innerHTML = groups.map(([pid, name]) => {
+    const items = list.filter(it => (it.pillar_id || null) === pid || (pid === null && it.pillar_id && !pillars.some(p => p.id === it.pillar_id)));
+    if (!items.length) return '';
+    return `<div class="group-head">${escHtml(name)} <span class="count">· ${items.length}</span></div>${items.map(itemRow).join('')}`;
+  }).join('');
+}
+
+function openItemModal(id) {
+  const it = id ? planItems.find(x => x.id === id) : null;
+  document.getElementById('item-modal-title').textContent = it ? 'Sửa đầu việc' : 'Thêm đầu việc';
+  document.getElementById('it-id').value = it ? it.id : '';
+  document.getElementById('it-title').value = it ? it.title : '';
+  document.getElementById('it-month').value = it ? it.plan_month.slice(0, 7) : document.getElementById('plan-month').value;
+  fillSelect(document.getElementById('it-campus'), editableCampuses().map(c => [c, CAMPUS_LABEL[c]]), it ? it.campus : document.getElementById('plan-campus').value);
+  fillSelect(document.getElementById('it-pillar'), [['', '— Chưa gán —']].concat(pillars.filter(p => p.active || (it && p.id === it.pillar_id)).map(p => [p.id, p.name])), it ? (it.pillar_id || '') : '');
+  fillSelect(document.getElementById('it-event'), [['', '— Không —']].concat(planEvents.map(e => [e.id, (e.start_date ? fmtDate(e.start_date) + ' · ' : '') + e.title])), it ? (it.event_id || '') : '');
+  const campus = it ? it.campus : document.getElementById('plan-campus').value;
+  const writers = users.filter(u => ['ctv','leader_content'].includes(u.role) && (u.campus === campus || u.campus === 'chung' || campus === 'chung'));
+  fillSelect(document.getElementById('it-assignee'), [['', '— Chưa giao —']].concat(writers.map(u => [u.id, u.name + (u.role === 'leader_content' ? ' (Leader)' : '')])), it ? (it.assignee_id || '') : '');
+  document.getElementById('it-highlight').value = it ? (it.highlight || '') : '';
+  document.getElementById('it-reference').value = it ? (it.reference || '') : '';
+  document.querySelectorAll('#it-channels input').forEach(cb => cb.checked = it ? (it.channels || []).includes(cb.value) : cb.value === 'facebook');
+  document.getElementById('it-format').value = it ? (it.format || '') : '';
+  document.getElementById('it-deadline').value = it ? (it.deadline || '') : '';
+  document.getElementById('it-publish').value = it ? (it.publish_date || '') : '';
+  document.getElementById('it-link').value = it ? (it.post_link || '') : '';
+  document.getElementById('it-delete').style.display = it && !it.submission_id ? '' : 'none';
+  openModal('item-modal');
+}
+
+async function saveItem() {
+  const item = {
+    id: document.getElementById('it-id').value || undefined,
+    title: document.getElementById('it-title').value,
+    month: document.getElementById('it-month').value,
+    campus: document.getElementById('it-campus').value,
+    pillar_id: document.getElementById('it-pillar').value,
+    event_id: document.getElementById('it-event').value,
+    highlight: document.getElementById('it-highlight').value,
+    reference: document.getElementById('it-reference').value,
+    channels: Array.from(document.querySelectorAll('#it-channels input:checked')).map(cb => cb.value),
+    format: document.getElementById('it-format').value,
+    assignee_id: document.getElementById('it-assignee').value,
+    deadline: document.getElementById('it-deadline').value,
+    publish_date: document.getElementById('it-publish').value,
+    post_link: document.getElementById('it-link').value
+  };
+  if (!item.title.trim()) { toast('Nhập tiêu đề đầu việc'); return; }
+  const res = await api('save_plan_item', { item });
+  if (!res.ok) { toast(res.error || 'Lưu thất bại'); return; }
+  closeModal('item-modal');
+  toast('Đã lưu đầu việc');
+  loadPlan();
+}
+
+async function deleteItem() {
+  const id = document.getElementById('it-id').value;
+  if (!id || !confirm('Xoá đầu việc này?')) return;
+  const res = await api('delete_plan_item', { id });
+  if (!res.ok) { toast(res.error || 'Xoá thất bại'); return; }
+  closeModal('item-modal');
+  toast('Đã xoá đầu việc');
+  loadPlan();
+}
+
+// ---------------- Trụ content ----------------
+function renderPillars() {
+  document.getElementById('pillar-list').innerHTML = pillars.map(p => `
+    <div class="pillar-row">
+      <input type="text" value="${escHtml(p.name)}" id="pn-${p.id}">
+      <label style="display:flex;gap:5px;align-items:center;font-size:12px;white-space:nowrap"><input type="checkbox" id="pa-${p.id}" ${p.active ? 'checked' : ''}>Đang dùng</label>
+      <button class="btn sm" onclick="savePillar('${p.id}')">Lưu</button>
+    </div>`).join('');
+}
+
+async function savePillar(id) {
+  const res = await api('save_content_pillar', { id, name: document.getElementById('pn-' + id).value, active: document.getElementById('pa-' + id).checked });
+  if (!res.ok) { toast(res.error || 'Lưu thất bại'); return; }
+  toast('Đã lưu trụ content');
+  const r = await api('get_content_pillars', { include_inactive: true });
+  pillars = r.pillars || pillars; renderPillars();
+}
+
+async function addPillar() {
+  const name = document.getElementById('new-pillar').value.trim();
+  if (!name) return;
+  const res = await api('save_content_pillar', { name });
+  if (!res.ok) { toast(res.error || 'Thêm thất bại'); return; }
+  document.getElementById('new-pillar').value = '';
+  const r = await api('get_content_pillars', { include_inactive: true });
+  pillars = r.pillars || pillars; renderPillars();
+  toast('Đã thêm trụ content');
+}
+
+// ---------------- Modal ----------------
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-back.open').forEach(m => m.classList.remove('open')); });
+
+init();
+</script>
+</body>
+</html>

@@ -330,6 +330,7 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
     <div class="nav-item active" onclick="showPage('page-submit',this)">✏️ Gửi bài duyệt</div>
     <div class="nav-item" onclick="showPage('page-history',this)">📋 Bài của tôi</div>
     <div class="nav-item" id="nav-review" style="display:none" onclick="showPage('page-review',this)">✅ Duyệt bài CTV <span id="review-badge" style="display:none;background:var(--red);color:white;font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:4px"></span></div>
+    <div class="nav-item" onclick="location.href='plan.html'">🗓️ Kế hoạch & Lịch</div>
     <div class="nav-item" onclick="showPage('page-stats',this)">📊 Thống kê cá nhân</div>
     <div class="nav-item" onclick="showPage('page-docs',this)">🗂️ Kho tài liệu</div>
     <div class="sidebar-footer">
@@ -349,6 +350,7 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
     <div class="page active" id="page-submit">
       <div class="page-title">Gửi bài duyệt</div>
       <div class="page-sub">AI kiểm tra trước — tiết kiệm vòng sửa không cần thiết</div>
+      <div id="plan-item-banner" style="display:none;margin:10px 0;padding:9px 12px;border-radius:var(--radius);background:var(--blue-bg);color:var(--blue);font-size:13px"></div>
 
       <div class="draft-manager" id="draft-manager-card">
         <div class="draft-manager-head">
@@ -750,6 +752,45 @@ function init() {
 
   // Khởi tạo autosave sau khi currentUser đã có giá trị.
   initDraftManager();
+
+  const planItemId = new URLSearchParams(window.location.search).get('plan_item');
+  if (planItemId) loadPlanItemIntoForm(planItemId);
+}
+
+// Mở từ nút "Viết bài" ở trang Kế hoạch & Lịch (plan.html?...): điền sẵn tiêu đề, cơ sở, kênh đăng,
+// ghi chú theo đầu việc; khi gửi bài, backend tự nối bài vào đầu việc qua plan_item_id.
+async function loadPlanItemIntoForm(id) {
+  try {
+    const res = await callAPI({ action: 'get_plan_items', id, user_id: currentUser.id });
+    const it = res.ok && res.items && res.items[0];
+    if (!it) { showToast('⚠️ Không tìm thấy đầu việc kế hoạch'); return; }
+    if (it.submission_id) { showToast('Đầu việc này đã có bài gửi duyệt'); return; }
+    if (!document.getElementById('title-input').value.trim()) document.getElementById('title-input').value = it.title || '';
+    const campusEl = document.getElementById('campus');
+    if (Array.from(campusEl.options).some(o => o.value === it.campus)) campusEl.value = it.campus;
+    if ((it.channels || []).length) applyPlatformCheckboxes(it.channels);
+    const noteEl = document.getElementById('note-input');
+    if (!noteEl.value.trim()) {
+      noteEl.value = ['Theo kế hoạch tháng ' + it.plan_month.slice(5, 7) + '/' + it.plan_month.slice(0, 4), it.highlight, it.reference]
+        .filter(Boolean).join(' — ');
+    }
+    window._planItemId = it.id;
+    const banner = document.getElementById('plan-item-banner');
+    banner.innerHTML = '🗓️ Đang viết bài cho đầu việc: <b>' + escHtml(it.title) + '</b>' +
+      (it.deadline ? ' · hạn ' + it.deadline.split('-').reverse().join('/') : '') +
+      ' — gửi duyệt xong, tiến độ tự cập nhật ở trang Kế hoạch. ' +
+      '<a href="#" onclick="event.preventDefault();detachPlanItem()" style="color:inherit">Bỏ liên kết</a>';
+    banner.style.display = 'block';
+    if (typeof refreshWorkflowsForForm === 'function') refreshWorkflowsForForm();
+  } catch (e) { showToast('⚠️ Không tải được đầu việc kế hoạch'); }
+}
+
+function detachPlanItem() {
+  window._planItemId = null;
+  const banner = document.getElementById('plan-item-banner');
+  if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+  const url = new URL(window.location.href);
+  if (url.searchParams.has('plan_item')) { url.searchParams.delete('plan_item'); history.replaceState(null, '', url.pathname + url.search); }
 }
 
 // Mở đúng bài khi người dùng bấm link trong mail (?open=SUB_xxx).
@@ -1603,6 +1644,7 @@ async function submitPost() {
         idempotency_key: window._submitRequestKey,
         send_count: window._sendCount || 1,
         original_id: window._resubmitId || '',
+        plan_item_id: (!isEdit && !isResubmit && window._planItemId) || '',
         is_shared: document.getElementById('is-shared-checkbox') && document.getElementById('is-shared-checkbox').checked ? 'true' : (campus === 'chung' ? 'true' : 'false'),
         brand_check_result: window._brandCheckResults ? JSON.stringify(window._brandCheckResults) : ''
       }
@@ -1973,6 +2015,7 @@ function clearForm(options) {
     if (!options.silent && !confirm('Xóa nội dung đang nhập khỏi form? Bản nháp vừa lưu vẫn được giữ lại.')) return false;
   }
 
+  detachPlanItem();
   ['campus','content-type','audience'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('title-input').value='';
   document.getElementById('content-input').innerHTML='';
@@ -2401,7 +2444,7 @@ async function initDraftManager() {
 // ============================================================
 // Các action chỉ đọc dữ liệu hoặc gọi AI — an toàn để tự động thử lại khi mất kết nối,
 // vì không tạo ra thay đổi/trùng lặp dữ liệu nếu gọi lại nhiều lần
-const READ_ONLY_ACTIONS = ['get_rules','get_users','get_submissions','get_workflows','get_report','get_drafts','get_submission_versions','check_submit_result','ai_chat','ai_suggest_review','ai_check_content','ai_check_brand_image'];
+const READ_ONLY_ACTIONS = ['get_rules','get_users','get_submissions','get_workflows','get_report','get_drafts','get_submission_versions','check_submit_result','get_plan_items','ai_chat','ai_suggest_review','ai_check_content','ai_check_brand_image'];
 const FEEDBACK_ACTIONS = new Set(['submit','resubmit','approve','reject','request_revision','forward_to_next','change_reviewer']);
 const ACTION_COPY = {
   submit: ['Đang gửi bài', 'Đang chuyển bài và thông báo cho người duyệt.'],

@@ -322,6 +322,68 @@ CREATE INDEX ai_accuracy_log_decided_at_idx ON ai_accuracy_log (decided_at DESC)
 CREATE INDEX ai_accuracy_log_submission_idx ON ai_accuracy_log (submission_id);
 
 -- ============================================================
+-- KẾ HOẠCH & LỊCH (migration 20260925041244_planning_calendar.sql) — theo file "Kế hoạch truyền
+-- thông THPT FPT Hà Nội" (Hòa Lạc), dùng chung form cho mọi cơ sở qua cột campus.
+-- content_pillars: trụ content · school_events: lịch sự kiện năm học (nhập từ file ở trạng thái
+-- "chờ xác nhận", Leader Content xác nhận ngày) · plan_items: đầu việc kế hoạch content tháng,
+-- nối với submissions khi CTV bấm "Viết bài" — trạng thái đầu việc suy ra từ bài đã nối.
+-- ============================================================
+CREATE TABLE content_pillars (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  active      BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE school_events (
+  id            TEXT PRIMARY KEY,
+  campus        TEXT NOT NULL,
+  school_year   TEXT NOT NULL,
+  month         INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+  title         TEXT NOT NULL,
+  department    TEXT,
+  start_date    DATE,                      -- khi status='cho_xac_nhan' chỉ là ngày gợi ý
+  end_date      DATE,
+  time_note     TEXT,
+  status        TEXT NOT NULL DEFAULT 'cho_xac_nhan' CHECK (status IN ('cho_xac_nhan','da_xac_nhan','huy')),
+  lead_days     INTEGER NOT NULL DEFAULT 14,
+  source        TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','import')),
+  confirmed_by  TEXT REFERENCES users (id) ON DELETE SET NULL,
+  confirmed_at  TIMESTAMPTZ,
+  created_by    TEXT REFERENCES users (id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX school_events_campus_year_idx ON school_events (campus, school_year, month);
+
+CREATE TABLE plan_items (
+  id             TEXT PRIMARY KEY,
+  campus         TEXT NOT NULL,
+  plan_month     DATE NOT NULL,
+  pillar_id      TEXT REFERENCES content_pillars (id) ON DELETE SET NULL,
+  event_id       TEXT REFERENCES school_events (id) ON DELETE SET NULL,
+  title          TEXT NOT NULL,
+  highlight      TEXT,
+  reference      TEXT,
+  channels       TEXT[] NOT NULL DEFAULT '{}',
+  format         TEXT,
+  assignee_id    TEXT REFERENCES users (id) ON DELETE SET NULL,
+  deadline       DATE,
+  publish_date   DATE,
+  submission_id  TEXT REFERENCES submissions (id) ON DELETE SET NULL,
+  post_link      TEXT,
+  created_by     TEXT REFERENCES users (id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX plan_items_campus_month_idx ON plan_items (campus, plan_month);
+CREATE INDEX plan_items_assignee_idx     ON plan_items (assignee_id);
+CREATE INDEX plan_items_submission_idx   ON plan_items (submission_id);
+
+-- ============================================================
 -- ROW LEVEL SECURITY
 -- App hiện dùng hệ thống đăng nhập riêng (bảng users tự quản lý), không dùng Supabase Auth.
 -- Mọi truy vấn nên đi qua backend bằng service_role key (bỏ qua RLS); anon key không nên
@@ -342,3 +404,6 @@ ALTER TABLE document_categories  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document_links       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_queue          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_accuracy_log      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE content_pillars      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE school_events        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE plan_items           ENABLE ROW LEVEL SECURITY;
