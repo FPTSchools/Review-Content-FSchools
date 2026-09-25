@@ -12,6 +12,8 @@ import * as ai from '../_lib/handlers/ai.js';
 import { handleProcessEmailQueue } from '../_lib/handlers/emailQueue.js';
 import { handleGetAiAccuracyReport } from '../_lib/handlers/aiAccuracy.js';
 import * as planning from '../_lib/handlers/planning.js';
+import { verifySessionToken, passwordFingerprint, safeEqual } from '../_lib/session.js';
+import { isActionAllowed, bindIdentity } from '../_lib/authz.js';
 
 // ============================================================
 // Router chính — thay cho doPost/doGet trong backend_apps_script.js.
@@ -44,7 +46,7 @@ const EMAIL_TRIGGER_ACTIONS = new Set([
 
 async function routeAction(p, supabase, env) {
   switch (p.action) {
-    case 'login': return users.handleLogin(supabase, p);
+    case 'login': return users.handleLogin(supabase, env, p);
     case 'get_users': return users.handleGetUsers(supabase);
     case 'add_user': return users.handleAddUser(supabase, env, p);
     case 'update_user': return users.handleUpdateUser(supabase, env, p);
@@ -120,6 +122,27 @@ async function routeAction(p, supabase, env) {
   }
 }
 
+// Đọc phiên đăng nhập từ header "Authorization: Bearer <token>". Trả về user (không có mật khẩu)
+// hoặc null nếu thiếu/sai/hết hạn/đã đổi mật khẩu/tài khoản bị tắt. Luôn tra lại user từ DB nên
+// đổi vai trò, tắt tài khoản hay đổi mật khẩu có hiệu lực ngay ở request kế tiếp.
+async function authenticate(request, env, supabase) {
+  const match = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const payload = await verifySessionToken(env, match[1].trim());
+  if (!payload) return null;
+  const { data: user, error } = await supabase
+    .from('users').select('id, email, password, name, role, campus, active').eq('id', payload.u).maybeSingle();
+  if (error) throw new Error('Lỗi hệ thống, thử lại sau');
+  if (!user || user.active !== true) return null;
+  if (payload.pv !== await passwordFingerprint(env, user.password)) return null;
+  const { password, ...me } = user;
+  return me;
+}
+
+const AUTH_REQUIRED = {
+  ok: false, code: 'AUTH_REQUIRED', error: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.'
+};
+
 export async function onRequestPost({ request, env, waitUntil }) {
   let p;
   try {
@@ -128,6 +151,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
   } catch (e) {
     return json({ ok: false, error: 'Body không phải JSON hợp lệ' });
   }
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return json({ ok: false, error: 'Body không hợp lệ' });
 
   let supabase;
   try {
@@ -137,6 +161,19 @@ export async function onRequestPost({ request, env, waitUntil }) {
   }
 
   try {
+    if (p.action === 'process_email_queue') {
+      // Chỉ Worker lập lịch (email-cron-worker) mới gọi được, bằng khoá riêng CRON_SECRET.
+      const ok = env.CRON_SECRET && await safeEqual(request.headers.get('X-Cron-Secret'), env.CRON_SECRET);
+      if (!ok) return json({ ok: false, code: 'FORBIDDEN', error: 'Không có quyền' });
+    } else if (p.action !== 'login') {
+      const me = await authenticate(request, env, supabase);
+      if (!me) return json(AUTH_REQUIRED);
+      if (!isActionAllowed(p.action, me.role)) {
+        return json({ ok: false, code: 'FORBIDDEN', error: 'Bạn không có quyền thực hiện thao tác này' });
+      }
+      p = bindIdentity(p, me);
+    }
+
     const result = await routeAction(p, supabase, env);
     // Xử lý hàng đợi email NGAY sau khi hành động chính đã ghi xong (email vừa được thêm vào
     // hàng đợi bên trong routeAction ở trên) — chạy nền qua waitUntil, không làm chậm phản hồi,

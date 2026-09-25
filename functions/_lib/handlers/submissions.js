@@ -94,6 +94,7 @@ export async function handleResubmit(supabase, env, p) {
   const { data: row, error } = await supabase.from('submissions').select('*').eq('id', d.original_id).maybeSingle();
   if (error) return { ok: false, error: error.message };
   if (!row) return { ok: false, error: 'Không tìm thấy bài cần gửi lại' };
+  if (String(row.user_id) !== String(d.user_id)) return { ok: false, error: 'Bạn không có quyền gửi lại bài này' };
   if (row.idempotency_key && row.idempotency_key === String(d.idempotency_key || '')) {
     return { ok: true, id: d.original_id, duplicate: true };
   }

@@ -1,13 +1,14 @@
 import { newId } from '../ids.js';
 import { normalizeEmail } from '../util.js';
 import { sendNewAccountEmail, sendPasswordChangedEmail } from '../email.js';
+import { createSessionToken } from '../session.js';
 
 // ============================================================
 // USERS — port 1:1 từ handleLogin/handleGetUsers/handleAddUser/handleUpdateUser/handleDeleteUser
 // trong backend_apps_script.js (bảng Users → bảng "users" trên Supabase).
 // ============================================================
 
-export async function handleLogin(supabase, p) {
+export async function handleLogin(supabase, env, p) {
   const email = String(p.email || '').trim();
   const password = String(p.password || '');
   if (!email || !password) return { ok: false, error: 'Email hoặc mật khẩu không đúng' };
@@ -26,8 +27,11 @@ export async function handleLogin(supabase, p) {
   const now = new Date().toISOString();
   await supabase.from('users').update({ last_login: now }).eq('id', user.id);
 
+  const session = await createSessionToken(env, user);
   return {
     ok: true,
+    token: session.token,
+    expires_at: session.expires_at,
     user: { id: user.id, email: user.email, name: user.name, role: user.role, campus: user.campus, last_login: now }
   };
 }

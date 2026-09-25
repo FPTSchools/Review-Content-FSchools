@@ -26,27 +26,30 @@
   đổi toàn bộ khoá** (xem danh sách trên), cập nhật lại `.dev.vars` + secret Cloudflare Pages, rồi xoá
   các bản deploy cũ.
 
-### Tiến độ xử lý (cập nhật 2026-09-25) — làm lần lượt: tạo khoá mới → `.dev.vars` → cập nhật secret Cloudflare + deploy + kiểm tra → MỚI thu hồi khoá cũ
-1. **Supabase — ĐÃ ĐỔI KHOÁ, CHỜ XOÁ KHOÁ CŨ.** Khoá mới `sb_secret_…` (tên `fschools-2026-09`) đã vào `.dev.vars`
-   và secret `SUPABASE_SERVICE_ROLE_KEY` trên Cloudflare Pages; đã deploy lại (`node scripts/build-public.mjs`
-   rồi `wrangler pages deploy dist`); đã kiểm tra bản thật `/api` chạy bằng khoá mới (`get_users` → 12 tài
-   khoản). **Còn lại: người dùng xoá khoá cũ ở Supabase → Project Settings → API Keys**, rồi kiểm tra khoá bị
-   lộ (`sb_secret_06pJbly5…`) bị Supabase từ chối và tool vẫn chạy. Sau đó xem Logs → API Gateway có truy
-   cập lạ không.
-2. **OpenAI — CHƯA LÀM.** Tạo key mới, dán vào `.dev.vars` (`OPENAI_API_KEY`), báo để cập nhật secret Cloudflare
-   (`wrangler pages secret put OPENAI_API_KEY`), test AI, rồi thu hồi key cũ; xem trang Usage có chi phí lạ không.
-3. **Gmail — CHƯA LÀM.** Chỉ cần thêm Client secret mới ở Google Cloud (project `fschools-content-review`) →
-   `.dev.vars` `GMAIL_CLIENT_SECRET` → cập nhật secret Cloudflare → gửi mail thử → xoá secret cũ. Refresh
-   token cũ vẫn dùng được với secret mới; nếu console không có nút Add secret thì phải lấy lại refresh token.
-4. **Đổi mật khẩu người dùng — CHƯA LÀM** (chỉ làm SAU khi khoá Supabase cũ đã bị xoá). Cách A: Admin đổi từng
-   người ở Nhân sự (tool tự gửi mail). Cách B: script đặt mật khẩu ngẫu nhiên hàng loạt + gửi mail (cần người
-   dùng đồng ý trước).
-5. **Xoá 24 bản deploy cũ — CHƯA LÀM, chờ người dùng đồng ý** (không hoàn tác được; chúng vẫn phục vụ
-   `.dev.vars` cũ qua URL riêng từng bản). `wrangler pages deployment list --project-name review-content-fschools`.
-6. **Lỗ hổng lớn hơn, chưa sửa: `/api` KHÔNG kiểm tra đăng nhập** — ai biết địa chỉ cũng gọi được mọi action
-   (tạo user admin, đổi mật khẩu người khác, đọc dữ liệu...); `login` chỉ kiểm tra mật khẩu rồi trả user, không
-   cấp token. Mật khẩu còn lưu dạng chữ thường. Cần làm: phiên đăng nhập có hạn (token) + kiểm tra quyền ở
-   router + băm mật khẩu (nhớ mã hoá lại bằng cách buộc đổi mật khẩu lần đăng nhập kế tiếp).
+### Tiến độ xử lý (cập nhật 2026-09-25 buổi 2)
+1. **Supabase — ĐÃ ĐỔI KHOÁ + deploy + kiểm tra** (khoá mới `sb_secret_…` tên `fschools-2026-09`). Người dùng báo đã cập nhật ở
+   Supabase; **cần xác nhận khoá cũ `sb_secret_06pJbly5…` đã bị XOÁ** (thử bằng khoá cũ phải bị từ chối) và xem Logs → API Gateway.
+2. **OpenAI — CHỜ HO.** Key do HO (trụ sở) cấp nên không tự đổi được. Đã soạn tin báo HO thu hồi + cấp key mới + kiểm tra Usage.
+   Khi có key mới: dán vào `.dev.vars` (`OPENAI_API_KEY`) → `wrangler pages secret put OPENAI_API_KEY --project-name review-content-fschools`
+   (đưa giá trị qua file, không dùng pipe PowerShell) → deploy lại → test AI.
+3. **Gmail — XONG phía Cloudflare.** Đã tạo Client secret mới ở Google Cloud (Google Auth Platform → Customers → client Desktop → Add secret),
+   cập nhật `GMAIL_CLIENT_SECRET` trên Pages + deploy + gửi mail thử thật (status `sent`). **Còn lại: người dùng xoá client secret CŨ
+   ở cùng trang** (refresh token cũ vẫn dùng được với secret mới). Bản sao cũ của `.env`/`.dev.vars` còn nằm trong cache edge tên miền chính
+   (hết hạn trong 7 ngày kể từ 2026-09-25) — vô hại khi các khoá cũ đã bị xoá.
+4. **Đổi mật khẩu người dùng — CHƯA LÀM, chờ người dùng chọn.** Cách A: Admin đổi từng người ở Nhân sự (tool tự gửi mail). Cách B: script đặt
+   mật khẩu ngẫu nhiên hàng loạt + gửi mail (khuyến nghị; cần báo trước cho mọi người). Chỉ làm SAU khi khoá Supabase cũ đã bị xoá.
+5. **24 bản deploy cũ — ĐÃ XOÁ** (2026-09-25); chỉ còn bản mới nhất. `/.dev.vars` ở URL riêng các bản cũ giờ 404.
+6. **Phiên đăng nhập cho `/api` — XONG (đã deploy).** `functions/_lib/session.js` (token ký HMAC-SHA256, hạn 7 ngày, gắn "dấu vân tay"
+   mật khẩu → đổi mật khẩu/tắt tài khoản là token cũ chết ngay; secret `SESSION_SECRET`), `functions/_lib/authz.js` (bảng quyền theo vai trò cho
+   từng action, **action không khai báo bị cấm mặc định**; `bindIdentity` ép user_id/role/tên/reviewer_id theo phiên, không tin dữ liệu trình
+   duyệt gửi). Chỉ `login` là công khai; `process_email_queue` chỉ nhận header `X-Cron-Secret` (secret `CRON_SECRET` ở cả Pages và
+   `email-cron-worker`, Worker đã deploy lại; endpoint fetch công khai của worker không còn gọi hộ /api). Frontend (`index/boss/ctv/plan.html`)
+   lưu token ở localStorage `fsc_token`, gửi header `Authorization: Bearer`, gặp `code:"AUTH_REQUIRED"` thì về trang đăng nhập. Thêm chặn:
+   gửi lại bài của người khác (`handleResubmit`), CTV xem lịch sử vòng gửi bài người khác (`get_submission_versions`).
+   Test tự động 44/44 đạt (token giả/hết hạn/sửa payload, phân quyền từng vai trò, giả danh, thu hồi phiên khi đổi mật khẩu/tắt tài khoản/hạ vai trò,
+   cron). **Khi thêm action mới vào router phải khai báo quyền ở `authz.js`.**
+   **Chưa làm:** (a) băm mật khẩu (mật khẩu vẫn lưu chữ thường; PBKDF2 trên Workers cần kiểm tra giới hạn CPU trước), (b) chống dò mật khẩu ở
+   `login` (chưa giới hạn số lần thử), (c) người dùng đang đăng nhập bằng bản cũ sẽ bị đưa về trang đăng nhập 1 lần.
 - Việc khác vẫn dở: `persona_interview_prompt.md` chưa commit (bản nháp prompt cho trưởng phòng — cũng phải tránh
   đưa vào `dist/` nếu không muốn công khai); giai đoạn 2 kế hoạch (kho thông tin chuẩn, AI viết từ dàn ý).
 

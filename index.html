@@ -111,6 +111,7 @@ async function login() {
       // Lưu session — dùng localStorage (không phải sessionStorage) để mọi tab/cửa sổ
       // trên cùng trình duyệt đều nhận ra đã đăng nhập, kể cả tab mới mở từ link trong mail.
       localStorage.setItem('fsc_user', JSON.stringify(res.user));
+      localStorage.setItem('fsc_token', res.token || '');
       // Chuyển hướng theo role, giữ lại ?open=ID nếu người dùng đến từ link trong mail
       const role = res.user.role;
       const openId = new URLSearchParams(window.location.search).get('open');

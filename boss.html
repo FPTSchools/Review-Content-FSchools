@@ -647,7 +647,7 @@ function parsePlatform(s) {
 function init() {
   const s = localStorage.getItem('fsc_user');
   const openId = new URLSearchParams(window.location.search).get('open');
-  if (!s) {
+  if (!s || !localStorage.getItem('fsc_token')) {
     window.location.href = 'index.html' + (openId ? ('?open=' + encodeURIComponent(openId)) : '');
     return;
   }
@@ -698,7 +698,7 @@ function handleOpenDeepLink(id, attempt) {
   }
 }
 
-function logout() { localStorage.removeItem('fsc_user'); window.location.href = 'index.html'; }
+function logout() { localStorage.removeItem('fsc_user'); localStorage.removeItem('fsc_token'); window.location.href = 'index.html'; }
 
 function setDefaultDates() {
   const now = new Date();
@@ -2194,6 +2194,24 @@ function showActionPopup(message, kind) {
   _actionPopupTimer = setTimeout(hideActionPopup, isError ? 4200 : 2800);
 }
 
+// Phiên đăng nhập: /api cấp token lúc đăng nhập (index.html lưu ở localStorage 'fsc_token'); mọi
+// lệnh gọi phải kèm token, hết hạn/không hợp lệ thì quay về trang đăng nhập.
+function authHeaders() {
+  let t = '';
+  try { t = localStorage.getItem('fsc_token') || ''; } catch (e) {}
+  return t ? { Authorization: 'Bearer ' + t } : {};
+}
+function handleAuthExpired() {
+  try { localStorage.removeItem('fsc_user'); localStorage.removeItem('fsc_token'); } catch (e) {}
+  const openId = new URLSearchParams(window.location.search).get('open');
+  window.location.href = 'index.html' + (openId ? ('?open=' + encodeURIComponent(openId)) : '');
+}
+async function readApiJson(r) {
+  const j = await r.json();
+  if (j && j.code === 'AUTH_REQUIRED') handleAuthExpired();
+  return j;
+}
+
 async function callAPI(data, _retryCount) {
   _retryCount = _retryCount || 0;
   const shouldShowBusy = _retryCount === 0 && FEEDBACK_ACTIONS.has(data.action);
@@ -2210,12 +2228,12 @@ async function callAPI(data, _retryCount) {
     try {
       r = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
+        headers: { 'Content-Type': 'text/plain', ...authHeaders() },
         body: JSON.stringify(data),
         signal: controller.signal
       });
       if (!r.ok) throw new Error('HTTP_' + r.status);
-      return await r.json();
+      return await readApiJson(r);
     } finally {
       clearTimeout(timeoutId);
     }

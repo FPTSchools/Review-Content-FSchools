@@ -66,6 +66,12 @@ export async function updateLatestVersionReview(supabase, submissionId, reviewHi
 
 export async function handleGetSubmissionVersions(supabase, p) {
   if (!p.id) return { ok: false, error: 'Thiếu submission id' };
+  // CTV chỉ được xem lịch sử các vòng gửi của bài do chính mình viết (người duyệt/quản lý xem được mọi bài).
+  if (p.role === 'ctv') {
+    const { data: owner, error: ownerError } = await supabase.from('submissions').select('user_id').eq('id', p.id).maybeSingle();
+    if (ownerError) return { ok: false, error: ownerError.message };
+    if (!owner || String(owner.user_id) !== String(p.user_id)) return { ok: false, error: 'Bạn không có quyền xem bài này' };
+  }
   const { data: versions, error } = await supabase
     .from('submission_versions')
     .select('*')

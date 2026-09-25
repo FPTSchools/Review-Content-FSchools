@@ -290,9 +290,22 @@ let evFilter = 'all', mineOnly = false;
 
 function escHtml(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2800); }
+// Phiên đăng nhập: /api cấp token lúc đăng nhập (index.html lưu ở localStorage 'fsc_token'); hết hạn
+// hoặc không hợp lệ thì quay về trang đăng nhập.
+function authHeaders() {
+  let t = '';
+  try { t = localStorage.getItem('fsc_token') || ''; } catch (e) {}
+  return t ? { Authorization: 'Bearer ' + t } : {};
+}
+function handleAuthExpired() {
+  try { localStorage.removeItem('fsc_user'); localStorage.removeItem('fsc_token'); } catch (e) {}
+  location.href = 'index.html';
+}
 async function api(action, data) {
-  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action, user_id: me.id, ...data }) });
-  return r.json();
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...authHeaders() }, body: JSON.stringify({ action, user_id: me.id, ...data }) });
+  const j = await r.json();
+  if (j && j.code === 'AUTH_REQUIRED') handleAuthExpired();
+  return j;
 }
 function todayIso() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
 function fmtDate(iso) { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; }
@@ -318,7 +331,7 @@ function fillSelect(el, pairs, selected) {
 // ---------------- Khởi động ----------------
 async function init() {
   const stored = localStorage.getItem('fsc_user');
-  if (!stored) { location.href = 'index.html'; return; }
+  if (!stored || !localStorage.getItem('fsc_token')) { location.href = 'index.html'; return; }
   me = JSON.parse(stored);
   isEditor = EDITOR_ROLES.includes(me.role);
   document.getElementById('who').innerHTML = `${escHtml(me.name)}<br><span class="muted">${escHtml(CAMPUS_LABEL[me.campus] || me.campus || '')}</span>`;
