@@ -4,7 +4,27 @@
 > hiểu ngay: đã làm gì, đang ở bước nào, cần làm tiếp gì — không cần đọc lại lịch sử chat.
 > Cập nhật file này vào **cuối mỗi buổi làm việc**, rồi `git commit` + `git push`.
 
-## Cập nhật gần nhất: 2026-09-22
+## Cập nhật gần nhất: 2026-09-25
+
+## ⚠️ SỰ CỐ BẢO MẬT (phát hiện 2026-09-25) — CẦN ĐỔI TOÀN BỘ KHOÁ
+- **Lệnh deploy cũ `wrangler pages deploy .` upload CẢ thư mục gốc lên Cloudflare Pages**, gồm
+  `.dev.vars` và `.env` → 2 file này bị công khai tại `https://review-content-fschools.pages.dev/.dev.vars`
+  và `/.env` từ lần deploy đầu tiên của dự án. File `.assetsignore` có liệt kê chúng nhưng **Pages không
+  đọc `.assetsignore`** (đó là tính năng của Workers). Cũng bị công khai: `schema.sql`, `PROGRESS.md`,
+  `backend_apps_script.js`, `migration/*.mjs`, `supabase/config.toml`...
+- Khoá đã lộ: `SUPABASE_SERVICE_ROLE_KEY` (toàn quyền CSDL, kể cả bảng users lưu mật khẩu dạng thường),
+  `SUPABASE_ANON_KEY`, `OPENAI_API_KEY`, `GMAIL_CLIENT_SECRET` + `GMAIL_REFRESH_TOKEN` (gửi mail thay
+  `thpt@fpt.edu.vn`).
+- **Đã chặn ở bản deploy mới**: deploy giờ CHỈ từ thư mục `dist/` (tạo bằng `node scripts/build-public.mjs`,
+  chỉ chép `index.html`, `ctv.html`, `boss.html`, `plan.html` theo danh sách cho phép); `wrangler.toml`
+  đổi `pages_build_output_dir = "dist"`. Lệnh deploy đúng từ nay:
+  `node scripts/build-public.mjs && npx wrangler pages deploy dist --project-name review-content-fschools`.
+  Pages Functions vẫn lấy từ `./functions` ở thư mục gốc (đã kiểm tra `/api` chạy bình thường).
+- **CHƯA xử lý xong**: (1) cache edge của Cloudflare vẫn trả bản cũ của `/.dev.vars` ở tên miền chính
+  (s-maxage 7 ngày, deploy lại không xoá được); (2) 24 bản deploy cũ vẫn phục vụ file bí mật qua URL
+  riêng (vd `https://b54d2216.review-content-fschools.pages.dev/.dev.vars`). → **Cách xử lý dứt điểm là
+  đổi toàn bộ khoá** (xem danh sách trên), cập nhật lại `.dev.vars` + secret Cloudflare Pages, rồi xoá
+  các bản deploy cũ.
 
 ## Bối cảnh dự án
 - Công cụ nội bộ "FSchools Content Review" cho ~15-20 người dùng cùng lúc.

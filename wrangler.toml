@@ -1,3 +1,5 @@
 name = "review-content-fschools"
 compatibility_date = "2026-09-17"
-pages_build_output_dir = "."
+# Chỉ deploy thư mục dist/ (tạo bằng `node scripts/build-public.mjs`) — KHÔNG deploy thư mục gốc,
+# vì thư mục gốc có .dev.vars/.env chứa khoá bí mật và Pages không đọc .assetsignore.
+pages_build_output_dir = "dist"
