@@ -182,8 +182,27 @@
   .add-row input:focus{border-color:var(--accent);}
   .empty-state{text-align:center;padding:24px 16px;color:var(--text3);font-size:13px;}
   .period-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
-  .period-row input[type=date]{padding:6px 9px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;color:var(--text);outline:none;}
-  .period-row input[type=date]:focus{border-color:var(--accent);}
+  .period-row input.vn-date{padding:6px 9px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;color:var(--text);outline:none;width:118px;}
+  .period-row input.vn-date:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg);}
+  .period-row input.vn-date.bad{border-color:var(--red);}
+  /* Bảng chọn ngày kiểu Việt Nam (dd/mm/yyyy, thứ Hai đầu tuần) — thay <input type="date"> vì trình duyệt
+     tiếng Anh hiện mm/dd/yyyy. Cùng kiểu với plan.html. */
+  .vd-wrap{position:relative;display:inline-block;}
+  .vdp{position:absolute;z-index:60;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:10px;width:258px;}
+  .vdp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-weight:700;font-size:13px;color:var(--text);}
+  .vdp-nav{width:30px;height:30px;border-radius:50%;border:none;background:none;cursor:pointer;font-size:18px;color:var(--text2);}
+  .vdp-nav:hover{background:var(--surface2);}
+  .vdp-grid{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:12px;row-gap:1px;}
+  .vdp-grid .wd{font-size:10px;color:var(--text3);font-weight:600;padding-bottom:3px;}
+  .vdp-grid .md{height:30px;line-height:30px;border-radius:50%;cursor:pointer;color:var(--text);}
+  .vdp-grid .md:hover{background:var(--surface2);}
+  .vdp-grid .md.other{color:var(--border2);}
+  .vdp-grid .md.sun{color:var(--red);}
+  .vdp-grid .md.today{color:var(--accent);font-weight:700;}
+  .vdp-grid .md.pick{background:var(--blue);color:#fff;font-weight:700;}
+  .vdp-foot{display:flex;justify-content:space-between;margin-top:6px;}
+  .vdp-foot button{border:none;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--blue);padding:4px 8px;border-radius:6px;font-family:var(--font);}
+  .vdp-foot button:hover{background:var(--blue-bg);}
   .report-overview{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
   .report-card{background:var(--surface2);border-radius:var(--radius);padding:12px 14px;text-align:center;}
   .report-num{font-size:26px;font-weight:600;}
@@ -381,9 +400,9 @@
       <div class="page-header"><div><div class="page-title">Báo cáo đánh giá cuối kỳ</div><div class="page-sub">Xếp hạng CTV theo hiệu suất</div></div></div>
       <div class="period-row">
         <span style="font-size:12px;color:var(--text2)">Kỳ đánh giá:</span>
-        <input type="date" id="from-date">
+        <input type="text" class="vn-date" id="from-date">
         <span style="font-size:12px;color:var(--text2)">đến</span>
-        <input type="date" id="to-date">
+        <input type="text" class="vn-date" id="to-date">
         <button class="btn btn-accent btn-sm" onclick="loadReport()">🏆 Tạo báo cáo</button>
         <button class="btn btn-outline btn-sm" onclick="exportReport()">📥 Xuất CSV (xếp hạng CTV)</button>
         <button class="btn btn-outline btn-sm" onclick="exportSubmissionsDetail()">📥 Xuất danh sách bài (kèm minh chứng bản quyền)</button>
@@ -737,11 +756,88 @@ function handleOpenDeepLink(id, attempt) {
 
 function logout() { localStorage.removeItem('fsc_user'); localStorage.removeItem('fsc_token'); window.location.href = 'index.html'; }
 
+// ---- Ô ngày kiểu Việt Nam (dd/mm/yyyy): gõ tay hoặc chọn trên bảng lịch, thứ Hai đầu tuần ----
+const VD = (() => {
+  const pad = n => String(n).padStart(2, '0');
+  const iso = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+  const fmt = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '';
+  const add = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const dow = s => (new Date(s + 'T00:00:00Z').getUTCDay() + 6) % 7;
+  const today = () => { const d = new Date(); return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); };
+  // '' = để trống, null = gõ sai, còn lại 'yyyy-mm-dd'
+  function parse(v) {
+    v = String(v || '').trim();
+    if (!v) return '';
+    const m = v.match(/^(\d{1,2})[\/\-.\s](\d{1,2})[\/\-.\s](\d{2}|\d{4})$/) || v.match(/^(\d{2})(\d{2})(\d{4})$/);
+    if (!m) return null;
+    let d = +m[1], mo = +m[2], y = +m[3];
+    if (y < 100) y += 2000;
+    const s = iso(y, mo, d), t = new Date(s + 'T00:00:00Z');
+    return t.getUTCMonth() + 1 === mo && t.getUTCDate() === d ? s : null;
+  }
+  let open = null;
+  function close() { if (open) { open.box.remove(); open = null; } }
+  function render() {
+    const { el, box, y, m } = open, picked = parse(el.value), t = today();
+    const first = iso(y, m, 1);
+    let d = add(first, -dow(first));
+    const cells = [];
+    for (let i = 0; i < 42; i++, d = add(d, 1)) {
+      if (i === 35 && d.slice(5, 7) !== pad(m)) break;
+      const cls = ['md', d.slice(5, 7) !== pad(m) ? 'other' : '', d === picked ? 'pick' : '', d === t ? 'today' : '', dow(d) === 6 ? 'sun' : ''].join(' ');
+      cells.push(`<div class="${cls}" data-d="${d}">${+d.slice(8)}</div>`);
+    }
+    box.innerHTML = `<div class="vdp-head"><button type="button" class="vdp-nav" data-nav="-1">‹</button><span>Tháng ${m}/${y}</span><button type="button" class="vdp-nav" data-nav="1">›</button></div>
+      <div class="vdp-grid">${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(w => `<div class="wd">${w}</div>`).join('')}${cells.join('')}</div>
+      <div class="vdp-foot"><button type="button" data-act="clear">Xoá</button><button type="button" data-act="today">Hôm nay</button></div>`;
+  }
+  function openFor(el) {
+    if (open && open.el === el) return;
+    close();
+    const cur = parse(el.value) || today();
+    const box = document.createElement('div');
+    box.className = 'vdp';
+    box.addEventListener('mousedown', e => e.preventDefault());
+    box.addEventListener('click', e => {
+      const nav = e.target.closest('[data-nav]'), day = e.target.closest('[data-d]'), act = e.target.closest('[data-act]');
+      if (nav) { let mm = open.m + +nav.dataset.nav, yy = open.y; if (mm < 1) { mm = 12; yy--; } if (mm > 12) { mm = 1; yy++; } open.m = mm; open.y = yy; render(); return; }
+      if (day || act) { el.value = day ? fmt(day.dataset.d) : act.dataset.act === 'today' ? fmt(today()) : ''; el.classList.remove('bad'); close(); }
+    });
+    el.parentNode.appendChild(box);
+    open = { el, box, y: +cur.slice(0, 4), m: +cur.slice(5, 7) };
+    render();
+  }
+  function setup(el) {
+    const wrap = document.createElement('span');
+    wrap.className = 'vd-wrap';
+    el.parentNode.insertBefore(wrap, el); wrap.appendChild(el);
+    el.placeholder = 'ngày/tháng/năm'; el.autocomplete = 'off'; el.inputMode = 'numeric';
+    el.addEventListener('focus', () => openFor(el));
+    el.addEventListener('click', () => openFor(el));
+    el.addEventListener('blur', () => { const v = parse(el.value); el.classList.toggle('bad', v === null); if (v) el.value = fmt(v); });
+    el.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Tab') close(); if (e.key === 'Enter') { e.preventDefault(); close(); el.blur(); } });
+  }
+  document.addEventListener('mousedown', e => { if (open && !open.box.contains(e.target) && e.target !== open.el) close(); });
+  const get = id => { const el = document.getElementById(id), v = parse(el.value); el.classList.toggle('bad', v === null); return v; };
+  const set = (id, s) => { const el = document.getElementById(id); el.value = fmt(s); el.classList.remove('bad'); };
+  return { setup, get, set, iso, fmt };
+})();
+document.querySelectorAll('input.vn-date').forEach(VD.setup);
+
+// Kỳ báo cáo (yyyy-mm-dd) — trả null và báo lỗi nếu ô ngày gõ sai.
+function reportPeriod() {
+  const from = VD.get('from-date'), to = VD.get('to-date');
+  if (from === null || to === null) { showToast('Ngày chưa đúng dạng ngày/tháng/năm'); return null; }
+  if (from && to && to < from) { showToast('"Đến ngày" phải sau "Từ ngày"'); return null; }
+  return { from, to };
+}
+
 function setDefaultDates() {
   const now = new Date();
   const y = now.getFullYear(), m = now.getMonth();
-  document.getElementById('from-date').value = new Date(y, m, 1).toISOString().split('T')[0];
-  document.getElementById('to-date').value   = new Date(y, m+1, 0).toISOString().split('T')[0];
+  // Lấy theo giờ máy (không qua toISOString — ở giờ Việt Nam sẽ lùi 1 ngày, vd 01/09 thành 31/08).
+  VD.set('from-date', VD.iso(y, m + 1, 1));
+  VD.set('to-date', VD.iso(y, m + 1, new Date(y, m + 1, 0).getDate()));
 }
 
 // ============================================================
@@ -1483,8 +1579,9 @@ async function changeReviewer(id) {
 // REPORT cuối kỳ
 // ============================================================
 async function loadReport() {
-  const from = document.getElementById('from-date').value;
-  const to   = document.getElementById('to-date').value;
+  const period = reportPeriod();
+  if (!period) return;
+  const { from, to } = period;
   if (!from||!to) { showToast('Chọn kỳ đánh giá'); return; }
 
   try {
@@ -1726,7 +1823,7 @@ function exportReport() {
   const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a'); a.href=url;
-  a.download=`bao-cao-cuoi-ky-${document.getElementById('from-date').value}.csv`;
+  a.download=`bao-cao-cuoi-ky-${(reportData.period && reportData.period.from) || ''}.csv`;
   a.click(); URL.revokeObjectURL(url);
 }
 
@@ -1737,11 +1834,13 @@ function csvCell(v) {
 
 function exportSubmissionsDetail() {
   if (!allSubs.length) { showToast('Chưa có dữ liệu bài'); return; }
-  const from = document.getElementById('from-date').value;
-  const to   = document.getElementById('to-date').value;
+  const period = reportPeriod();
+  if (!period) return;
+  const { from, to } = period;
   let list = allSubs;
-  if (from) list = list.filter(s => new Date(s.submitted_at) >= new Date(from));
-  if (to)   list = list.filter(s => new Date(s.submitted_at) <= new Date(to));
+  // Theo giờ Việt Nam, "đến ngày" gồm trọn ngày cuối (trước đây lấy 00:00 UTC nên bỏ sót bài ngày cuối).
+  if (from) list = list.filter(s => new Date(s.submitted_at) >= new Date(from + 'T00:00:00+07:00'));
+  if (to)   list = list.filter(s => new Date(s.submitted_at) <= new Date(to + 'T23:59:59.999+07:00'));
 
   const statusLbl = { new:'Đang chờ duyệt', approved:'Đã duyệt', rejected:'Từ chối', revision:'Yêu cầu sửa' };
   const header = ['Tiêu đề','CTV','Cơ sở','Loại content','Nền tảng đăng','Trạng thái','Ngày gửi','Lần gửi','Điểm','Có minh chứng bản quyền','Link minh chứng bản quyền','Link Drive media'];

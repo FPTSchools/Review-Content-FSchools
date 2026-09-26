@@ -8,12 +8,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* 3 màu thương hiệu FPT (giống boss.html / ctv.html / index.html):
+     xanh dương = thao tác chính, đang chọn; cam = sự kiện, hôm nay, điểm nhấn; xanh lá = hoàn thành, tiến độ. */
   :root{
-    --bg:#F7F7F5; --surface:#FFFFFF; --surface2:#F4F4F2; --border:#E6E6E3; --border2:#D2D2CE;
-    --text:#1B1B1F; --text2:#5C5C66; --text3:#8E8E98;
+    --fpt-orange:#F26522; --fpt-blue:#003DA5; --fpt-green:#00843D;
+    --brand-grad:linear-gradient(90deg,#003DA5 0%,#00843D 55%,#F26522 100%);
+    --bg:#F6F7FA; --surface:#FFFFFF; --surface2:#F1F3F8; --border:#E2E6F0; --border2:#C8CDE0;
+    --text:#1A1C2E; --text2:#5A5F7A; --text3:#8F94AE;
     --accent:#F26522; --accent-bg:#FEF1E8; --accent-text:#B8440F;
-    --blue:#1F5FBF; --blue-bg:#E9F0FB; --green:#1E7B45; --green-bg:#E7F4EC;
-    --amber:#9A5B00; --amber-bg:#FDF3E1; --red:#B3261E; --red-bg:#FCEBEA;
+    --primary:#003DA5; --primary-hover:#00327F;
+    --blue:#003DA5; --blue-bg:#EBF0FB; --green:#00843D; --green-bg:#E6F4EC;
+    --amber:#9A5B00; --amber-bg:#FDF3E1; --red:#C0392B; --red-bg:#FDECEC;
     --radius:10px; --font:'Be Vietnam Pro',system-ui,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -22,8 +27,9 @@
   a{color:inherit}
 
   .topbar{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:10px 20px}
-  .brand{font-weight:700;font-size:15px;letter-spacing:-.01em}
-  .brand span{color:var(--accent)}
+  .topbar::before{content:'';position:absolute;left:0;right:0;top:0;height:3px;background:var(--brand-grad)}
+  .brand{font-weight:700;font-size:15px;letter-spacing:-.01em;color:var(--fpt-blue)}
+  .brand span{color:var(--fpt-orange)}
   .back{font-size:13px;color:var(--text2);text-decoration:none;padding:6px 10px;border-radius:8px}
   .back:hover{background:var(--surface2)}
   .who{margin-left:auto;font-size:12px;color:var(--text2);text-align:right}
@@ -35,19 +41,23 @@
 
   .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto}
   .tab{background:none;border:none;padding:10px 12px;cursor:pointer;color:var(--text2);font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
-  .tab.active{color:var(--text);border-bottom-color:var(--accent)}
+  .tab.active{color:var(--fpt-blue);font-weight:600;border-bottom-color:transparent;background:var(--brand-grad) left bottom / 100% 3px no-repeat}
 
   .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
   .toolbar .spacer{flex:1}
   select,input[type=text],input[type=date],input[type=month],input[type=number],input[type=url],textarea{
     border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:7px 10px;outline:none}
-  select:focus,input:focus,textarea:focus{border-color:var(--accent)}
+  select:focus,input:focus,textarea:focus{border-color:var(--fpt-blue);box-shadow:0 0 0 3px var(--blue-bg)}
   textarea{width:100%;resize:vertical;min-height:64px}
 
   .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border2);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:500;white-space:nowrap}
   .btn:hover{background:var(--surface2)}
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn.primary:hover{filter:brightness(1.05)}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  .btn.primary:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+  .btn.orange{background:var(--fpt-orange);border-color:var(--fpt-orange);color:#fff}
+  .btn.orange:hover{filter:brightness(.95)}
+  .btn.green{background:var(--fpt-green);border-color:var(--fpt-green);color:#fff}
+  .btn.green:hover{filter:brightness(.95)}
   .btn.sm{padding:4px 9px;font-size:12px}
   .btn.ghost{border-color:transparent;background:none;color:var(--text2)}
   .btn.ghost:hover{background:var(--surface2)}
@@ -55,7 +65,7 @@
 
   .chips{display:flex;gap:6px;flex-wrap:wrap}
   .chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer;color:var(--text2)}
-  .chip.active{background:var(--text);border-color:var(--text);color:#fff}
+  .chip.active{background:var(--fpt-blue);border-color:var(--fpt-blue);color:#fff}
 
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px}
   .card-title{font-weight:600;font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
@@ -68,6 +78,11 @@
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
   .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
   .stat .n{font-size:22px;font-weight:700;letter-spacing:-.02em}
+  /* 4 ô thống kê: tổng (xanh dương) · chưa làm · đang duyệt (cam) · xong (xanh lá) */
+  .stats .stat{border-top:3px solid var(--border)}
+  .stats .stat:nth-child(1){border-top-color:var(--fpt-blue)} .stats .stat:nth-child(1) .n{color:var(--fpt-blue)}
+  .stats .stat:nth-child(3){border-top-color:var(--fpt-orange)} .stats .stat:nth-child(3) .n{color:var(--accent-text)}
+  .stats .stat:nth-child(4){border-top-color:var(--fpt-green)} .stats .stat:nth-child(4) .n{color:var(--fpt-green)}
   .stat .l{font-size:12px;color:var(--text2)}
 
   .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
@@ -126,7 +141,7 @@
   .seg{display:inline-flex;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
   .seg button{border:none;background:var(--surface);padding:6px 14px;cursor:pointer;font-weight:500;color:var(--text2)}
   .seg button+button{border-left:1px solid var(--border2)}
-  .seg button.on{background:var(--text);color:#fff}
+  .seg button.on{background:var(--fpt-blue);color:#fff}
   .cal-filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
   .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--text2);margin-bottom:10px}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
@@ -142,7 +157,7 @@
   .day:hover{background:#FAFAF8}
   .day.other{background:#FBFBFA}
   .day.other .dn{color:var(--text3)}
-  .day.sel{background:var(--accent-bg)}
+  .day.sel{background:var(--blue-bg)}
   .dhead{display:flex;align-items:baseline;justify-content:space-between;padding:4px 6px 0;gap:4px;pointer-events:none}
   .dn{font-size:12.5px;font-weight:600;min-width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;margin-left:-3px}
   .day.today .dn{background:var(--accent);color:#fff}
@@ -164,7 +179,7 @@
   .ent.it.done .t::before{content:'✓ ';color:var(--green);font-weight:700}
   .ent.hol{background:none;color:var(--red);font-size:10.5px;font-weight:500;padding-left:6px;cursor:pointer}
   .ent.hol:hover{box-shadow:none;background:var(--red-bg)}
-  .ent.sel{outline:2px solid var(--text);outline-offset:0}
+  .ent.sel{outline:2px solid var(--fpt-blue);outline-offset:0}
   .more{z-index:1;border:none;background:none;font-size:11px;font-weight:600;color:var(--text2);text-align:left;padding:0 8px;cursor:pointer;border-radius:5px;margin:0 3px}
   .more:hover{background:var(--surface2)}
 
@@ -183,7 +198,7 @@
   .ygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:12px;margin-bottom:14px}
   .ymonth{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 12px 10px;cursor:pointer;transition:border-color .12s}
   .ymonth:hover{border-color:var(--border2)}
-  .ymonth.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+  .ymonth.sel{border-color:var(--fpt-blue);box-shadow:0 0 0 2px var(--blue-bg)}
   .ymonth.cur .ym-name{color:var(--accent-text)}
   .ym-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:6px}
   .ym-name{font-weight:700;font-size:14px}
@@ -214,7 +229,7 @@
   .bar{display:block;width:100%;border:none;border-radius:6px;height:24px;line-height:24px;padding:0 7px;color:#fff;font-size:11px;font-weight:600;text-align:left;
        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
   .bar:hover{filter:brightness(1.07)}
-  .bar.sel{outline:2px solid var(--text);outline-offset:1px}
+  .bar.sel{outline:2px solid var(--text);outline-offset:1px;box-shadow:0 0 0 4px var(--blue-bg)}
   .tl td.cur{background:#FFF8F3}
   .phase{display:flex;flex-direction:column;gap:6px}
   .phase div{display:flex;gap:10px;font-size:13px;align-items:baseline}
@@ -230,6 +245,57 @@
   .apl-line:first-of-type{border-top:none}
   .apl-name{font-weight:600;font-size:13px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   .apl-name i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+  /* Lịch tuần */
+  .wgrid{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;--lane:22px}
+  .wg-head,.wg-top,.wg-body{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+  .wg-head{border-bottom:1px solid var(--border)}
+  .wg-h{padding:8px 6px 7px;text-align:center;border-right:1px solid var(--border);cursor:pointer;min-width:0}
+  .wg-h:last-child,.wcol:last-child{border-right:none}
+  .wg-h .wd{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.03em}
+  .wg-h .dd{font-size:22px;font-weight:700;line-height:34px;width:36px;height:36px;margin:2px auto 0;border-radius:50%}
+  .wg-h.today .dd{background:var(--fpt-orange);color:#fff}
+  .wg-h.sun .wd,.wg-h.sun .dd{color:var(--red)} .wg-h.today.sun .dd{color:#fff}
+  .wg-h.sel{background:var(--blue-bg)}
+  .wg-h .lu{font-size:10.5px;color:var(--text3)}
+  .wg-h .hl{font-size:10.5px;color:var(--red);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wg-top{row-gap:3px;padding:4px 0;border-bottom:1px solid var(--border);min-height:32px;background:#FBFBFD}
+  .wg-tc{border-right:1px solid var(--border);cursor:pointer} .wg-tc:nth-child(7){border-right:none}
+  .wg-tc.today{background:#FFF8F3}
+  .wg-top .ent{height:22px;line-height:22px}
+  .wcol{border-right:1px solid var(--border);padding:6px;display:flex;flex-direction:column;gap:6px;min-height:380px;cursor:pointer;min-width:0}
+  .wcol.today{background:#FFF8F3}
+  .wcol.sel{background:var(--blue-bg)}
+  .wcard{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--border2);border-radius:8px;padding:6px 8px;cursor:pointer;font-size:12px;box-shadow:0 1px 2px rgba(26,28,46,.05)}
+  .wcard:hover{box-shadow:0 2px 8px rgba(26,28,46,.12)}
+  .wcard.sel{outline:2px solid var(--fpt-blue)}
+  .wcard.done .wc-t::before{content:'✓ ';color:var(--fpt-green);font-weight:700}
+  .wc-t{font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+  .wc-m{font-size:11px;color:var(--text2);margin-top:4px;display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center}
+  .wc-m .pill{font-size:10px;padding:1px 7px}
+  .wc-day{opacity:.8;font-weight:400}
+  .wadd{align-self:flex-start;opacity:0;transition:opacity .12s;font-size:11.5px}
+  .wcol:hover .wadd,.wday .wadd{opacity:1}
+  .wlist{display:flex;flex-direction:column;gap:8px}
+  .wday{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+  .wday.today{border-color:var(--fpt-orange);box-shadow:0 0 0 1px var(--fpt-orange) inset}
+  .wday.sel{background:var(--blue-bg)}
+  .wday-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
+  .wd-n{font-weight:700} .wd-n.sun{color:var(--red)}
+  .wd-hol{font-size:11px;color:var(--red);font-weight:500}
+  .wday .ent.ev{margin:0;height:auto;line-height:1.4;padding:4px 8px;white-space:normal}
+
+  /* Kéo thả */
+  .can-drag [data-drag]{cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  body.is-dragging,body.is-dragging *{cursor:grabbing!important;user-select:none}
+  .dragging{opacity:.35}
+  .drop-on{background:var(--blue-bg)!important;box-shadow:inset 0 0 0 2px var(--fpt-blue)}
+  .drag-ghost{position:fixed;z-index:100;pointer-events:none;transform:translate(12px,12px);background:var(--fpt-blue);color:#fff;padding:6px 11px;border-radius:8px;
+    font-size:12px;font-weight:600;box-shadow:0 8px 24px rgba(0,61,165,.35);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .drag-ghost[data-to]:not([data-to=""])::after{content:attr(data-to);display:block;font-size:11px;font-weight:500;opacity:.9}
+  .toast{align-items:center;gap:10px}
+  .toast-undo{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:6px;padding:3px 10px;cursor:pointer;font-weight:600;white-space:nowrap}
+  .toast-undo:hover{background:rgba(255,255,255,.15)}
 
   /* Ô ngày kiểu Việt Nam (dd/mm/yyyy) + bảng chọn ngày */
   .vn-date-wrap{position:relative}
@@ -307,6 +373,7 @@
       <div class="seg" id="cal-view">
         <button data-v="year" onclick="setCalView('year')">Năm</button>
         <button data-v="month" onclick="setCalView('month')">Tháng</button>
+        <button data-v="week" onclick="setCalView('week')">Tuần</button>
       </div>
     </div>
     <div class="cal-filters" id="cal-filters"></div>
@@ -484,7 +551,7 @@ let pillars = [], users = [], events = [], planItems = [], planEvents = [];
 let evFilter = 'all', mineOnly = false;
 
 function escHtml(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2800); }
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.style.display = 'flex'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2800); }
 // Phiên đăng nhập: /api cấp token lúc đăng nhập (index.html lưu ở localStorage 'fsc_token'); hết hạn
 // hoặc không hợp lệ thì quay về trang đăng nhập.
 function authHeaders() {
@@ -1096,37 +1163,43 @@ document.addEventListener('mousedown', e => { if (_vdp && !_vdp.box.contains(e.t
 // Năm: 12 tháng thu nhỏ (chấm = có sự kiện/bài), mục tiêu số bài từng tháng theo kế hoạch năm,
 // dòng thời gian các tuyến/chiến dịch; bấm tháng / thanh chiến dịch → chi tiết ở dưới.
 // =====================================================================
-const PILLAR_COLORS = ['#2F6FDB', '#1E8E5A', '#7C4DCC', '#0E8A99', '#C43B7A', '#B7791F', '#4B5563'];
+// Màu theo họ màu FPT: xanh dương / xanh lá (đậm + nhạt); cam dành riêng cho sự kiện của trường.
+const PILLAR_COLORS = ['#003DA5', '#00843D', '#1E88D0', '#7AB648', '#7B3FA0', '#5A5F7A'];
 const SECTIONS = [
   ['muc_tieu', 'Mục tiêu / thông điệp', '#F26522'],
-  ['su_kien', 'Truyền thông theo hoạt động, sự kiện', '#2F6FDB'],
-  ['lop_hoc', 'Lớp học, giờ học sáng tạo', '#0E8A99'],
-  ['chu_de', 'Chủ đề năm học', '#7C4DCC'],
-  ['campaign', 'Chiến dịch thương hiệu', '#C43B7A'],
-  ['tuyen_sinh', 'Chiến dịch tuyển sinh', '#1E8E5A'],
-  ['kenh_ngoai', 'Báo chí, truyền hình, KOL', '#8A6D3B']
+  ['su_kien', 'Truyền thông theo hoạt động, sự kiện', '#003DA5'],
+  ['lop_hoc', 'Lớp học, giờ học sáng tạo', '#1E88D0'],
+  ['chu_de', 'Chủ đề năm học', '#00843D'],
+  ['campaign', 'Chiến dịch thương hiệu', '#F26522'],
+  ['tuyen_sinh', 'Chiến dịch tuyển sinh', '#7AB648'],
+  ['kenh_ngoai', 'Báo chí, truyền hình, KOL', '#5A5F7A']
 ];
 const sectionLabel = k => (SECTIONS.find(s => s[0] === k) || [k, k])[1];
 const sectionColor = k => (SECTIONS.find(s => s[0] === k) || [k, k, '#6B7280'])[2];
 function pillarColor(id) { const i = pillars.findIndex(p => p.id === id); return i >= 0 ? PILLAR_COLORS[i % PILLAR_COLORS.length] : '#9CA3AF'; }
 
 const cal = {
-  view: 'month', y: 0, m: 0, sy: '',              // tháng đang xem (Tháng) / năm học đang xem (Năm)
+  view: 'month', y: 0, m: 0, sy: '', wk: '',     // tháng (Tháng) / năm học (Năm) / thứ Hai của tuần (Tuần) đang xem
   sel: null,                                       // { type: 'event'|'item'|'day'|'month'|'line', id|date|key }
   f: { events: true, items: true, holidays: true, lunar: true, mine: false },
   data: { key: '', sy: '', events: [], items: [], lines: [] }
 };
 function schoolYearOf(y, m) { return m >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`; }
-function calSchoolYear() { return cal.view === 'year' ? cal.sy : schoolYearOf(cal.y, cal.m); }
-function calMonthKey() { return `${cal.y}-${String(cal.m).padStart(2, '0')}`; }
+const mondayOf = iso => addDays(iso, -dowMon(iso));
+function calSchoolYear() {
+  if (cal.view === 'year') return cal.sy;
+  if (cal.view === 'week') { const th = addDays(cal.wk, 3); return schoolYearOf(Number(th.slice(0, 4)), Number(th.slice(5, 7))); }
+  return schoolYearOf(cal.y, cal.m);
+}
+function calMonthKey() { return cal.view === 'week' ? addDays(cal.wk, 3).slice(0, 7) : `${cal.y}-${String(cal.m).padStart(2, '0')}`; }
 function syMonths(sy) { const [a, b] = sy.split('-').map(Number); return SCHOOL_MONTHS.map(m => `${m >= 8 ? a : b}-${String(m).padStart(2, '0')}`); }
 
 (function initCalState() {
   const t = todayIso();
-  cal.y = Number(t.slice(0, 4)); cal.m = Number(t.slice(5, 7)); cal.sy = schoolYearOf(cal.y, cal.m);
+  cal.y = Number(t.slice(0, 4)); cal.m = Number(t.slice(5, 7)); cal.sy = schoolYearOf(cal.y, cal.m); cal.wk = mondayOf(t);
   try {
     const saved = JSON.parse(localStorage.getItem('fsc_cal_prefs') || '{}');
-    if (saved.view === 'year' || saved.view === 'month') cal.view = saved.view;
+    if (['year', 'month', 'week'].includes(saved.view)) cal.view = saved.view;
     if (saved.f) Object.assign(cal.f, saved.f);
   } catch (e) {}
 })();
@@ -1134,28 +1207,38 @@ function saveCalPrefs() { try { localStorage.setItem('fsc_cal_prefs', JSON.strin
 
 function setCalView(v) {
   if (v === cal.view) return;
-  if (v === 'year') cal.sy = schoolYearOf(cal.y, cal.m);
-  else if (v === 'month') {
-    // Về lại tháng đang chọn ở lịch năm (nếu có), không thì tháng hiện tại nếu nằm trong năm học đó.
-    const key = cal.sel && cal.sel.type === 'month' ? cal.sel.key : (syMonths(cal.sy).includes(todayIso().slice(0, 7)) ? todayIso().slice(0, 7) : syMonths(cal.sy)[1]);
-    cal.y = Number(key.slice(0, 4)); cal.m = Number(key.slice(5, 7));
-  }
-  cal.view = v; cal.sel = null; saveCalPrefs(); loadCal();
+  const today = todayIso();
+  // Ngày "đang nhìn" của chế độ cũ, để chế độ mới mở đúng chỗ.
+  let focus;
+  if (cal.view === 'year') {
+    const key = cal.sel && cal.sel.type === 'month' ? cal.sel.key : (syMonths(cal.sy).includes(today.slice(0, 7)) ? today.slice(0, 7) : syMonths(cal.sy)[1]);
+    focus = key === today.slice(0, 7) ? today : key + '-01';
+  } else if (cal.view === 'week') focus = cal.sel && cal.sel.type === 'day' ? cal.sel.date : (today >= cal.wk && today <= addDays(cal.wk, 6) ? today : cal.wk);
+  else focus = cal.sel && cal.sel.type === 'day' ? cal.sel.date : (today.slice(0, 7) === calMonthKey() ? today : calMonthKey() + '-01');
+  cal.y = Number(focus.slice(0, 4)); cal.m = Number(focus.slice(5, 7));
+  cal.sy = schoolYearOf(cal.y, cal.m); cal.wk = mondayOf(focus);
+  const keepDay = cal.sel && cal.sel.type === 'day' && v !== 'year' ? cal.sel : null;
+  cal.view = v; cal.sel = keepDay; saveCalPrefs(); loadCal();
 }
 function calMove(step) {
   if (cal.view === 'year') { const [a] = cal.sy.split('-').map(Number); cal.sy = `${a + step}-${a + step + 1}`; }
+  else if (cal.view === 'week') cal.wk = addDays(cal.wk, 7 * step);
   else { cal.m += step; if (cal.m < 1) { cal.m = 12; cal.y--; } if (cal.m > 12) { cal.m = 1; cal.y++; } }
   cal.sel = null; loadCal();
 }
 function calToday() {
   const t = todayIso();
-  cal.y = Number(t.slice(0, 4)); cal.m = Number(t.slice(5, 7)); cal.sy = schoolYearOf(cal.y, cal.m);
-  cal.sel = cal.view === 'month' ? { type: 'day', date: t } : { type: 'month', key: t.slice(0, 7) };
+  cal.y = Number(t.slice(0, 4)); cal.m = Number(t.slice(5, 7)); cal.sy = schoolYearOf(cal.y, cal.m); cal.wk = mondayOf(t);
+  cal.sel = cal.view === 'year' ? { type: 'month', key: t.slice(0, 7) } : { type: 'day', date: t };
   loadCal();
 }
 function goToMonth(key, sel) {
   cal.view = 'month'; cal.y = Number(key.slice(0, 4)); cal.m = Number(key.slice(5, 7));
   cal.sel = sel || null; saveCalPrefs(); loadCal();
+}
+function goToWeek(date, sel) {
+  cal.view = 'week'; cal.wk = mondayOf(date); cal.y = Number(date.slice(0, 4)); cal.m = Number(date.slice(5, 7));
+  cal.sel = sel || { type: 'day', date }; saveCalPrefs(); loadCal();
 }
 function toggleCalFilter(k) { cal.f[k] = !cal.f[k]; saveCalPrefs(); renderCal(); }
 
@@ -1182,23 +1265,27 @@ async function loadCal(force) {
 
 function renderCalBar() {
   document.querySelectorAll('#cal-view button').forEach(b => b.classList.toggle('on', b.dataset.v === cal.view));
-  document.getElementById('cal-title').textContent = cal.view === 'year' ? `Năm học ${cal.sy}` : `Tháng ${cal.m}/${cal.y}`;
+  const wEnd = addDays(cal.wk, 6);
+  document.getElementById('cal-title').textContent = cal.view === 'year' ? `Năm học ${cal.sy}`
+    : cal.view === 'week' ? `Tuần ${fmtDate(cal.wk).slice(0, cal.wk.slice(0, 4) === wEnd.slice(0, 4) ? 5 : 10)} – ${fmtDate(wEnd)}`
+    : `Tháng ${cal.m}/${cal.y}`;
   const chip = (k, label) => `<span class="chip${cal.f[k] ? ' active' : ''}" onclick="toggleCalFilter('${k}')">${label}</span>`;
   const editorBtns = isEditor ? (cal.view === 'year'
     ? `<span style="flex:1"></span><button class="btn sm primary" onclick="openLineModal()">+ Thêm tuyến / chiến dịch</button>`
-    : `<span style="flex:1"></span><button class="btn sm" onclick="openEventModal(null, false, { date: calSelectedDate() })">+ Sự kiện</button><button class="btn sm primary" onclick="openItemModal(null, { date: calSelectedDate() })">+ Đầu việc</button>`) : '';
+    : `<span style="flex:1"></span><span class="muted" title="Giữ và kéo 1 sự kiện hoặc 1 bài sang ngày khác">✋ Kéo thả để đổi ngày</span><button class="btn sm orange" onclick="openEventModal(null, false, { date: calSelectedDate() })">+ Sự kiện</button><button class="btn sm primary" onclick="openItemModal(null, { date: calSelectedDate() })">+ Đầu việc</button>`) : '';
   document.getElementById('cal-filters').innerHTML = cal.view === 'year'
     ? `${chip('events', 'Sự kiện')}${chip('items', 'Bài kế hoạch')}${chip('mine', 'Chỉ việc của tôi')}${editorBtns}`
     : `${chip('events', 'Sự kiện')}${chip('items', 'Bài kế hoạch')}${chip('holidays', 'Ngày lễ')}${chip('lunar', 'Âm lịch')}${chip('mine', 'Chỉ việc của tôi')}${editorBtns}`;
   const pillarLegend = pillars.filter(p => p.active).map(p => `<span><i style="background:${pillarColor(p.id)}"></i>${escHtml(p.name)}</span>`).join('');
   document.getElementById('cal-legend').innerHTML = cal.view === 'year'
-    ? `<span><i style="background:var(--accent)"></i>Sự kiện</span><span><i style="background:#2F6FDB"></i>Bài kế hoạch</span>` + SECTIONS.filter(s => s[0] !== 'muc_tieu').map(s => `<span><i style="background:${s[2]}"></i>${s[1]}</span>`).join('')
+    ? `<span><i style="background:var(--accent)"></i>Sự kiện</span><span><i style="background:var(--fpt-blue)"></i>Bài kế hoạch</span>` + SECTIONS.filter(s => s[0] !== 'muc_tieu').map(s => `<span><i style="background:${s[2]}"></i>${s[1]}</span>`).join('')
     : `<span><i style="background:var(--accent)"></i>Sự kiện đã chốt</span><span><i style="background:repeating-linear-gradient(135deg,#FEE6D6 0 3px,#FDF1E8 3px 6px);box-shadow:inset 0 0 0 1px #F7B993"></i>Sự kiện chờ xác nhận ngày</span>${pillarLegend}<span><i style="background:#9CA3AF"></i>Chưa gán trụ</span>`;
 }
 // Ngày để điền sẵn khi bấm "+ Đầu việc": ngày đang chọn, không thì hôm nay nếu thuộc tháng đang xem.
 function calSelectedDate() {
   if (cal.sel && cal.sel.type === 'day') return cal.sel.date;
   const t = todayIso();
+  if (cal.view === 'week') return t >= cal.wk && t <= addDays(cal.wk, 6) ? t : cal.wk;
   return t.slice(0, 7) === calMonthKey() ? t : isoOf(cal.y, cal.m, 1);
 }
 
@@ -1208,9 +1295,15 @@ function visibleEvents() { return cal.data.events.filter(e => e.status !== 'huy'
 
 function renderCal() {
   renderCalBar();
-  if (cal.view === 'year') renderYear(); else renderMonth();
+  document.getElementById('cal-body').classList.toggle('can-drag', isEditor && cal.view !== 'year');
+  if (cal.view === 'year') renderYear(); else if (cal.view === 'week') renderWeek(); else renderMonth();
+  if (!cal.f.events && !cal.f.items) {
+    document.getElementById('cal-body').insertAdjacentHTML('afterbegin', `<div class="notice amber">Đang ẩn cả sự kiện và bài kế hoạch.
+      <button class="btn sm" onclick="cal.f.events=cal.f.items=true;saveCalPrefs();renderCal()">Hiện lại</button></div>`);
+  }
   renderCalDetail();
 }
+function renderGrid() { if (cal.view === 'week') renderWeek(); else if (cal.view === 'month') renderMonth(); else renderYear(); }
 
 // ---------------- Lịch tháng ----------------
 function renderMonth() {
@@ -1248,15 +1341,17 @@ function renderMonth() {
       const l = toLunar(d);
       const lunar = cal.f.lunar ? `<span class="lunar${l.d === 1 || l.d === 15 ? ' key' : ''}">${l.d === 1 || d === week[0] && d === weeks[0][0] ? `${l.d}/${l.m}${l.leap ? 'N' : ''}` : l.d}</span>` : '';
       const cls = ['day', d.slice(0, 7) !== mk ? 'other' : '', d === today ? 'today' : '', dowMon(d) === 6 ? 'sun' : '', d === selDate ? 'sel' : ''].filter(Boolean).join(' ');
-      return `<div class="${cls}" style="grid-column:${week.indexOf(d) + 1}" onclick="calSelectDay('${d}')" title="${fmtLong(d)} · Âm lịch ${lunarText(d)}">
+      return `<div class="${cls}" data-drop="${d}" style="grid-column:${week.indexOf(d) + 1}" onclick="calSelectDay('${d}')" title="${fmtLong(d)} · Âm lịch ${lunarText(d)}">
         <div class="dhead"><span class="dn">${Number(d.slice(8))}</span>${lunar}</div></div>`;
     }).join('');
     const ents = segs.filter(sg => sg.lane < MAX_LANES).map(sg => {
       const e = sg.e, pos = `grid-column:${sg.c + 1} / span ${sg.span};grid-row:${sg.lane + 2}`;
       const isSel = cal.sel && e.id && cal.sel.id === e.id && cal.sel.type === (e.kind === 'ev' ? 'event' : 'item');
       if (e.kind === 'hol') return `<button class="ent hol" style="${pos}" onclick="calSelectDay('${e.start}')" title="${escHtml(e.title)}">${escHtml(e.title)}</button>`;
-      if (e.kind === 'ev') return `<button class="ent ev${e.pending ? ' pending' : ''}${sg.cl ? ' cl' : ''}${sg.cr ? ' cr' : ''}${isSel ? ' sel' : ''}" style="${pos}" onclick="calSelect('event','${e.id}')" title="${escHtml(e.title)}${e.pending ? ' (chờ xác nhận ngày)' : ''}">${sg.cl ? '◂ ' : ''}${escHtml(e.title)}</button>`;
-      return `<button class="ent it${e.done ? ' done' : ''}${isSel ? ' sel' : ''}" style="${pos}" onclick="calSelect('item','${e.id}')" title="${escHtml(e.title)}"><span class="dot" style="background:${e.color}"></span><span class="t">${escHtml(e.title)}</span></button>`;
+      const drag = isEditor ? ` data-drag="${e.kind === 'ev' ? 'event' : 'item'}:${e.id}"` : '';
+      const hint = isEditor ? ' · kéo thả để đổi ngày' : '';
+      if (e.kind === 'ev') return `<button class="ent ev${e.pending ? ' pending' : ''}${sg.cl ? ' cl' : ''}${sg.cr ? ' cr' : ''}${isSel ? ' sel' : ''}"${drag} style="${pos}" onclick="calSelect('event','${e.id}')" title="${escHtml(e.title)}${e.pending ? ' (chờ xác nhận ngày)' : ''}${hint}">${sg.cl ? '◂ ' : ''}${escHtml(e.title)}</button>`;
+      return `<button class="ent it${e.done ? ' done' : ''}${isSel ? ' sel' : ''}"${drag} style="${pos}" onclick="calSelect('item','${e.id}')" title="${escHtml(e.title)}${hint}"><span class="dot" style="background:${e.color}"></span><span class="t">${escHtml(e.title)}</span></button>`;
     }).join('');
     const more = anyHidden ? hiddenPerDay.map((n, i) => n ? `<button class="more" style="grid-column:${i + 1};grid-row:${MAX_LANES + 2}" onclick="calSelectDay('${week[i]}')">+${n} nữa</button>` : '').join('') : '';
     // Khai báo rõ số hàng để ô ngày (grid-row 1 / -1) phủ kín cả tuần: hàng số ngày + các làn + hàng "+N nữa".
@@ -1292,10 +1387,223 @@ function lunarSuggestion(e) {
   return null;
 }
 
-function calSelect(type, id) { cal.sel = { type, id }; if (cal.view === 'month') renderMonth(); renderCalDetail(true); }
+function calSelect(type, id) {
+  if (_dragJustEnded) return;
+  cal.sel = { type, id }; if (cal.view !== 'year') renderGrid(); renderCalDetail(true);
+}
 function calSelectDay(date) {
-  if (date.slice(0, 7) !== calMonthKey()) { goToMonth(date.slice(0, 7), { type: 'day', date }); return; }
-  cal.sel = { type: 'day', date }; renderMonth(); renderCalDetail(true);
+  if (_dragJustEnded) return;
+  if (cal.view === 'week') {
+    if (date < cal.wk || date > addDays(cal.wk, 6)) { goToWeek(date); return; }
+  } else if (date.slice(0, 7) !== calMonthKey()) { goToMonth(date.slice(0, 7), { type: 'day', date }); return; }
+  cal.sel = { type: 'day', date }; renderGrid(); renderCalDetail(true);
+}
+
+// ---------------- Lịch tuần ----------------
+// Việc không có giờ cụ thể nên không chia theo giờ như Google Calendar — mỗi ngày 1 cột cao, sự kiện
+// nằm trên cùng (nhiều ngày thì kéo dài), bài hiện dạng thẻ đầy đủ (tiêu đề, trạng thái, người làm, kênh).
+// Điện thoại: 7 ngày xếp dọc.
+function weekCard(it) {
+  const isSel = cal.sel && cal.sel.type === 'item' && cal.sel.id === it.id;
+  const done = ['da_duyet', 'da_dang'].includes(it.plan_status);
+  const ch = (it.channels || []).map(c => (CHANNELS.find(x => x[0] === c) || [c, c])[1]).join(', ');
+  return `<div class="wcard${done ? ' done' : ''}${isSel ? ' sel' : ''}" style="border-left-color:${pillarColor(it.pillar_id)}"
+      ${isEditor ? `data-drag="item:${it.id}" title="Kéo thả để đổi ngày"` : ''} onclick="event.stopPropagation();calSelect('item','${it.id}')">
+    <div class="wc-t">${escHtml(it.title)}</div>
+    <div class="wc-m">${planStatusPill(it)}${userName(it.assignee_id) ? `<span>👤 ${escHtml(userName(it.assignee_id))}</span>` : '<span class="muted">Chưa giao</span>'}${ch ? `<span>${escHtml(ch)}</span>` : ''}</div>
+  </div>`;
+}
+function weekEventBar(e, d) {
+  const isSel = cal.sel && cal.sel.type === 'event' && cal.sel.id === e.id;
+  const end = e.end_date || e.start_date;
+  const multi = end !== e.start_date ? ` <span class="wc-day">(${daysBetween(e.start_date, d) + 1}/${daysBetween(e.start_date, end) + 1})</span>` : '';
+  return `<button class="ent ev wev${e.status === 'cho_xac_nhan' ? ' pending' : ''}${isSel ? ' sel' : ''}" ${isEditor ? `data-drag="event:${e.id}"` : ''}
+    onclick="event.stopPropagation();calSelect('event','${e.id}')" title="${escHtml(e.title)}">${escHtml(e.title)}${multi}</button>`;
+}
+function renderWeek() {
+  const days = Array.from({ length: 7 }, (_, i) => addDays(cal.wk, i));
+  const today = todayIso(), narrow = window.innerWidth < 640;
+  const selDate = cal.sel && cal.sel.type === 'day' ? cal.sel.date : null;
+  const evs = cal.f.events ? visibleEvents().filter(e => e.start_date && e.start_date <= days[6] && (e.end_date || e.start_date) >= days[0]) : [];
+  const its = cal.f.items ? visibleItems().filter(it => itemDate(it) && itemDate(it) >= days[0] && itemDate(it) <= days[6]) : [];
+  const itemsOf = d => its.filter(it => itemDate(it) === d).sort((a, b) => (pillars.findIndex(p => p.id === a.pillar_id) - pillars.findIndex(p => p.id === b.pillar_id)) || a.title.localeCompare(b.title, 'vi'));
+  const evOn = d => evs.filter(e => e.start_date <= d && (e.end_date || e.start_date) >= d);
+  const head = d => {
+    const l = toLunar(d), hol = cal.f.holidays ? holidaysOf(d) : [];
+    return { l, hol, lunar: cal.f.lunar ? `Âm ${l.d}/${l.m}${l.leap ? 'N' : ''}` : '' };
+  };
+  const addBtn = d => isEditor ? `<button class="btn sm ghost wadd" onclick="event.stopPropagation();openItemModal(null,{date:'${d}'})" title="Thêm đầu việc ngày ${fmtDate(d)}">+ Thêm</button>` : '';
+
+  if (narrow) {
+    document.getElementById('cal-body').innerHTML = `<div class="wlist">${days.map(d => {
+      const h = head(d), list = itemsOf(d), ev = evOn(d);
+      const cls = ['wday', d === today ? 'today' : '', d === selDate ? 'sel' : ''].filter(Boolean).join(' ');
+      return `<div class="${cls}" data-drop="${d}" onclick="calSelectDay('${d}')">
+        <div class="wday-h"><span class="wd-n${dowMon(d) === 6 ? ' sun' : ''}">${WEEKDAYS[dowMon(d)]}, ${fmtDate(d).slice(0, 5)}</span>
+          <span class="muted">${h.lunar}</span>${h.hol.map(x => `<span class="wd-hol">${escHtml(x)}</span>`).join('')}<span style="flex:1"></span>${addBtn(d)}</div>
+        ${ev.map(e => weekEventBar(e, d)).join('')}${list.map(weekCard).join('')}
+        ${!ev.length && !list.length ? '<div class="muted" style="padding:2px 0 4px">Trống</div>' : ''}
+      </div>`;
+    }).join('')}</div>`;
+    return;
+  }
+
+  // Máy tính: hàng tiêu đề ngày + hàng sự kiện (thanh kéo dài qua nhiều ngày) + 7 cột thẻ bài.
+  const segs = evs.map(e => {
+    const s = e.start_date < days[0] ? days[0] : e.start_date, t = (e.end_date || e.start_date) > days[6] ? days[6] : (e.end_date || e.start_date);
+    return { e, c: days.indexOf(s), span: days.indexOf(t) - days.indexOf(s) + 1, cl: e.start_date < days[0], cr: (e.end_date || e.start_date) > days[6] };
+  }).sort((a, b) => a.c - b.c || b.span - a.span);
+  const lanes = [];
+  segs.forEach(sg => { let l = 0; while ((lanes[l] || []).some(o => sg.c < o.c + o.span && o.c < sg.c + sg.span)) l++; (lanes[l] = lanes[l] || []).push(sg); sg.lane = l; });
+  const topRows = Math.max(1, lanes.length);
+  const heads = days.map((d, i) => {
+    const h = head(d);
+    const cls = ['wg-h', d === today ? 'today' : '', d === selDate ? 'sel' : '', dowMon(d) === 6 ? 'sun' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-drop="${d}" onclick="calSelectDay('${d}')">
+      <div class="wd">${WEEKDAYS[i]}</div><div class="dd">${Number(d.slice(8))}</div>
+      <div class="lu">${h.lunar}${d.slice(8) === '01' || i === 0 ? ` · Th${Number(d.slice(5, 7))}` : ''}</div>
+      ${h.hol.map(x => `<div class="hl">${escHtml(x)}</div>`).join('')}</div>`;
+  }).join('');
+  const topBg = days.map((d, i) => `<div class="wg-tc${d === today ? ' today' : ''}" data-drop="${d}" style="grid-column:${i + 1};grid-row:1 / -1" onclick="calSelectDay('${d}')"></div>`).join('');
+  const bars = segs.map(sg => {
+    const e = sg.e, isSel = cal.sel && cal.sel.type === 'event' && cal.sel.id === e.id;
+    return `<button class="ent ev${e.status === 'cho_xac_nhan' ? ' pending' : ''}${sg.cl ? ' cl' : ''}${sg.cr ? ' cr' : ''}${isSel ? ' sel' : ''}" ${isEditor ? `data-drag="event:${e.id}"` : ''}
+      style="grid-column:${sg.c + 1} / span ${sg.span};grid-row:${sg.lane + 1}" onclick="calSelect('event','${e.id}')" title="${escHtml(e.title)}">${sg.cl ? '◂ ' : ''}${escHtml(e.title)}</button>`;
+  }).join('');
+  const cols = days.map(d => {
+    const list = itemsOf(d);
+    return `<div class="wcol${d === today ? ' today' : ''}${d === selDate ? ' sel' : ''}" data-drop="${d}" onclick="calSelectDay('${d}')">
+      ${list.map(weekCard).join('')}${addBtn(d)}</div>`;
+  }).join('');
+  document.getElementById('cal-body').innerHTML = `<div class="wgrid">
+    <div class="wg-head">${heads}</div>
+    <div class="wg-top" style="grid-template-rows:repeat(${topRows}, var(--lane))">${topBg}${bars}</div>
+    <div class="wg-body">${cols}</div></div>`;
+}
+
+// ---------------- Kéo thả để đổi ngày (Tháng + Tuần) ----------------
+// Dùng Pointer Events để chạy được cả chuột lẫn cảm ứng. Chuột: kéo quá 5px là bắt đầu. Cảm ứng: giữ
+// ~0,4 giây rồi kéo (vuốt ngay thì vẫn cuộn trang bình thường). Sự kiện nhiều ngày dời nguyên khối.
+let _drag = null, _dragJustEnded = false;
+function dropTargetAt(x, y) {
+  for (const el of document.elementsFromPoint(x, y)) { const t = el.closest && el.closest('[data-drop]'); if (t) return t; }
+  return null;
+}
+document.addEventListener('pointerdown', e => {
+  if (!isEditor || activeTab !== 'cal' || cal.view === 'year' || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const el = e.target.closest('[data-drag]');
+  if (!el) return;
+  const grabEl = dropTargetAt(e.clientX, e.clientY);
+  if (!grabEl) return;
+  const [kind, id] = el.dataset.drag.split(':');
+  _drag = { el, kind, id, grab: grabEl.dataset.drop, x0: e.clientX, y0: e.clientY, touch: e.pointerType !== 'mouse', started: false, over: null, ghost: null, timer: null };
+  if (_drag.touch) _drag.timer = setTimeout(() => { if (_drag && !_drag.started) startDrag(_drag.x0, _drag.y0); }, 420);
+});
+function startDrag(x, y) {
+  const d = _drag;
+  d.started = true;
+  d.el.classList.add('dragging');
+  d.ghost = document.createElement('div');
+  d.ghost.className = 'drag-ghost';
+  d.ghost.textContent = (d.kind === 'event' ? '🎪 ' : '📝 ') + (d.el.textContent || '').trim().replace(/\s+/g, ' ');
+  document.body.appendChild(d.ghost);
+  document.body.classList.add('is-dragging');
+  if (navigator.vibrate && d.touch) navigator.vibrate(15);
+  moveDrag(x, y);
+}
+function moveDrag(x, y) {
+  const d = _drag;
+  d.ghost.style.left = x + 'px'; d.ghost.style.top = y + 'px';
+  const t = dropTargetAt(x, y);
+  if (t !== d.over) {
+    if (d.over) d.over.classList.remove('drop-on');
+    d.over = t;
+    if (t) t.classList.add('drop-on');
+  }
+  if (t) {
+    const delta = daysBetween(d.grab, t.dataset.drop);
+    const base = d.kind === 'event' ? (cal.data.events.find(x => x.id === d.id) || {}).start_date : itemDate(cal.data.items.find(x => x.id === d.id) || {});
+    d.ghost.dataset.to = base ? '→ ' + fmtDate(addDays(base, delta)) : '';
+  }
+}
+document.addEventListener('pointermove', e => {
+  if (!_drag) return;
+  const dist = Math.hypot(e.clientX - _drag.x0, e.clientY - _drag.y0);
+  if (!_drag.started) {
+    if (_drag.touch) { if (dist > 8) { clearTimeout(_drag.timer); _drag = null; } return; } // đang vuốt cuộn trang
+    if (dist < 5) return;
+    startDrag(e.clientX, e.clientY);
+  }
+  e.preventDefault();
+  moveDrag(e.clientX, e.clientY);
+});
+// Đang kéo trên cảm ứng thì chặn cuộn trang.
+document.addEventListener('touchmove', e => { if (_drag && _drag.started) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', e => { if (_drag || (e.target.closest && e.target.closest('[data-drag]') && isEditor)) e.preventDefault(); });
+function endDrag(commit) {
+  const d = _drag;
+  _drag = null;
+  if (!d) return;
+  clearTimeout(d.timer);
+  if (!d.started) return;
+  d.el.classList.remove('dragging');
+  if (d.over) d.over.classList.remove('drop-on');
+  d.ghost.remove();
+  document.body.classList.remove('is-dragging');
+  // Chặn cú "click" tự sinh ngay sau khi thả.
+  _dragJustEnded = true; setTimeout(() => { _dragJustEnded = false; }, 60);
+  if (!commit || !d.over) return;
+  const delta = daysBetween(d.grab, d.over.dataset.drop);
+  if (delta) moveEntry(d.kind, d.id, delta, true);
+}
+document.addEventListener('pointerup', () => endDrag(true));
+document.addEventListener('pointercancel', () => endDrag(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && _drag) endDrag(false); });
+
+// Dời sự kiện / đầu việc delta ngày: cập nhật trên màn hình ngay, lưu về server, lỗi thì trả lại.
+async function moveEntry(kind, id, delta, withUndo) {
+  if (kind === 'event') {
+    const e = cal.data.events.find(x => x.id === id);
+    if (!e || !e.start_date) return;
+    const before = { start_date: e.start_date, end_date: e.end_date, month: e.month, school_year: e.school_year };
+    e.start_date = addDays(e.start_date, delta);
+    if (e.end_date) e.end_date = addDays(e.end_date, delta);
+    e.month = Number(e.start_date.slice(5, 7));
+    renderGrid(); renderCalDetail();
+    const res = await api('save_school_event', { event: {
+      id: e.id, title: e.title, start_date: e.start_date, end_date: e.end_date || '', month: e.month, campus: e.campus,
+      school_year: e.school_year, department: e.department || '', lead_days: e.lead_days, time_note: e.time_note || '', status: e.status
+    } });
+    if (!res.ok) { Object.assign(e, before); renderGrid(); renderCalDetail(); toast(res.error || 'Không dời được sự kiện'); return; }
+    const msg = `Đã dời "${e.title}" sang ${fmtLong(e.start_date)}${e.status === 'cho_xac_nhan' ? ' (vẫn chờ xác nhận)' : ''}`;
+    withUndo ? toastUndo(msg, () => moveEntry('event', id, -delta, false)) : toast('Đã hoàn tác');
+    return;
+  }
+  const it = cal.data.items.find(x => x.id === id);
+  if (!it) return;
+  const before = { publish_date: it.publish_date, deadline: it.deadline, plan_month: it.plan_month };
+  if (it.publish_date) it.publish_date = addDays(it.publish_date, delta);
+  if (it.deadline) it.deadline = addDays(it.deadline, delta);
+  // Bài dời sang tháng khác thì chuyển luôn vào kế hoạch của tháng đó.
+  const newMonth = (it.publish_date || it.deadline).slice(0, 7);
+  it.plan_month = newMonth + '-01';
+  renderGrid(); renderCalDetail();
+  const res = await api('save_plan_item', { item: {
+    id: it.id, title: it.title, month: newMonth, campus: it.campus, pillar_id: it.pillar_id || '', event_id: it.event_id || '',
+    highlight: it.highlight || '', reference: it.reference || '', channels: it.channels || [], format: it.format || '',
+    assignee_id: it.assignee_id || '', deadline: it.deadline || '', publish_date: it.publish_date || '', post_link: it.post_link || ''
+  } });
+  if (!res.ok) { Object.assign(it, before); renderGrid(); renderCalDetail(); toast(res.error || 'Không dời được đầu việc'); return; }
+  const msg = `Đã dời "${it.title}" sang ${fmtLong(itemDate(it))}`;
+  withUndo ? toastUndo(msg, () => moveEntry('item', id, -delta, false)) : toast('Đã hoàn tác');
+}
+
+function toastUndo(msg, undo) {
+  const t = document.getElementById('toast');
+  t.innerHTML = `<span>${escHtml(msg)}</span> <button type="button" class="toast-undo">Hoàn tác</button>`;
+  t.style.display = 'flex';
+  t.querySelector('.toast-undo').onclick = () => { t.style.display = 'none'; undo(); };
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 7000);
 }
 
 // ---------------- Chi tiết (hiện dưới lịch) ----------------
@@ -1390,9 +1698,10 @@ function dayDetail(date) {
   const hol = holidaysOf(date);
   const evs = visibleEvents().filter(e => e.start_date && e.start_date <= date && (e.end_date || e.start_date) >= date);
   const its = visibleItems().filter(it => itemDate(it) === date);
-  const add = isEditor ? `<div class="dt-actions" style="margin-top:10px">
-      <button class="btn sm primary" onclick="openItemModal(null, { date: '${date}' })">+ Đầu việc đăng ngày này</button>
-      <button class="btn sm" onclick="openEventModal(null, false, { date: '${date}' })">+ Sự kiện ngày này</button></div>` : '';
+  const add = `<div class="dt-actions" style="margin-top:10px">
+      ${isEditor ? `<button class="btn sm primary" onclick="openItemModal(null, { date: '${date}' })">+ Đầu việc đăng ngày này</button>
+      <button class="btn sm orange" onclick="openEventModal(null, false, { date: '${date}' })">+ Sự kiện ngày này</button>` : ''}
+      ${cal.view === 'month' ? `<button class="btn sm" onclick="goToWeek('${date}')">Xem cả tuần ›</button>` : ''}</div>`;
   return `<div class="dt-card" style="border-left-color:var(--text)">
     <div class="dt-title">${fmtLong(date)}${closeBtn}</div>
     <div class="dt-meta"><div>🌙 Âm lịch: <b>${l.d}/${l.m}${l.leap ? ' (nhuận)' : ''}</b>${hol.length ? ` · <span style="color:var(--red)">${escHtml(hol.join(', '))}</span>` : ''}</div></div>
@@ -1452,7 +1761,7 @@ function renderYear() {
       if (d.slice(0, 7) !== k) return '<div></div>';
       const ev = evByDay[d] || [], it = itByDay[d] || [];
       const hol = holidaysOf(d).length;
-      const dots = [ev.length ? `<i style="background:${ev.some(e => e.status === 'da_xac_nhan') ? 'var(--accent)' : '#F7B993'}"></i>` : '', it.length ? '<i style="background:#2F6FDB"></i>' : ''].join('');
+      const dots = [ev.length ? `<i style="background:${ev.some(e => e.status === 'da_xac_nhan') ? 'var(--accent)' : '#F7B993'}"></i>` : '', it.length ? '<i style="background:var(--fpt-blue)"></i>' : ''].join('');
       const tip = [fmtLong(d), 'Âm lịch ' + lunarText(d), ...holidaysOf(d), ...ev.map(e => '🎪 ' + e.title), ...it.map(i => '📝 ' + i.title)].join('\n');
       return `<div class="md${d === today ? ' today' : ''}${dowMon(d) === 6 ? ' sun' : ''}${hol ? ' hol' : ''}" title="${escHtml(tip)}" onclick="event.stopPropagation();goToMonth('${k}', { type: 'day', date: '${d}' })"><span class="n">${Number(d.slice(8))}</span><span class="dots">${dots}</span></div>`;
     }).join('');
@@ -1574,7 +1883,7 @@ function lineDetail(id, focusKey) {
     ${isEditor ? `<div class="dt-actions"><button class="btn sm" onclick="openLineModal('${l.id}')">Sửa tuyến</button></div>` : ''}
     <div style="overflow-x:auto;margin-top:12px"><table class="line-table">
       <thead><tr><th style="width:96px">Tháng</th><th>Highlight nội dung</th><th style="width:70px">Số bài</th><th style="width:120px">Định dạng</th></tr></thead>
-      <tbody>${keys.map(k => `<tr style="${k === focusKey ? 'background:var(--accent-bg)' : ''}">
+      <tbody>${keys.map(k => `<tr style="${k === focusKey ? 'background:var(--blue-bg)' : ''}">
         <td><a href="#" onclick="event.preventDefault();cal.sel={type:'month',key:'${k}'};renderYear();renderCalDetail(true)"><b>${monthLabel(k)}</b></a></td>
         <td class="pre">${escHtml(l.months[k].highlight || '')}</td><td>${l.months[k].target || ''}</td><td>${escHtml(l.months[k].format || '')}</td></tr>`).join('')}</tbody>
     </table></div>
@@ -1637,7 +1946,7 @@ async function deleteLine() {
 }
 
 let _calResizeT;
-window.addEventListener('resize', () => { clearTimeout(_calResizeT); _calResizeT = setTimeout(() => { if (activeTab === 'cal' && cal.view === 'month') renderMonth(); }, 150); });
+window.addEventListener('resize', () => { clearTimeout(_calResizeT); _calResizeT = setTimeout(() => { if (activeTab === 'cal' && cal.view !== 'year' && !_drag) renderGrid(); }, 150); });
 
 // ---------------- Modal ----------------
 function openModal(id) { document.getElementById(id).classList.add('open'); }

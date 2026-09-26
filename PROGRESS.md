@@ -717,7 +717,22 @@ cách sếp + kho thông tin chuẩn) → CTV soát → AI kiểm tra → Trư�
       ngày tiếng Việt; chọn tháng dạng "Tháng 9/2026". Nhớ chế độ xem + bộ lọc theo từng máy (localStorage).
   - Đã test: API 13 kiểm tra (quyền CTV/khác cơ sở, làm sạch dữ liệu, chép + dời tháng, không chép đè); giao diện qua browser thật (tạo đầu việc
     từ ô ngày, chọn ngày, xác nhận theo âm lịch, năm 2025-2026 khớp Excel, điện thoại 375px không tràn ngang).
-  - **Chưa làm**: kéo-thả đổi ngày trên lịch; lịch tuần; ô ngày dd/mm/yyyy ở trang Báo cáo (`boss.html` vẫn dùng input date).
+
+- **Lịch: chế độ Tuần + kéo thả đổi ngày + 3 màu FPT; Báo cáo dùng ngày dd/mm/yyyy — XONG ở máy, CHƯA deploy (2026-09-26).**
+  - **Đã chép kế hoạch năm 2025-2026 → 2026-2027 (Hòa Lạc, 24 tuyến, tháng dời +1 năm: 10/2026 → 08/2027)** — ghi thẳng DB,
+    `source=copy`, `created_by=null`, id `APL_COPY_hoa_lac_2026-2027_NN`. Nội dung vẫn là của năm trước — Leader Content sửa lại.
+  - `plan.html` chế độ **Tuần**: hàng tiêu đề ngày (thứ, ngày, âm lịch, ngày lễ), hàng sự kiện (thanh kéo dài nhiều ngày), 7 cột thẻ bài
+    đầy đủ (tiêu đề, trạng thái, người làm, kênh), "+ Thêm" theo ngày; điện thoại (<640px) 7 ngày xếp dọc. Nút "Xem cả tuần" trong chi tiết ngày.
+  - **Kéo thả đổi ngày** (Tháng + Tuần, chỉ người lập kế hoạch): Pointer Events — chuột kéo >5px; cảm ứng giữ ~0,4s rồi kéo (vuốt nhanh
+    vẫn cuộn trang). Sự kiện nhiều ngày dời nguyên khối, giữ trạng thái (chờ xác nhận vẫn chờ); đầu việc dời cả ngày đăng + hạn gửi, sang tháng
+    khác thì tự chuyển kế hoạch tháng. Cập nhật màn hình ngay rồi lưu (`save_school_event` / `save_plan_item`), lỗi thì trả lại; thanh báo có
+    nút **Hoàn tác** (7 giây). Đã test: chuột (tuần + tháng, sự kiện 2 ngày qua tuần sau, bài sang tháng 11), cảm ứng (vuốt không kéo, giữ rồi kéo có kéo),
+    hoàn tác, dữ liệu DB đúng.
+  - **Màu thương hiệu FPT** cho `plan.html` (cùng mã với boss/ctv/index: cam #F26522, xanh dương #003DA5, xanh lá #00843D): vạch 3 màu
+    trên topbar + gạch chân tab đang chọn, nút chính/đang chọn xanh dương, sự kiện + hôm nay cam, hoàn thành/tiến độ xanh lá; màu trụ content và
+    nhóm kế hoạch năm lấy theo họ màu này (cam dành cho sự kiện). Nếu tắt hết bộ lọc, lịch hiện nhắc "Hiện lại".
+  - `boss.html` trang Báo cáo: ô "Kỳ đánh giá" đổi sang ô ngày/tháng/năm + bảng chọn tiếng Việt (module `VD`); sửa 2 lỗi cũ: ngày mặc định bị
+    lùi 1 ngày (01/09 thành 31/08 do `toISOString` ở giờ VN) và "Xuất danh sách bài" bỏ sót bài của ngày cuối kỳ.
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**
