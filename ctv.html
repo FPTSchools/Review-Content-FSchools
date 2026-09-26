@@ -393,6 +393,11 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
             </select>
           </div>
         </div>
+        <!-- Trụ content: khớp với đầu mục Kế hoạch tháng, dùng để báo cáo sản lượng theo trụ -->
+        <div class="field">
+          <label>Trụ content <span class="req">*</span></label>
+          <select id="pillar"><option value="">-- Chọn --</option></select>
+        </div>
         <!-- Nền tảng đăng: checkbox multi-select -->
         <div class="field" id="platform-field">
           <label>Nền tảng đăng <span class="req">*</span></label>
@@ -758,6 +763,7 @@ function init() {
 
   loadRules();
   loadUsers();
+  loadPillars();
   loadWorkflows();
   loadMySubmissions().then(() => { if (openId) handleOpenDeepLink(openId); });
 
@@ -775,6 +781,27 @@ function init() {
   if (planItemId) loadPlanItemIntoForm(planItemId);
 }
 
+// Danh sách trụ content (Admin/Manager quản lý ở trang Kế hoạch & Lịch → tab Trụ content).
+// Giữ lại lựa chọn đang có (vd bản nháp khôi phục trước khi danh sách tải xong).
+async function loadPillars() {
+  try {
+    const res = await callAPI({ action: 'get_content_pillars' });
+    if (!res.ok) return;
+    const el = document.getElementById('pillar');
+    const keep = el.value || el.dataset.pending || '';
+    el.innerHTML = '<option value="">-- Chọn --</option>' +
+      (res.pillars || []).map(p => `<option value="${escHtml(p.id)}">${escHtml(p.name)}</option>`).join('');
+    setPillarValue(keep);
+  } catch (e) {}
+}
+function setPillarValue(id) {
+  const el = document.getElementById('pillar');
+  if (!el) return;
+  el.value = id || '';
+  // Danh sách chưa tải xong → nhớ lại để loadPillars() chọn khi có dữ liệu.
+  el.dataset.pending = (id && el.value !== id) ? id : '';
+}
+
 // Mở từ nút "Viết bài" ở trang Kế hoạch & Lịch (plan.html?...): điền sẵn tiêu đề, cơ sở, kênh đăng,
 // ghi chú theo đầu việc; khi gửi bài, backend tự nối bài vào đầu việc qua plan_item_id.
 async function loadPlanItemIntoForm(id) {
@@ -787,6 +814,7 @@ async function loadPlanItemIntoForm(id) {
     const campusEl = document.getElementById('campus');
     if (Array.from(campusEl.options).some(o => o.value === it.campus)) campusEl.value = it.campus;
     if ((it.channels || []).length) applyPlatformCheckboxes(it.channels);
+    if (it.pillar_id) setPillarValue(it.pillar_id);
     const noteEl = document.getElementById('note-input');
     if (!noteEl.value.trim()) {
       noteEl.value = ['Theo kế hoạch tháng ' + it.plan_month.slice(5, 7) + '/' + it.plan_month.slice(0, 4), it.highlight, it.reference]
@@ -1590,6 +1618,7 @@ function applyAiToContent() {
 async function submitPost() {
   const campus  = document.getElementById('campus').value;
   const cType   = document.getElementById('content-type').value;
+  const pillar  = document.getElementById('pillar').value;
   const aud     = document.getElementById('audience').value;
   const title   = document.getElementById('title-input').value.trim();
   const content = getContentInputValue().trim();
@@ -1602,6 +1631,7 @@ async function submitPost() {
     { val: campus,  id: 'campus',       label: 'Cơ sở' },
     { val: cType,   id: 'content-type', label: 'Loại content' },
     { val: aud,     id: 'audience',     label: 'Đối tượng' },
+    { val: pillar,  id: 'pillar',       label: 'Trụ content' },
     { val: title,   id: 'title-input',  label: 'Tiêu đề' },
     { val: content, id: 'content-input',label: 'Nội dung bài' },
   ];
@@ -1651,6 +1681,7 @@ async function submitPost() {
         id: isEdit ? window._editId : undefined,
         user_id: currentUser.id, user_name: currentUser.name, user_email: currentUser.email,
         campus, content_type: cType, audience: aud, title, content, note,
+        pillar_id: pillar,
         platform: platform,
         drive_links: driveLinks,
         evidence_links: evidenceLinks,
@@ -2036,6 +2067,7 @@ function clearForm(options) {
 
   detachPlanItem();
   ['campus','content-type','audience'].forEach(id=>document.getElementById(id).value='');
+  setPillarValue('');
   document.getElementById('title-input').value='';
   document.getElementById('content-input').innerHTML='';
   document.getElementById('note-input').value='';
@@ -2235,6 +2267,7 @@ function collectCurrentDraft() {
     fields: {
       campus: document.getElementById('campus')?.value || '',
       content_type: document.getElementById('content-type')?.value || '',
+      pillar_id: document.getElementById('pillar')?.value || '',
       audience: document.getElementById('audience')?.value || '',
       title: document.getElementById('title-input')?.value || '',
       content: getContentInputValue(),
@@ -2391,6 +2424,7 @@ function restoreDraft(id) {
   const f = draft.fields || {};
   document.getElementById('campus').value = f.campus || '';
   document.getElementById('content-type').value = f.content_type || '';
+  setPillarValue(f.pillar_id || '');
   document.getElementById('audience').value = f.audience || '';
   document.getElementById('title-input').value = f.title || '';
   setContentInputValue(f.content || '');
@@ -2441,7 +2475,7 @@ function newDraft() {
 }
 
 async function initDraftManager() {
-  const fieldIds = ['campus','content-type','audience','title-input','content-input','note-input','drive-links-input','evidence-links-input','is-shared-checkbox'];
+  const fieldIds = ['campus','content-type','pillar','audience','title-input','content-input','note-input','drive-links-input','evidence-links-input','is-shared-checkbox'];
   fieldIds.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -3274,6 +3308,7 @@ function editAndResubmit(id) {
   setTimeout(() => {
     document.getElementById('campus').value = s.campus || '';
     document.getElementById('content-type').value = s.content_type || '';
+    setPillarValue(s.pillar_id || '');
     document.getElementById('audience').value = s.audience || '';
     document.getElementById('title-input').value = s.title || '';
     setContentInputValue(s.content || '');
@@ -3340,6 +3375,7 @@ function editSubmission(id) {
   setTimeout(() => {
     document.getElementById('campus').value = s.campus || '';
     document.getElementById('content-type').value = s.content_type || '';
+    setPillarValue(s.pillar_id || '');
     document.getElementById('audience').value = s.audience || '';
     document.getElementById('title-input').value = s.title || '';
     setContentInputValue(s.content || '');

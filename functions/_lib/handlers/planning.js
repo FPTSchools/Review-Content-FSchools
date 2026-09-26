@@ -221,6 +221,20 @@ export async function handleDeletePlanItem(supabase, p) {
   return { ok: true };
 }
 
+// Cho báo cáo cuối kỳ: đầu việc kế hoạch của các tháng nằm trong kỳ [from, to], kèm trạng thái
+// suy ra (chưa làm / đang duyệt / đã duyệt / đã đăng...) — để đối chiếu "được giao" với "đã làm".
+export async function getPlanItemsForReport(supabase, from, to) {
+  let q = supabase.from('plan_items').select('id, campus, plan_month, title, pillar_id, channels, assignee_id, submission_id, post_link');
+  if (from) q = q.gte('plan_month', String(from).slice(0, 7) + '-01');
+  if (to) q = q.lte('plan_month', String(to).slice(0, 7) + '-01');
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (await enrichPlanItems(supabase, data || [])).map(i => ({
+    id: i.id, campus: i.campus, plan_month: i.plan_month, pillar_id: i.pillar_id, channels: i.channels || [],
+    assignee_id: i.assignee_id, submission_id: i.submission_id, plan_status: i.plan_status
+  }));
+}
+
 // Gọi từ handleSubmit: nối bài vừa gửi duyệt vào đầu việc (chỉ khi đầu việc chưa nối bài nào).
 export async function linkPlanItemToSubmission(supabase, planItemId, submissionId) {
   if (!planItemId || !submissionId) return;

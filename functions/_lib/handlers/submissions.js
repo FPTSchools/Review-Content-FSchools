@@ -9,7 +9,7 @@ import {
 } from '../submissionVersions.js';
 import { sendReviewerEmail, sendForwardEmail, sendCTVEmail } from '../email.js';
 import { logAiAccuracy } from './aiAccuracy.js';
-import { linkPlanItemToSubmission } from './planning.js';
+import { linkPlanItemToSubmission, getPlanItemsForReport } from './planning.js';
 
 // ============================================================
 // SUBMISSIONS — port từ handleSubmit/handleResubmit/handleUpdateSubmission/
@@ -44,6 +44,13 @@ export async function handleSubmit(supabase, env, p) {
     return { ok: false, error: e.message };
   }
 
+  // Trụ content: bài viết từ đầu việc kế hoạch lấy trụ của đầu việc nếu CTV không chọn.
+  let pillarId = d.pillar_id || null;
+  if (!pillarId && d.plan_item_id) {
+    const { data: planItem } = await supabase.from('plan_items').select('pillar_id').eq('id', d.plan_item_id).maybeSingle();
+    pillarId = (planItem && planItem.pillar_id) || null;
+  }
+
   const allReviewers = workflow.steps.flatMap(s => s.reviewers || []);
   const id = newId('SUB');
   const submittedAt = new Date().toISOString();
@@ -53,6 +60,7 @@ export async function handleSubmit(supabase, env, p) {
   const row = {
     id, user_id: d.user_id, user_name: d.user_name, user_email: d.user_email,
     campus: d.campus || null, content_type: d.content_type || null, audience: d.audience || null,
+    pillar_id: pillarId,
     title: d.title, content: d.content || null, note: d.note || null,
     drive_links: d.drive_links || null, ai_verdict: d.ai_verdict || null, ai_scores: toJsonb(d.ai_scores),
     submitted_at: submittedAt, status: 'new',
@@ -132,6 +140,7 @@ export async function handleResubmit(supabase, env, p) {
 
   const patch = {
     content_type: d.content_type, audience: d.audience, title: d.title, content: d.content, note: d.note,
+    pillar_id: d.pillar_id || row.pillar_id || null,
     drive_links: d.drive_links || '', ai_verdict: d.ai_verdict || null, ai_scores: toJsonb(d.ai_scores),
     submitted_at: submittedAt, status: 'new', comment: null, score: null, reviewer_name: null, reviewed_at: null,
     send_count: newSendCount, is_shared: asBoolean(d.is_shared), inline_comments: [], review_history: history,
@@ -175,6 +184,7 @@ export async function handleUpdateSubmission(supabase, p) {
     note: d.note || '', drive_links: d.drive_links || '', evidence_links: d.evidence_links || '',
     platform: Array.isArray(d.platform) ? d.platform : []
   };
+  if (d.pillar_id) patch.pillar_id = d.pillar_id;
   const { error: updateError } = await supabase.from('submissions').update(patch).eq('id', d.id);
   if (updateError) return { ok: false, error: updateError.message };
 
@@ -432,9 +442,14 @@ export async function handleGetSubmissions(supabase, p) {
 }
 
 export async function handleGetReport(supabase, p) {
+  // Ngày chọn trên form (yyyy-mm-dd) tính theo giờ Việt Nam, và "đến ngày" gồm trọn ngày đó
+  // (trước đây lấy 00:00 UTC nên bỏ sót bài gửi trong ngày cuối kỳ).
+  const dayOnly = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+  const fromIso = p.from ? new Date(dayOnly(p.from) ? `${p.from}T00:00:00+07:00` : p.from).toISOString() : null;
+  const toIso = p.to ? new Date(dayOnly(p.to) ? `${p.to}T23:59:59.999+07:00` : p.to).toISOString() : null;
   let query = supabase.from('submissions').select('*');
-  if (p.from) query = query.gte('submitted_at', new Date(p.from).toISOString());
-  if (p.to) query = query.lte('submitted_at', new Date(p.to).toISOString());
+  if (fromIso) query = query.gte('submitted_at', fromIso);
+  if (toIso) query = query.lte('submitted_at', toIso);
   const { data, error } = await query;
   if (error) return { ok: false, error: error.message };
 
@@ -478,5 +493,20 @@ export async function handleGetReport(supabase, p) {
     avg_approval_rate: ctvList.length ? Math.round(ctvList.reduce((s, c) => s + c.approvalRate, 0) / ctvList.length) : 0
   };
 
-  return { ok: true, overview, ctv_list: ctvList, period: { from: p.from, to: p.to } };
+  // Dữ liệu cho bảng "Sản lượng theo cá nhân": mỗi bài 1 dòng gọn (không kèm nội dung) để trang
+  // báo cáo tự đếm theo kênh đăng / trụ content, và lọc "tất cả bài gửi" hay "chỉ bài đã duyệt".
+  const items = list.filter(s => s.status !== 'cancelled').map(s => ({
+    user_id: s.user_id, user_name: s.user_name, campus: s.campus, status: s.status,
+    platform: Array.isArray(s.platform) ? s.platform : [], pillar_id: s.pillar_id || null,
+    content_type: s.content_type || null
+  }));
+  const [{ data: pillars }, planItems] = await Promise.all([
+    supabase.from('content_pillars').select('id, name, sort_order, active').order('sort_order'),
+    getPlanItemsForReport(supabase, p.from, p.to).catch(() => [])
+  ]);
+
+  return {
+    ok: true, overview, ctv_list: ctvList, period: { from: p.from, to: p.to },
+    items, pillars: pillars || [], plan_items: planItems
+  };
 }

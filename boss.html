@@ -188,6 +188,22 @@
   .report-card{background:var(--surface2);border-radius:var(--radius);padding:12px 14px;text-align:center;}
   .report-num{font-size:26px;font-weight:600;}
   .report-lbl{font-size:11px;color:var(--text3);margin-top:2px;}
+  /* Bảng Sản lượng theo cá nhân — nhiều cột (kênh + trụ) nên cuộn ngang trong khung, cột tên cố định */
+  .prod-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--text2);}
+  .prod-toolbar select{padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;color:var(--text);background:var(--surface);}
+  .prod-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
+  .prod-table{border-collapse:collapse;width:100%;font-size:12px;}
+  .prod-table th,.prod-table td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .prod-table th{font-size:11px;font-weight:600;color:var(--text2);background:var(--surface2);white-space:normal;min-width:64px;vertical-align:bottom;line-height:1.35;}
+  .prod-table th.pil{min-width:118px;max-width:150px;}
+  .prod-table th.grp{text-align:center;border-left:1px solid var(--border);}
+  .prod-table td.sep,.prod-table th.sep{border-left:1px solid var(--border);}
+  .prod-table td.name,.prod-table th.name{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;min-width:130px;}
+  .prod-table th.name{background:var(--surface2);}
+  .prod-table tr.total td{font-weight:600;background:var(--surface2);}
+  .prod-table tr.total td.name{background:var(--surface2);}
+  .prod-table td.zero{color:var(--text3);}
+  .prod-note{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6;}
   .top-ctv{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
   .top-ctv:last-child{border-bottom:none;}
 
@@ -377,6 +393,27 @@
         <div class="report-card"><div class="report-num" id="ro-total">0</div><div class="report-lbl">Tổng bài gửi</div></div>
         <div class="report-card"><div class="report-num" id="ro-rate" style="color:var(--green)">0%</div><div class="report-lbl">Tỷ lệ duyệt TB</div></div>
         <div class="report-card"><div class="report-num" id="ro-ctv">0</div><div class="report-lbl">Số CTV tham gia</div></div>
+      </div>
+
+      <div class="card" id="prod-card" style="display:none">
+        <div class="card-title">📊 Sản lượng theo cá nhân</div>
+        <div class="prod-toolbar">
+          <span>Tính:</span>
+          <select id="prod-scope" onchange="renderProduction()">
+            <option value="all">Tất cả bài đã gửi</option>
+            <option value="approved">Chỉ bài đã duyệt</option>
+          </select>
+          <span>Cơ sở:</span>
+          <select id="prod-campus" onchange="renderProduction()">
+            <option value="">Tất cả</option>
+            <option value="hoa_lac">Hòa Lạc</option>
+            <option value="tay_hn">Tây HN</option>
+            <option value="chung">Cả 2</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="exportProduction()">📥 Xuất CSV</button>
+        </div>
+        <div class="prod-wrap"><table class="prod-table" id="prod-table"></table></div>
+        <div class="prod-note" id="prod-note"></div>
       </div>
 
       <div class="card" id="report-table-card" style="display:none">
@@ -1536,6 +1573,8 @@ function renderReport(res) {
   document.getElementById('ro-total').textContent = overview.total;
   document.getElementById('ro-rate').textContent  = overview.avg_approval_rate + '%';
   document.getElementById('ro-ctv').textContent   = ctv_list.length;
+  document.getElementById('prod-card').style.display = 'block';
+  renderProduction();
 
   const evalLabel = s => s>=8?'⭐ Xuất sắc':s>=6?'👍 Tốt':s>=4?'📈 Trung bình':'⚠️ Cần cải thiện';
   const tbody = document.getElementById('report-tbody');
@@ -1559,6 +1598,100 @@ function renderReport(res) {
       <td>${evalLabel(c.finalScore)}</td>
     </tr>`;
   }).join('');
+}
+
+// ---- Sản lượng theo cá nhân: mỗi người viết bao nhiêu bài, theo kênh đăng và theo trụ content,
+// kèm đối chiếu với đầu việc được giao trong Kế hoạch tháng. Đếm từ res.items (mỗi bài 1 dòng).
+const PROD_CHANNELS = [['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok'],['youtube','Youtube'],['zalo','Zalo'],['web','Website'],['email','Email'],['sms','SMS']];
+const NO_PILLAR = '__none__';
+
+function buildProduction() {
+  const res = reportData || {};
+  const scope = document.getElementById('prod-scope').value;
+  const campus = document.getElementById('prod-campus').value;
+  const items = (res.items || []).filter(s => (scope !== 'approved' || s.status === 'approved') && (!campus || s.campus === campus));
+  const planItems = (res.plan_items || []).filter(i => !campus || i.campus === campus);
+  const nameOf = {};
+  (allUsers || []).forEach(u => { nameOf[u.id] = u.name; });
+
+  const rows = {};
+  const row = (id, name) => rows[id] || (rows[id] = { id, name: name || nameOf[id] || '(không rõ)', total: 0, ch: {}, pil: {}, assigned: 0, done: 0 });
+  items.forEach(s => {
+    const r = row(s.user_id, s.user_name);
+    r.total++;
+    [...new Set(s.platform || [])].forEach(c => { r.ch[c] = (r.ch[c] || 0) + 1; });
+    const pk = s.pillar_id || NO_PILLAR;
+    r.pil[pk] = (r.pil[pk] || 0) + 1;
+  });
+  planItems.filter(i => i.assignee_id).forEach(i => {
+    const r = row(i.assignee_id);
+    r.assigned++;
+    if (['da_duyet', 'da_dang'].includes(i.plan_status)) r.done++;
+  });
+
+  // Chỉ hiện cột kênh có số liệu; cột trụ hiện đủ các trụ đang dùng (để thấy trụ nào bị bỏ trống).
+  const usedCh = new Set(items.flatMap(s => s.platform || []));
+  const channels = PROD_CHANNELS.filter(([k]) => usedCh.has(k));
+  const pillars = (res.pillars || []).filter(p => p.active !== false || items.some(s => s.pillar_id === p.id));
+  const pillarCols = pillars.map(p => [p.id, p.name]);
+  if (items.some(s => !s.pillar_id)) pillarCols.push([NO_PILLAR, 'Chưa phân loại']);
+
+  const list = Object.values(rows).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'vi'));
+  const total = { name: 'Tổng', total: 0, ch: {}, pil: {}, assigned: 0, done: 0 };
+  list.forEach(r => {
+    total.total += r.total; total.assigned += r.assigned; total.done += r.done;
+    Object.keys(r.ch).forEach(k => { total.ch[k] = (total.ch[k] || 0) + r.ch[k]; });
+    Object.keys(r.pil).forEach(k => { total.pil[k] = (total.pil[k] || 0) + r.pil[k]; });
+  });
+  return { list, total, channels, pillarCols, hasPlan: planItems.length > 0, scope };
+}
+
+function renderProduction() {
+  if (!reportData) return;
+  const { list, total, channels, pillarCols, hasPlan, scope } = buildProduction();
+  const table = document.getElementById('prod-table');
+  const note = document.getElementById('prod-note');
+  if (!list.length) {
+    table.innerHTML = '<tr><td style="padding:16px;color:var(--text3)">Không có bài nào trong kỳ này.</td></tr>';
+    note.textContent = '';
+    return;
+  }
+  const n = v => v ? `<td>${v}</td>` : '<td class="zero">–</td>';
+  const nSep = v => v ? `<td class="sep">${v}</td>` : '<td class="sep zero">–</td>';
+  const cells = r =>
+    channels.map(([k], i) => (i === 0 ? nSep : n)(r.ch[k] || 0)).join('') +
+    pillarCols.map(([k], i) => (i === 0 ? nSep : n)(r.pil[k] || 0)).join('') +
+    (hasPlan ? nSep(r.assigned) + n(r.done) : '');
+  const head1 = `<tr><th class="name" rowspan="2">Người viết</th><th rowspan="2">Tổng bài</th>` +
+    (channels.length ? `<th class="grp" colspan="${channels.length}">Theo kênh đăng</th>` : '') +
+    `<th class="grp" colspan="${pillarCols.length}">Theo trụ content</th>` +
+    (hasPlan ? `<th class="grp" colspan="2">Theo kế hoạch tháng</th>` : '') + '</tr>';
+  const head2 = '<tr>' +
+    channels.map(([, l], i) => `<th${i === 0 ? ' class="sep"' : ''}>${l}</th>`).join('') +
+    pillarCols.map(([, l], i) => `<th class="pil${i === 0 ? ' sep' : ''}">${escHtml(l)}</th>`).join('') +
+    (hasPlan ? '<th class="sep">Được giao</th><th>Đã xong</th>' : '') + '</tr>';
+  table.innerHTML = `<thead>${head1}${head2}</thead><tbody>` +
+    list.map(r => `<tr><td class="name">${escHtml(r.name)}</td><td><b>${r.total}</b></td>${cells(r)}</tr>`).join('') +
+    `<tr class="total"><td class="name">Tổng</td><td>${total.total}</td>${cells(total)}</tr></tbody>`;
+  note.innerHTML = [
+    scope === 'approved' ? 'Chỉ đếm bài có trạng thái "Đã duyệt".' : 'Đếm mọi bài đã gửi trong kỳ (kể cả đang duyệt, cần sửa, từ chối; không tính bài đã huỷ). Bài gửi lại nhiều lần vẫn tính 1 bài.',
+    '1 bài đăng nhiều kênh được đếm ở mỗi kênh, nên tổng các cột kênh có thể lớn hơn "Tổng bài".',
+    pillarCols.some(([k]) => k === NO_PILLAR) ? '"Chưa phân loại": bài gửi trước khi form có ô Trụ content.' : '',
+    hasPlan ? '"Được giao / Đã xong": đầu việc trong Kế hoạch tháng của các tháng thuộc kỳ; "Đã xong" = bài đã duyệt hoặc đã đăng.' : 'Chưa có đầu việc Kế hoạch tháng nào trong kỳ này.'
+  ].filter(Boolean).join('<br>');
+}
+
+function exportProduction() {
+  if (!reportData) { showToast('Tạo báo cáo trước'); return; }
+  const { list, total, channels, pillarCols, hasPlan } = buildProduction();
+  const header = ['Người viết', 'Tổng bài', ...channels.map(([, l]) => 'Kênh: ' + l), ...pillarCols.map(([, l]) => 'Trụ: ' + l), ...(hasPlan ? ['Được giao', 'Đã xong'] : [])];
+  const line = r => [r.name, r.total, ...channels.map(([k]) => r.ch[k] || 0), ...pillarCols.map(([k]) => r.pil[k] || 0), ...(hasPlan ? [r.assigned, r.done] : [])];
+  const rows = [header, ...list.map(line), line(total)];
+  const csv = '﻿' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `san-luong-${reportData.period.from}_${reportData.period.to}.csv`;
+  a.click();
 }
 
 async function generateAIReport(ctvList, overview) {

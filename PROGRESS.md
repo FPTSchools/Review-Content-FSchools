@@ -4,7 +4,7 @@
 > hiểu ngay: đã làm gì, đang ở bước nào, cần làm tiếp gì — không cần đọc lại lịch sử chat.
 > Cập nhật file này vào **cuối mỗi buổi làm việc**, rồi `git commit` + `git push`.
 
-## Cập nhật gần nhất: 2026-09-25
+## Cập nhật gần nhất: 2026-09-26
 
 ## ⚠️ SỰ CỐ BẢO MẬT (phát hiện 2026-09-25) — CẦN ĐỔI TOÀN BỘ KHOÁ
 - **Lệnh deploy cũ `wrangler pages deploy .` upload CẢ thư mục gốc lên Cloudflare Pages**, gồm
@@ -682,6 +682,18 @@ cách sếp + kho thông tin chuẩn) → CTV soát → AI kiểm tra → Trư�
     "Loại content" bằng 7 nhóm/25 dạng bài trong file, mở rộng "Đối tượng" theo Chân dung khách
     hàng, nhập kế hoạch năm, mẫu chiến dịch nhiều bài (Học bổng Hành trình toả sáng...), báo cáo
     tháng tự sinh, lưu `plan_item_id` vào bản nháp.
+
+- **Báo cáo sản lượng theo cá nhân + Trụ content cho mỗi bài — XONG ở máy, CHƯA deploy (2026-09-26).**
+  - Migration `20260926020000_submissions_pillar.sql` (đã `db push`): cột `submissions.pillar_id`. Form gửi bài (`ctv.html`) có ô
+    **Trụ content** bắt buộc; bài viết từ đầu việc kế hoạch tự điền trụ của đầu việc (backend cũng tự lấy nếu thiếu). Lưu cả trong bản nháp,
+    Gửi lại, Sửa bài. 67 bài cũ để trống → báo cáo hiện "Chưa phân loại".
+  - `get_report` trả thêm `items` (mỗi bài 1 dòng gọn: người viết, cơ sở, trạng thái, kênh, trụ), `pillars`, `plan_items` của các tháng
+    trong kỳ (kèm trạng thái suy ra). Sửa lỗi cũ: "đến ngày" giờ gồm trọn ngày cuối kỳ, tính theo giờ Việt Nam.
+  - `boss.html` trang Báo cáo cuối kỳ: bảng **📊 Sản lượng theo cá nhân** — mỗi người: tổng bài, số bài theo từng kênh đăng, theo từng trụ
+    content, và theo Kế hoạch tháng (được giao / đã xong); dòng Tổng; lọc "Tất cả bài đã gửi / Chỉ bài đã duyệt" và theo cơ sở; Xuất CSV.
+    1 bài đăng nhiều kênh được đếm ở mỗi kênh. Bài huỷ không tính.
+  - Test bằng dữ liệu demo (id `ZZDEMO*`, ghi thẳng DB, không sinh email): số liệu từng người khớp tay, bộ lọc đúng, gửi bài từ đầu việc lưu
+    đúng trụ + đầu việc chuyển "Đang duyệt". **Dữ liệu demo đang để lại cho người dùng xem — nhớ xoá** (script tạm `demo_data.mjs clean`).
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**
