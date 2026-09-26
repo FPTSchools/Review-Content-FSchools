@@ -695,6 +695,30 @@ cách sếp + kho thông tin chuẩn) → CTV soát → AI kiểm tra → Trư�
   - Test bằng dữ liệu demo (id `ZZDEMO*`, ghi thẳng DB, không sinh email): số liệu từng người khớp tay, bộ lọc đúng, gửi bài từ đầu việc lưu
     đúng trụ + đầu việc chuyển "Đang duyệt". **Dữ liệu demo đang để lại cho người dùng xem — nhớ xoá** (script tạm `demo_data.mjs clean`).
 
+- **Kế hoạch năm + Lịch kiểu Google Calendar (tiếng Việt) — XONG ở máy, CHƯA deploy (2026-09-26).**
+  - Migration `20260926060000_annual_plan.sql` (đã `db push`): bảng `annual_plan_lines` — mỗi dòng 1 tuyến/tổ/chiến dịch thuộc 1 nhóm
+    (`muc_tieu`, `su_kien`, `lop_hoc`, `chu_de`, `campaign`, `tuyen_sinh`, `kenh_ngoai`), nội dung từng tháng trong JSONB `months`
+    {`yyyy-mm`: {highlight, target (số bài), budget, format}} — đúng cấu trúc sheet "Kế hoạch năm" của file Excel.
+  - Action mới (`planning.js`, khai báo quyền ở `authz.js`): `get_annual_plan`, `save_annual_plan_line`, `delete_annual_plan_line`,
+    `copy_annual_plan` (chép năm trước sang năm mới, tự dời tháng, không chép đè). Sửa = leader_content/leader/manager/admin, đúng cơ sở.
+    `get_plan_items` nhận thêm `event_id` và `from_month`/`to_month`.
+  - Script `migration/import_annual_plan.mjs` (chạy khô trước, `--apply` mới ghi): **đã nhập 24 tuyến kế hoạch năm 2025-2026 Hòa Lạc**;
+    số bài từng tháng khớp hàng TỔNG của sheet (19, 35, 21, 21, 15, 20, 16, 12, 7, 4). Năm 2026-2027 CHƯA có — người dùng bấm "Chép từ năm trước".
+  - `plan.html` tab mới mặc định **📅 Lịch kế hoạch** (2 tab cũ đổi tên "Danh sách việc tháng" / "Danh sách sự kiện", vẫn giữ):
+    - **Tháng**: lưới T2→CN, âm lịch từng ngày (thuật toán thiên văn múi giờ +7, đã kiểm tra Tết/Trung thu/Giỗ Tổ/tháng nhuận), ngày lễ VN
+      (dương + âm, gồm Giao thừa), sự kiện là thanh cam (nhiều ngày thì kéo dài; kẻ sọc = chờ xác nhận), đầu việc là dòng chấm màu theo trụ
+      content (✓ = đã duyệt/đăng), "+N nữa" khi đầy. Bấm sự kiện → **chi tiết ở dưới lịch** kèm danh sách bài của sự kiện, tiến độ, nút Xác nhận /
+      Tạo chuỗi 3 bài / + Thêm bài; bấm bài → chi tiết + Viết bài/Xem bài; bấm ngày → việc trong ngày + thêm nhanh. Nhắc sự kiện chưa có ngày,
+      đầu việc chưa có ngày đăng. **Gợi ý ngày theo âm lịch** cho sự kiện Trung thu/Tết/Giỗ Tổ/Vu Lan đang chờ xác nhận (vd "Trung thu (tối)"
+      gợi ý 06/10 nhưng Trung thu 2026 là 25/09).
+    - **Năm**: thông điệp theo giai đoạn (gộp tháng), 12 tháng thu nhỏ (chấm = sự kiện/bài; mục tiêu – đã lên lịch – xong), dòng thời gian
+      (Gantt) các tuyến/chiến dịch theo nhóm màu + hàng tổng số bài; bấm tháng / thanh → chi tiết ở dưới; form sửa tuyến 12 tháng.
+    - Ngày hiển thị dd/mm/yyyy; bỏ `<input type=date/month>` (trình duyệt tiếng Anh hiện mm/dd/yyyy) → ô gõ ngày/tháng/năm + bảng chọn
+      ngày tiếng Việt; chọn tháng dạng "Tháng 9/2026". Nhớ chế độ xem + bộ lọc theo từng máy (localStorage).
+  - Đã test: API 13 kiểm tra (quyền CTV/khác cơ sở, làm sạch dữ liệu, chép + dời tháng, không chép đè); giao diện qua browser thật (tạo đầu việc
+    từ ô ngày, chọn ngày, xác nhận theo âm lịch, năm 2025-2026 khớp Excel, điện thoại 375px không tràn ngang).
+  - **Chưa làm**: kéo-thả đổi ngày trên lịch; lịch tuần; ô ngày dd/mm/yyyy ở trang Báo cáo (`boss.html` vẫn dùng input date).
+
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**
    (người dùng xác nhận đã nhận được email test ở hộp thư `thpt@fpt.edu.vn`, cả từ local lẫn từ

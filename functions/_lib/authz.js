@@ -84,7 +84,11 @@ export const ACTION_ROLES = {
   save_school_event: ALL,
   get_plan_items: ALL,
   save_plan_item: ALL,
-  delete_plan_item: ALL
+  delete_plan_item: ALL,
+  get_annual_plan: ALL,
+  save_annual_plan_line: ALL,
+  delete_annual_plan_line: ALL,
+  copy_annual_plan: ALL
 };
 
 export function isActionAllowed(action, role) {
