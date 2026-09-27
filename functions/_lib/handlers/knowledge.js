@@ -166,7 +166,8 @@ export function factsPromptText(facts, maxChars = 9000) {
   let used = 0;
   const kept = [];
   for (const f of facts) {
-    const line = `[F${kept.length + 1}] (${categoryLabel(f.category)} · ${CAMPUS_LABEL[f.campus] || f.campus}) ${f.title}: ${String(f.content).replace(/\s+/g, ' ').slice(0, 500)}`;
+    // Mỗi thông tin tối đa 800 ký tự (thông tin thương hiệu như 5 giá trị, ý nghĩa Kiến Sáng dài hơn số liệu).
+    const line = `[F${kept.length + 1}] (${categoryLabel(f.category)} · ${CAMPUS_LABEL[f.campus] || f.campus}) ${f.title}: ${String(f.content).replace(/\s+/g, ' ').slice(0, 800)}`;
     if (used + line.length > maxChars) break;
     lines.push(line); kept.push(f); used += line.length;
   }
