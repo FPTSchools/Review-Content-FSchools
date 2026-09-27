@@ -82,6 +82,7 @@ export const ACTION_ROLES = {
   get_knowledge_facts: ALL,
   save_knowledge_fact: ALL,
   review_knowledge_fact: ALL,
+  verify_knowledge_facts: ALL,
   delete_knowledge_fact: ALL,
 
   // Kế hoạch & lịch (handler tự tra lại vai trò/cơ sở)

@@ -133,6 +133,25 @@ export async function handleReviewKnowledgeFact(supabase, p) {
   return { ok: true };
 }
 
+// Xác minh nhanh nhiều mục một lúc (chỉ "xác minh" — từ chối vẫn làm từng mục vì phải ghi lý do riêng).
+// Bỏ qua (không báo lỗi cả lô) những mục không còn ở trạng thái chờ hoặc thuộc cơ sở người này không được đụng.
+export async function handleVerifyKnowledgeFacts(supabase, p) {
+  const actor = await getActor(supabase, p.user_id);
+  if (!isVerifier(actor)) return { ok: false, error: 'Chỉ Admin, Trưởng ban, Trưởng phòng được xác minh thông tin' };
+  const ids = [...new Set((Array.isArray(p.ids) ? p.ids : []).map(String).filter(Boolean))].slice(0, 200);
+  if (!ids.length) return { ok: false, error: 'Chưa chọn thông tin nào' };
+  const { data: rows, error } = await supabase.from('knowledge_facts').select('id, campus, status').in('id', ids);
+  if (error) return { ok: false, error: error.message };
+  const allowed = (rows || []).filter(r => r.status === 'cho_xac_minh' && canTouchCampus(actor, r.campus)).map(r => r.id);
+  if (!allowed.length) return { ok: true, verified: 0, skipped: ids.length };
+  const now = new Date().toISOString();
+  const { error: upErr } = await supabase.from('knowledge_facts')
+    .update({ status: 'da_xac_minh', verified_by: actor.id, verified_by_name: actor.name, verified_at: now, review_note: null, updated_at: now })
+    .in('id', allowed).eq('status', 'cho_xac_minh');
+  if (upErr) return { ok: false, error: upErr.message };
+  return { ok: true, verified: allowed.length, skipped: ids.length - allowed.length };
+}
+
 export async function handleDeleteKnowledgeFact(supabase, p) {
   const actor = await getActor(supabase, p.user_id);
   if (!actor) return { ok: false, error: 'Chưa đăng nhập' };

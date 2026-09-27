@@ -109,6 +109,7 @@ async function routeAction(p, supabase, env) {
     case 'get_knowledge_facts': return knowledge.handleGetKnowledgeFacts(supabase, p);
     case 'save_knowledge_fact': return knowledge.handleSaveKnowledgeFact(supabase, p);
     case 'review_knowledge_fact': return knowledge.handleReviewKnowledgeFact(supabase, p);
+    case 'verify_knowledge_facts': return knowledge.handleVerifyKnowledgeFacts(supabase, p);
     case 'delete_knowledge_fact': return knowledge.handleDeleteKnowledgeFact(supabase, p);
 
     case 'get_content_pillars': return planning.handleGetContentPillars(supabase, p);
