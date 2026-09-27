@@ -735,6 +735,7 @@ cách sếp + kho thông tin chuẩn) → CTV soát → AI kiểm tra → Trư�
     lùi 1 ngày (01/09 thành 31/08 do `toISOString` ở giờ VN) và "Xuất danh sách bài" bỏ sót bài của ngày cuối kỳ.
 
 - **Giai đoạn 2 — Kho thông tin chuẩn + AI viết nháp từ dàn ý — XONG, ĐÃ DEPLOY (2026-09-27).**
+  - **Xác minh nhanh nhiều mục (2026-09-27, đã deploy):** kb.html có ô tick ở mục chờ xác minh + "Chọn cả nhóm" / "Chọn tất cả đang hiện" + thanh "Xác minh N mục"; action `verify_knowledge_facts` (tối đa 200 id/lần, chỉ xác minh — từ chối vẫn từng mục vì cần lý do; bỏ qua mục không còn chờ hoặc khác cơ sở). Ô tick/nút xác minh ẩn với mục thuộc cơ sở người xác minh không phụ trách.
   - **Đã nạp 45 thông tin CHỜ XÁC MINH** (id `KB_WEB_*` 32 mục từ website hoa-lac/tay-ha-noi + quy chế tuyển sinh, bảng tài chính, quy định học bổng 2026-2027; id `KB_BRAND_*` 13 mục Chiến lược 135 + linh vật Kiến Sáng). AI chưa dùng mục nào cho tới khi admin/manager/leader xác minh. Mỗi mục ghi nguồn + ghi chú điểm cần kiểm tra (nhãn học phí HL "(2025-2026)" trên web, Cô Nguyễn Thị Thu Hiền xuất hiện ở cả 2 cơ sở, lỗi gõ Cầy Giấy / ELTS). Mỗi mục tối đa 800 ký tự khi đưa vào prompt.
   - Migration `20260927020000_knowledge_facts.sql` (đã `db push`): bảng `knowledge_facts` (cơ sở hoa_lac/tay_hn/chung, nhóm, tên,
     nội dung chuẩn, nguồn, `valid_until`, trạng thái `cho_xac_minh`/`da_xac_minh`/`tu_choi`, người đề xuất/xác minh). "Hết hạn"
