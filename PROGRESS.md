@@ -734,7 +734,8 @@ cách sếp + kho thông tin chuẩn) → CTV soát → AI kiểm tra → Trư�
   - `boss.html` trang Báo cáo: ô "Kỳ đánh giá" đổi sang ô ngày/tháng/năm + bảng chọn tiếng Việt (module `VD`); sửa 2 lỗi cũ: ngày mặc định bị
     lùi 1 ngày (01/09 thành 31/08 do `toISOString` ở giờ VN) và "Xuất danh sách bài" bỏ sót bài của ngày cuối kỳ.
 
-- **Giai đoạn 2 — Kho thông tin chuẩn + AI viết nháp từ dàn ý — XONG ở máy, CHƯA deploy (2026-09-27).**
+- **Giai đoạn 2 — Kho thông tin chuẩn + AI viết nháp từ dàn ý — XONG, ĐÃ DEPLOY (2026-09-27).**
+  - **Đã nạp 45 thông tin CHỜ XÁC MINH** (id `KB_WEB_*` 32 mục từ website hoa-lac/tay-ha-noi + quy chế tuyển sinh, bảng tài chính, quy định học bổng 2026-2027; id `KB_BRAND_*` 13 mục Chiến lược 135 + linh vật Kiến Sáng). AI chưa dùng mục nào cho tới khi admin/manager/leader xác minh. Mỗi mục ghi nguồn + ghi chú điểm cần kiểm tra (nhãn học phí HL "(2025-2026)" trên web, Cô Nguyễn Thị Thu Hiền xuất hiện ở cả 2 cơ sở, lỗi gõ Cầy Giấy / ELTS). Mỗi mục tối đa 800 ký tự khi đưa vào prompt.
   - Migration `20260927020000_knowledge_facts.sql` (đã `db push`): bảng `knowledge_facts` (cơ sở hoa_lac/tay_hn/chung, nhóm, tên,
     nội dung chuẩn, nguồn, `valid_until`, trạng thái `cho_xac_minh`/`da_xac_minh`/`tu_choi`, người đề xuất/xác minh). "Hết hạn"
     suy ra (đã xác minh + quá `valid_until`), không lưu riêng. Kho đang TRỐNG — cần Admin/Trưởng phòng nhập thông tin thật.
