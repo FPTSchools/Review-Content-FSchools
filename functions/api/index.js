@@ -12,6 +12,7 @@ import * as ai from '../_lib/handlers/ai.js';
 import { handleProcessEmailQueue } from '../_lib/handlers/emailQueue.js';
 import { handleGetAiAccuracyReport } from '../_lib/handlers/aiAccuracy.js';
 import * as planning from '../_lib/handlers/planning.js';
+import * as knowledge from '../_lib/handlers/knowledge.js';
 import { verifySessionToken, passwordFingerprint, safeEqual } from '../_lib/session.js';
 import { isActionAllowed, bindIdentity } from '../_lib/authz.js';
 
@@ -103,6 +104,12 @@ async function routeAction(p, supabase, env) {
     case 'ai_check_brand_image': return ai.handleAiCheckBrandImage(supabase, env, p);
     case 'ai_suggest_review': return ai.handleAiSuggestReview(supabase, env, p);
     case 'ai_chat': return ai.handleAiChat(supabase, env, p);
+    case 'ai_write_from_outline': return ai.handleAiWriteFromOutline(supabase, env, p);
+
+    case 'get_knowledge_facts': return knowledge.handleGetKnowledgeFacts(supabase, p);
+    case 'save_knowledge_fact': return knowledge.handleSaveKnowledgeFact(supabase, p);
+    case 'review_knowledge_fact': return knowledge.handleReviewKnowledgeFact(supabase, p);
+    case 'delete_knowledge_fact': return knowledge.handleDeleteKnowledgeFact(supabase, p);
 
     case 'get_content_pillars': return planning.handleGetContentPillars(supabase, p);
     case 'save_content_pillar': return planning.handleSaveContentPillar(supabase, p);

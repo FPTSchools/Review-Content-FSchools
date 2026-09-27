@@ -5,7 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const PUBLIC_FILES = ['index.html', 'ctv.html', 'boss.html', 'plan.html'];
+const PUBLIC_FILES = ['index.html', 'ctv.html', 'boss.html', 'plan.html', 'kb.html'];
 const OUT = 'dist';
 
 fs.rmSync(OUT, { recursive: true, force: true });

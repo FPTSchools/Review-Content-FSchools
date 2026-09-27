@@ -4,7 +4,7 @@
 > hiểu ngay: đã làm gì, đang ở bước nào, cần làm tiếp gì — không cần đọc lại lịch sử chat.
 > Cập nhật file này vào **cuối mỗi buổi làm việc**, rồi `git commit` + `git push`.
 
-## Cập nhật gần nhất: 2026-09-26
+## Cập nhật gần nhất: 2026-09-27
 
 ## ⚠️ SỰ CỐ BẢO MẬT (phát hiện 2026-09-25) — CẦN ĐỔI TOÀN BỘ KHOÁ
 - **Lệnh deploy cũ `wrangler pages deploy .` upload CẢ thư mục gốc lên Cloudflare Pages**, gồm
@@ -733,6 +733,32 @@ cách sếp + kho thông tin chuẩn) → CTV soát → AI kiểm tra → Trư�
     nhóm kế hoạch năm lấy theo họ màu này (cam dành cho sự kiện). Nếu tắt hết bộ lọc, lịch hiện nhắc "Hiện lại".
   - `boss.html` trang Báo cáo: ô "Kỳ đánh giá" đổi sang ô ngày/tháng/năm + bảng chọn tiếng Việt (module `VD`); sửa 2 lỗi cũ: ngày mặc định bị
     lùi 1 ngày (01/09 thành 31/08 do `toISOString` ở giờ VN) và "Xuất danh sách bài" bỏ sót bài của ngày cuối kỳ.
+
+- **Giai đoạn 2 — Kho thông tin chuẩn + AI viết nháp từ dàn ý — XONG ở máy, CHƯA deploy (2026-09-27).**
+  - Migration `20260927020000_knowledge_facts.sql` (đã `db push`): bảng `knowledge_facts` (cơ sở hoa_lac/tay_hn/chung, nhóm, tên,
+    nội dung chuẩn, nguồn, `valid_until`, trạng thái `cho_xac_minh`/`da_xac_minh`/`tu_choi`, người đề xuất/xác minh). "Hết hạn"
+    suy ra (đã xác minh + quá `valid_until`), không lưu riêng. Kho đang TRỐNG — cần Admin/Trưởng phòng nhập thông tin thật.
+  - `functions/_lib/handlers/knowledge.js` — action `get/save/review/delete_knowledge_fact`: ai cũng đề xuất được (→ chờ xác minh);
+    **xác minh/từ chối = admin, manager, leader** (thông tin họ tự thêm được xác minh luôn; từ chối bắt buộc ghi lý do); người đề xuất
+    chỉ sửa/xoá đề xuất của mình khi chưa xác minh (sửa xong quay lại chờ xác minh); không đụng được cơ sở khác.
+    `getVerifiedFacts(campus)` = đã xác minh + còn hạn + (cơ sở bài ∪ chung) — chỉ cái này được đưa cho AI.
+  - **AI viết nháp** (`ai_write_from_outline` trong `ai.js`): dàn ý + kênh + đối tượng + trụ + độ dài → bài nháp theo quy tắc Admin,
+    phong cách tối đa 3 người duyệt đã chọn, ví dụ bài thật đã duyệt, và CHỈ số liệu trong kho (mã [F1]..). Structured Outputs với
+    `missing_info` đứng TRƯỚC `draft` (buộc AI liệt kê chỗ thiếu trước khi viết). **Chốt chặn bằng code** `markUnverifiedNumbers`:
+    mọi con số trong bài phải có trong thông tin chuẩn / dàn ý / tiêu đề (so trọn số, phân biệt có "%"), không thì tự bọc
+    `[CẦN XÁC MINH: …]` — lý do: khi test, AI từng tự bịa "100 chỉ tiêu lớp 10". Cũng báo từ cấm AI lỡ dùng, dọn "**" lẻ.
+    `openai.js`: `callOpenAI` nhận thêm `timeoutMs`/`retries` (viết bài: 30s × 2 lượt; frontend chờ 90s).
+  - **AI kiểm tra bài** (`ai_check_content`) giờ đối chiếu với kho: số liệu khác thông tin chuẩn → issue "Sai thông tin chuẩn:",
+    chinh_xac ≤ 5, không được DUYỆT; số liệu không có trong kho → "Chưa xác minh:". `ctv.html` gửi thêm `campus`.
+  - Trang mới **`kb.html`** (đã thêm vào `PUBLIC_FILES`; menu "📚 Thông tin chuẩn" ở ctv/boss): thống kê, nhắc chờ xác minh / sắp hết hạn
+    (≤30 ngày), lọc + tìm kiếm, nhóm theo 10 loại, Xác minh / Từ chối (kèm lý do) / Sửa / Xoá, ô ngày dd/mm/yyyy.
+  - `ctv.html`: khối **"✍️ Nhờ AI viết nháp từ dàn ý"** ngay dưới Tiêu đề — kết quả hiện bản nháp (tô cam [CẦN …], tô đỏ từ cấm),
+    danh sách thông tin chuẩn đã dùng, danh sách ý cần bổ sung, nút "Đưa vào ô Nội dung" / "Viết lại". Dàn ý lưu trong bản nháp; bấm
+    "Viết bài" từ Kế hoạch thì highlight + chi tiết của đầu việc thành dàn ý sẵn.
+  - Đã test (máy thử + OpenAI thật, dữ liệu test đã xoá): 31/31 kiểm tra (phân quyền, luồng xác minh/từ chối/sửa lại, hết hạn, cơ sở khác,
+    AI dùng đúng học phí/học bổng/hotline, không dùng số hết hạn/cơ sở khác, không bịa chỉ tiêu, AI kiểm tra bắt học phí sai); giao diện
+    kb.html + luồng CTV viết nháp → đưa vào ô Nội dung.
+  - Lưu ý: AI vẫn dùng OPENAI_API_KEY cũ (đang chờ HO cấp key mới).
 
 ## Cần làm tiếp (thứ tự đề xuất)
 0. ~~Gửi email thật~~ — **XONG (2026-09-18): đã chuyển từ Resend sang Gmail API, gửi thật thành công**

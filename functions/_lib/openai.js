@@ -20,9 +20,9 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchWithTimeout(url, options) {
+async function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs || REQUEST_TIMEOUT_MS);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
@@ -30,11 +30,14 @@ async function fetchWithTimeout(url, options) {
   }
 }
 
-async function callOpenAIRaw(env, body) {
+// limits (tuỳ chọn): { timeoutMs, retries } — viết cả bài dài hơn chấm điểm nhiều nên cần mỗi lượt
+// chờ lâu hơn 10s, đổi lại ít lượt thử lại hơn để tổng thời gian vẫn nằm trong ngân sách của frontend.
+async function callOpenAIRaw(env, body, limits = {}) {
   if (!env.OPENAI_API_KEY) throw new Error('Thiếu OPENAI_API_KEY trên server');
+  const maxRetries = limits.retries !== undefined ? limits.retries : MAX_RETRIES;
 
   let lastError = new Error('Không gọi được AI, vui lòng thử lại');
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (attempt > 0) await sleep(RETRY_BASE_DELAY_MS * attempt);
 
     let resp;
@@ -43,7 +46,7 @@ async function callOpenAIRaw(env, body) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.OPENAI_API_KEY}` },
         body: JSON.stringify(body)
-      });
+      }, limits.timeoutMs);
     } catch (e) {
       // fetch() ném lỗi khi mất mạng giữa chừng hoặc bị huỷ do quá REQUEST_TIMEOUT_MS
       // (AbortError) — cả 2 trường hợp đều đáng thử lại, không phải lỗi do request sai.
@@ -92,7 +95,7 @@ export function callOpenAI(env, prompt, opts = {}) {
     temperature: opts.temperature !== undefined ? opts.temperature : 0.3
   };
   if (opts.jsonSchema) body.response_format = jsonSchemaFormat(opts.jsonSchema.name, opts.jsonSchema.schema);
-  return callOpenAIRaw(env, body);
+  return callOpenAIRaw(env, body, { timeoutMs: opts.timeoutMs, retries: opts.retries });
 }
 
 export function callOpenAIVision(env, contentArr, opts = {}) {

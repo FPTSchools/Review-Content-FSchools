@@ -64,6 +64,27 @@
   .btn-amber{background:var(--amber);color:white;}.btn-amber:hover{background:#7a4500;}
   .btn-outline{background:transparent;color:var(--text);border-color:var(--border2);}.btn-outline:hover{background:var(--surface2);}
   .btn-blue{background:var(--blue);color:white;}.btn-blue:hover{background:#144d8c;}
+  /* Khối "AI viết nháp từ dàn ý" */
+  .aiw{border:1px solid #b0ccf0;border-radius:var(--radius);background:linear-gradient(180deg,var(--blue-bg),#fff 60px);margin-bottom:14px;overflow:hidden;}
+  .aiw-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;cursor:pointer;}
+  .aiw-title{font-size:13px;font-weight:600;color:var(--blue);}
+  .aiw-sub{font-size:11px;color:var(--text3);}
+  .aiw-caret{margin-left:auto;color:var(--blue);font-size:12px;}
+  .aiw-body{padding:0 12px 12px;}
+  .aiw-body textarea{width:100%;min-height:96px;resize:vertical;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);outline:none;background:#fff;}
+  .aiw-body textarea:focus{border-color:var(--blue);}
+  .aiw-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12px;}
+  .aiw-row select{padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;}
+  .aiw-hint{flex:1;min-width:160px;font-size:11px;color:var(--text3);}
+  .aiw-draft{margin-top:10px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:13px;line-height:1.65;white-space:pre-wrap;max-height:420px;overflow-y:auto;}
+  .aiw-draft mark{background:#FFE3CC;color:#9A3A05;border-radius:3px;padding:0 2px;font-weight:600;}
+  .aiw-box{margin-top:8px;font-size:12px;border-radius:var(--radius);padding:8px 10px;line-height:1.55;}
+  .aiw-box.facts{background:var(--green-bg);color:var(--green);}
+  .aiw-box.miss{background:#FFF1E6;color:#9A3A05;}
+  .aiw-box.warn{background:var(--red-bg);color:var(--red);}
+  .aiw-box.info{background:var(--surface2);color:var(--text2);}
+  .aiw-box ul{margin:4px 0 0 18px;}
+  .aiw-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
   .btn-accent{background:var(--accent);color:white;}.btn-accent:hover{background:#b8440a;}
   .btn-sm{padding:4px 9px;font-size:11px;}
   .btn-row{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
@@ -331,6 +352,7 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
     <div class="nav-item" onclick="showPage('page-history',this)">📋 Bài của tôi</div>
     <div class="nav-item" id="nav-review" style="display:none" onclick="showPage('page-review',this)">✅ Duyệt bài CTV <span id="review-badge" style="display:none;background:var(--red);color:white;font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:4px"></span></div>
     <div class="nav-item" onclick="location.href='plan.html'">🗓️ Kế hoạch & Lịch</div>
+    <div class="nav-item" onclick="location.href='kb.html'">📚 Thông tin chuẩn</div>
     <div class="nav-item" onclick="showPage('page-stats',this)">📊 Thống kê cá nhân</div>
     <div class="nav-item" onclick="showPage('page-docs',this)">🗂️ Kho tài liệu</div>
     <div class="sidebar-footer">
@@ -416,6 +438,24 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
         <div class="field">
           <label>Tiêu đề bài <span class="req">*</span></label>
           <input type="text" id="title-input" placeholder="Ví dụ: Caption FB tuần 3 tháng 6 — Ngày hội tuyển sinh">
+        </div>
+        <!-- AI viết nháp từ dàn ý: dùng quy tắc Admin + phong cách người duyệt + Kho thông tin chuẩn -->
+        <div class="aiw" id="aiw">
+          <div class="aiw-head" onclick="toggleAiw()">
+            <span class="aiw-title">✍️ Nhờ AI viết nháp từ dàn ý</span>
+            <span class="aiw-sub">theo quy tắc thương hiệu, phong cách người duyệt và thông tin chuẩn đã xác minh</span>
+            <span class="aiw-caret" id="aiw-caret">▾</span>
+          </div>
+          <div class="aiw-body" id="aiw-body" style="display:none">
+            <textarea id="outline-input" spellcheck="false" placeholder="Ghi các ý chính, mỗi ý 1 dòng. Ví dụ:&#10;- Mở đầu: không khí ngày khai giảng&#10;- Điểm nhấn: học sinh khối 10 lần đầu nhập trường&#10;- Nhắc học bổng năm nay&#10;- CTA: đăng ký tham quan trường"></textarea>
+            <div class="aiw-row">
+              <label for="aiw-length">Độ dài</label>
+              <select id="aiw-length"><option value="ngan">Ngắn (~100 chữ)</option><option value="vua" selected>Vừa (~200 chữ)</option><option value="dai">Dài (~400 chữ)</option></select>
+              <span class="aiw-hint">Chọn kênh đăng và người duyệt trước để AI viết đúng kiểu kênh và đúng gu người duyệt.</span>
+              <button type="button" class="btn btn-blue" id="aiw-btn" onclick="runAiWrite()">✍️ AI viết nháp</button>
+            </div>
+            <div id="aiw-result"></div>
+          </div>
         </div>
         <!-- Nội dung (ô to) -->
         <div class="field">
@@ -815,6 +855,12 @@ async function loadPlanItemIntoForm(id) {
     if (Array.from(campusEl.options).some(o => o.value === it.campus)) campusEl.value = it.campus;
     if ((it.channels || []).length) applyPlatformCheckboxes(it.channels);
     if (it.pillar_id) setPillarValue(it.pillar_id);
+    // Highlight + chi tiết của đầu việc → dàn ý sẵn cho "AI viết nháp".
+    const outlineEl = document.getElementById('outline-input');
+    if (!outlineEl.value.trim() && (it.highlight || it.reference)) {
+      outlineEl.value = [it.highlight, it.reference].filter(Boolean).map(s => String(s).split('\n').map(l => l.trim() ? '- ' + l.trim().replace(/^[-•]\s*/, '') : '').filter(Boolean).join('\n')).join('\n');
+      toggleAiw(true);
+    }
     const noteEl = document.getElementById('note-input');
     if (!noteEl.value.trim()) {
       noteEl.value = ['Theo kế hoạch tháng ' + it.plan_month.slice(5, 7) + '/' + it.plan_month.slice(0, 4), it.highlight, it.reference]
@@ -1084,6 +1130,97 @@ async function loadMySubmissions() {
 }
 
 // ============================================================
+// AI VIẾT NHÁP TỪ DÀN Ý (backend: ai_write_from_outline — functions/_lib/handlers/ai.js)
+// Bài nháp chỉ dùng số liệu trong Kho thông tin chuẩn đã xác minh; thiếu thì AI để
+// [CẦN BỔ SUNG: ...] — CTV phải điền/soát trước khi gửi duyệt.
+// ============================================================
+let _aiwDraft = '';
+function toggleAiw(open) {
+  const body = document.getElementById('aiw-body');
+  const show = open === undefined ? body.style.display === 'none' : open;
+  body.style.display = show ? 'block' : 'none';
+  document.getElementById('aiw-caret').textContent = show ? '▴' : '▾';
+  if (show && open === undefined) setTimeout(() => document.getElementById('outline-input').focus(), 30);
+}
+function selectedText(id) { const el = document.getElementById(id); return el && el.value ? el.options[el.selectedIndex].text : ''; }
+
+async function runAiWrite() {
+  const outline = document.getElementById('outline-input').value.trim();
+  if (outline.length < 10) { showToast('⚠️ Ghi dàn ý (các ý chính của bài) trước'); document.getElementById('outline-input').focus(); return; }
+  const btn = document.getElementById('aiw-btn');
+  const box = document.getElementById('aiw-result');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> AI đang viết…';
+  box.innerHTML = '<div class="aiw-box info">AI đang viết nháp theo dàn ý, quy tắc thương hiệu và thông tin chuẩn — thường mất 10–30 giây.</div>';
+  const reviewers = (window._reviewerOrder || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  try {
+    const res = await callAPI({
+      action: 'ai_write_from_outline', outline,
+      title: document.getElementById('title-input').value.trim(),
+      campus: document.getElementById('campus').value, campus_label: selectedText('campus'),
+      content_type: selectedText('content-type'), content_type_code: document.getElementById('content-type').value,
+      audience: selectedText('audience'), pillar_name: selectedText('pillar'),
+      platform: Array.from(document.querySelectorAll('.platform-cb:checked')).map(cb => cb.value),
+      reviewer_ids: reviewers.map(r => r.id),
+      length: document.getElementById('aiw-length').value
+    });
+    if (!res.ok) { box.innerHTML = `<div class="aiw-box warn">Lỗi: ${escHtml(res.error || 'AI chưa viết được, thử lại')}</div>`; return; }
+    _aiwDraft = res.draft || '';
+    renderAiWriteResult(res);
+  } catch (e) {
+    box.innerHTML = '<div class="aiw-box warn">Lỗi kết nối — thử lại sau ít phút.</div>';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '✍️ AI viết lại';
+  }
+}
+
+function renderAiWriteResult(res) {
+  const draftHtml = renderTextFormatting(escHtml(res.draft || ''))
+    .replace(/\[(CẦN BỔ SUNG|CẦN XÁC MINH):?([^\]]*)\]/gi, (m, kind, what) => `<mark title="${/XÁC MINH/i.test(kind) ? 'AI tự viết số này, không có trong Kho thông tin chuẩn — kiểm tra lại hoặc xoá' : 'Cần điền thông tin thật trước khi gửi'}">[${kind}:${what}]</mark>`);
+  const facts = res.facts_used || [], missing = res.missing_info || [], banned = res.banned_found || [];
+  // Tô đỏ từ cấm AI lỡ dùng, ngay trong bài nháp.
+  let draftMarked = draftHtml;
+  banned.forEach(w => {
+    const re = new RegExp(escHtml(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    draftMarked = draftMarked.replace(re, m => `<mark style="background:#FDECEC;color:#C0392B" title="Từ cấm — sửa trước khi gửi">${m}</mark>`);
+  });
+  const meta = res.meta || {};
+  const used = [
+    meta.factsCount ? `${meta.factsCount} thông tin chuẩn` : 'Kho thông tin chuẩn đang trống',
+    `${meta.bannedCount || 0} từ cấm`, `${meta.requiredCount || 0} yêu cầu bắt buộc`,
+    meta.hasBrandVoice ? 'giọng thương hiệu' : 'chưa cài giọng thương hiệu',
+    (meta.personaNames || []).length ? 'phong cách của ' + meta.personaNames.map(escHtml).join(', ') : 'chưa có phong cách người duyệt (chưa chọn người duyệt hoặc chưa cài)',
+    meta.hasFewShotExample ? 'ví dụ bài thật đã duyệt' : ''
+  ].filter(Boolean).join(' · ');
+  document.getElementById('aiw-result').innerHTML = `
+    <div class="aiw-draft" id="aiw-draft">${draftMarked || '<i>(trống)</i>'}</div>
+    ${banned.length ? `<div class="aiw-box warn">⚠️ Bài nháp vẫn còn từ cấm: <b>${banned.map(escHtml).join(', ')}</b> — sửa trước khi gửi.</div>` : ''}
+    ${missing.length ? `<div class="aiw-box miss">🟠 <b>Cần xử lý ${missing.length} ý</b> — chưa có trong Kho thông tin chuẩn nên AI không có số liệu thật. Đoạn liên quan đang được đánh dấu cam hoặc viết chung chung — thay bằng thông tin thật:<ul>${missing.map(m => `<li>${escHtml(m)}</li>`).join('')}</ul>
+      <div style="margin-top:4px">Điền số liệu thật vào chỗ đánh dấu, hoặc <a href="kb.html" target="_blank" rel="noopener">đề xuất thêm vào Kho thông tin chuẩn</a>.</div></div>` : ''}
+    ${facts.length ? `<div class="aiw-box facts">✅ Đã dùng ${facts.length} thông tin chuẩn đã xác minh:<ul>${facts.map(f => `<li>${escHtml(f.title)}</li>`).join('')}</ul></div>` : ''}
+    ${res.note ? `<div class="aiw-box info">💡 ${escHtml(res.note)}</div>` : ''}
+    <div class="aiw-actions">
+      <button type="button" class="btn btn-blue" onclick="applyAiWrite()">↩ Đưa vào ô Nội dung</button>
+      <button type="button" class="btn btn-outline" onclick="runAiWrite()">↻ Viết lại</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:6px">🔎 AI đã dùng: ${used}. Đây là bản NHÁP — bạn soát lại, rồi bấm "Kiểm tra ngay" trước khi gửi duyệt.</div>`;
+}
+
+function applyAiWrite() {
+  if (!_aiwDraft) return;
+  if (getContentInputValue().trim() && !confirm('Thay nội dung đang có trong ô Nội dung bằng bài nháp của AI?')) return;
+  setContentInputValue(_aiwDraft);
+  onContentInputChanged();
+  if (!document.getElementById('title-input').value.trim()) {
+    // Chưa có tiêu đề thì lấy dòng đầu của bài nháp làm gợi ý (bỏ ký hiệu đậm).
+    document.getElementById('title-input').value = _aiwDraft.split('\n')[0].replace(/\*+/g, '').slice(0, 120);
+  }
+  try { scheduleDraftSave(); } catch (e) {}
+  const missing = (_aiwDraft.match(/\[CẦN (BỔ SUNG|XÁC MINH)/gi) || []).length;
+  showToast(missing ? `✅ Đã đưa vào — còn ${missing} chỗ đánh dấu [CẦN ...] cần xử lý` : '✅ Đã đưa bài nháp vào ô Nội dung');
+  document.getElementById('content-input').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ============================================================
 // AI CHECK
 // ============================================================
 async function runAI() {
@@ -1113,6 +1250,7 @@ async function runAI() {
       content: stripImagePlaceholdersForAI(content),
       content_type: typeTxt,
       audience: audTxt,
+      campus: document.getElementById('campus').value,
       rules: {
         banned_words:      (RULES.banned_words  || []),
         brand_voice:       (RULES.brand_voice   || ''),
@@ -2069,6 +2207,9 @@ function clearForm(options) {
   ['campus','content-type','audience'].forEach(id=>document.getElementById(id).value='');
   setPillarValue('');
   document.getElementById('title-input').value='';
+  document.getElementById('outline-input').value='';
+  document.getElementById('aiw-result').innerHTML='';
+  _aiwDraft='';
   document.getElementById('content-input').innerHTML='';
   document.getElementById('note-input').value='';
   const sharedCb = document.getElementById('is-shared-checkbox');
@@ -2270,6 +2411,7 @@ function collectCurrentDraft() {
       pillar_id: document.getElementById('pillar')?.value || '',
       audience: document.getElementById('audience')?.value || '',
       title: document.getElementById('title-input')?.value || '',
+      outline: document.getElementById('outline-input')?.value || '',
       content: getContentInputValue(),
       note: document.getElementById('note-input')?.value || '',
       drive_links: document.getElementById('drive-links-input')?.value || '',
@@ -2427,6 +2569,8 @@ function restoreDraft(id) {
   setPillarValue(f.pillar_id || '');
   document.getElementById('audience').value = f.audience || '';
   document.getElementById('title-input').value = f.title || '';
+  document.getElementById('outline-input').value = f.outline || '';
+  if (f.outline) toggleAiw(true);
   setContentInputValue(f.content || '');
   document.getElementById('note-input').value = f.note || '';
   document.getElementById('drive-links-input').value = f.drive_links || '';
@@ -2475,7 +2619,7 @@ function newDraft() {
 }
 
 async function initDraftManager() {
-  const fieldIds = ['campus','content-type','pillar','audience','title-input','content-input','note-input','drive-links-input','evidence-links-input','is-shared-checkbox'];
+  const fieldIds = ['campus','content-type','pillar','audience','title-input','outline-input','content-input','note-input','drive-links-input','evidence-links-input','is-shared-checkbox'];
   fieldIds.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -2557,7 +2701,7 @@ async function callAPI(data, _retryCount) {
   }
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), data.action === 'ai_chat' || data.action === 'ai_check_content' ? 90000 : 40000);
+    const timeoutId = setTimeout(() => controller.abort(), ['ai_chat', 'ai_check_content', 'ai_write_from_outline'].includes(data.action) ? 90000 : 40000);
     let r;
     try {
       r = await fetch(APPS_SCRIPT_URL, {
@@ -2986,6 +3130,7 @@ function renderAiMetaLine(elId, meta) {
   if ('personaUsed' in meta) {
     parts.push(meta.personaUsed ? 'phong cách của ' + escHtml(meta.personaName) : 'không có phong cách cá nhân');
   }
+  if ('factsCount' in meta) parts.push(meta.factsCount ? meta.factsCount + ' thông tin chuẩn để đối chiếu số liệu' : 'kho thông tin chuẩn trống (chưa đối chiếu số liệu)');
   el.innerHTML = '<div style="font-size:10px;color:var(--text3);margin-bottom:6px">🔎 AI đã dùng: ' + parts.join(' · ') + '</div>';
 }
 
