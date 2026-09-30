@@ -129,5 +129,11 @@ export function bindIdentity(p, me) {
     out.role = p.role === 'ctv' ? 'ctv' : me.role;
     out.campus = me.campus;
   }
+
+  // Tạo/sửa nhân sự: role/campus trong payload là của TÀI KHOẢN ĐƯỢC TẠO/SỬA, không phải người
+  // thao tác — giữ nguyên giá trị gửi lên (chỉ ADMIN gọi được 2 action này, xem ACTION_ROLES).
+  if (p.action === 'add_user' || p.action === 'update_user') {
+    out.role = p.role;
+  }
   return out;
 }
