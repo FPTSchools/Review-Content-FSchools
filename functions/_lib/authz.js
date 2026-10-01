@@ -17,6 +17,7 @@ const ADMIN = ['admin'];
 export const ACTION_ROLES = {
   // Nhân sự
   get_me: ALL,
+  update_my_profile: ALL, // chỉ sửa chính mình: user_id ép theo phiên, chỉ đổi tên + mật khẩu
   get_users: ALL,
   add_user: ADMIN,
   update_user: ADMIN,

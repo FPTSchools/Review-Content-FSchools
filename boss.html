@@ -354,7 +354,8 @@
           <div style="font-size:11px;color:var(--text3)" id="boss-role">--</div>
         </div>
       </div>
-      <button onclick="logout()" style="margin-top:9px;width:100%;padding:5px;font-size:11px;background:none;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--text2);font-family:var(--font);">Đăng xuất</button>
+      <button onclick="openMyAccount()" style="margin-top:9px;width:100%;padding:5px;font-size:11px;background:none;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--text2);font-family:var(--font);">👤 Tài khoản của tôi</button>
+      <button onclick="logout()" style="margin-top:6px;width:100%;padding:5px;font-size:11px;background:none;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--text2);font-family:var(--font);">Đăng xuất</button>
     </div>
   </aside>
 
@@ -3364,6 +3365,127 @@ async function deleteDocumentCategory(id) {
 }
 
 init();
+</script>
+
+<!-- ============ TÀI KHOẢN CỦA TÔI — tự sửa tên + mật khẩu (email/vai trò/cơ sở do Admin quản lý) ============ -->
+<style>
+  .myacc-back { position:fixed; inset:0; background:rgba(15,18,40,.45); display:none; align-items:center; justify-content:center; z-index:9000; padding:16px; }
+  .myacc-back.open { display:flex; }
+  .myacc { background:var(--surface); color:var(--text); border-radius:var(--radius-lg); width:min(440px,100%); max-height:calc(100vh - 32px); overflow:auto; box-shadow:0 18px 50px rgba(0,0,0,.25); font-family:var(--font); }
+  .myacc-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+  .myacc-head h3 { margin:0; font-size:16px; }
+  .myacc-x { background:none; border:0; font-size:22px; line-height:1; cursor:pointer; color:var(--text3); }
+  .myacc-body { padding:16px 20px; }
+  .myacc-sec { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin:4px 0 8px; }
+  .myacc-ro { background:var(--surface2); border-radius:var(--radius); padding:10px 12px; font-size:13px; display:grid; grid-template-columns:auto 1fr; gap:6px 12px; margin-bottom:6px; }
+  .myacc-ro span:nth-child(odd) { color:var(--text2); }
+  .myacc-ro span:nth-child(even) { font-weight:500; word-break:break-all; }
+  .myacc-note { font-size:11.5px; color:var(--text3); margin:0 0 16px; }
+  .myacc label { display:block; font-size:12.5px; color:var(--text2); margin:10px 0 4px; }
+  .myacc input { width:100%; box-sizing:border-box; padding:9px 11px; border:1px solid var(--border2); border-radius:var(--radius); font-size:14px; font-family:var(--font); background:var(--surface); color:var(--text); }
+  .myacc input:focus { outline:2px solid var(--accent-bg); border-color:var(--accent); }
+  .myacc-pw { position:relative; }
+  .myacc-pw input { padding-right:56px; }
+  .myacc-eye { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:0; font-size:11.5px; color:var(--blue); cursor:pointer; padding:4px 6px; font-family:var(--font); }
+  .myacc-hint { font-size:11.5px; color:var(--text3); margin-top:6px; }
+  .myacc-err { display:none; background:var(--red-bg); color:var(--red); border-radius:var(--radius); padding:8px 11px; font-size:12.5px; margin-top:14px; }
+  .myacc-foot { display:flex; gap:8px; justify-content:flex-end; padding:14px 20px; border-top:1px solid var(--border); }
+  .myacc-btn { padding:8px 16px; border-radius:var(--radius); font-size:13px; cursor:pointer; font-family:var(--font); border:1px solid var(--border2); background:var(--surface); color:var(--text); }
+  .myacc-btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .myacc-btn:disabled { opacity:.6; cursor:default; }
+</style>
+<div class="myacc-back" id="myacc-back" onclick="if(event.target===this)closeMyAccount()">
+  <div class="myacc" role="dialog" aria-modal="true" aria-labelledby="myacc-title">
+    <div class="myacc-head">
+      <h3 id="myacc-title">Tài khoản của tôi</h3>
+      <button class="myacc-x" onclick="closeMyAccount()" aria-label="Đóng">×</button>
+    </div>
+    <div class="myacc-body">
+      <div class="myacc-sec">Do Admin quản lý</div>
+      <div class="myacc-ro">
+        <span>Email</span><span id="myacc-email">--</span>
+        <span>Vai trò</span><span id="myacc-role">--</span>
+        <span>Cơ sở</span><span id="myacc-campus">--</span>
+      </div>
+      <p class="myacc-note">Cần đổi email, vai trò hoặc cơ sở? Liên hệ Admin.</p>
+
+      <div class="myacc-sec">Thông tin cá nhân</div>
+      <label for="myacc-name">Tên hiển thị</label>
+      <input id="myacc-name" maxlength="60" autocomplete="name">
+
+      <div class="myacc-sec" style="margin-top:20px">Đổi mật khẩu <span style="text-transform:none;font-weight:400">(bỏ trống nếu không đổi)</span></div>
+      <label for="myacc-cur">Mật khẩu hiện tại</label>
+      <div class="myacc-pw"><input id="myacc-cur" type="password" autocomplete="current-password"><button type="button" class="myacc-eye" onclick="toggleMyAccPw('myacc-cur',this)">Hiện</button></div>
+      <label for="myacc-new">Mật khẩu mới</label>
+      <div class="myacc-pw"><input id="myacc-new" type="password" autocomplete="new-password"><button type="button" class="myacc-eye" onclick="toggleMyAccPw('myacc-new',this)">Hiện</button></div>
+      <label for="myacc-new2">Nhập lại mật khẩu mới</label>
+      <div class="myacc-pw"><input id="myacc-new2" type="password" autocomplete="new-password"><button type="button" class="myacc-eye" onclick="toggleMyAccPw('myacc-new2',this)">Hiện</button></div>
+      <div class="myacc-hint">Ít nhất 8 ký tự, có cả chữ và số. Sau khi đổi, các máy khác đang đăng nhập tài khoản này sẽ bị đăng xuất.</div>
+      <div class="myacc-err" id="myacc-err"></div>
+    </div>
+    <div class="myacc-foot">
+      <button class="myacc-btn" onclick="closeMyAccount()">Huỷ</button>
+      <button class="myacc-btn primary" id="myacc-save" onclick="saveMyAccount()">Lưu thay đổi</button>
+    </div>
+  </div>
+</div>
+<script>
+const MYACC_ROLE_LABEL = { admin:'Admin', manager:'Trưởng Ban TS', leader:'Trưởng phòng PR', leader_content:'Leader Content', ctv:'CTV Content' };
+const MYACC_CAMPUS_LABEL = { hoa_lac:'FSC Hòa Lạc', tay_hn:'FSC Tây HN', chung:'Cả 2 cơ sở' };
+function myAccUser() { try { return JSON.parse(localStorage.getItem('fsc_user') || '{}'); } catch (e) { return {}; } }
+function openMyAccount() {
+  const u = myAccUser();
+  document.getElementById('myacc-email').textContent = u.email || '--';
+  document.getElementById('myacc-role').textContent = MYACC_ROLE_LABEL[u.role] || u.role || '--';
+  document.getElementById('myacc-campus').textContent = MYACC_CAMPUS_LABEL[u.campus] || u.campus || '--';
+  document.getElementById('myacc-name').value = u.name || '';
+  ['myacc-cur', 'myacc-new', 'myacc-new2'].forEach(id => { const el = document.getElementById(id); el.value = ''; el.type = 'password'; });
+  document.querySelectorAll('.myacc-eye').forEach(b => b.textContent = 'Hiện');
+  document.getElementById('myacc-err').style.display = 'none';
+  document.getElementById('myacc-back').classList.add('open');
+  setTimeout(() => document.getElementById('myacc-name').focus(), 50);
+}
+function closeMyAccount() { document.getElementById('myacc-back').classList.remove('open'); }
+function toggleMyAccPw(id, btn) { const el = document.getElementById(id); const show = el.type === 'password'; el.type = show ? 'text' : 'password'; btn.textContent = show ? 'Ẩn' : 'Hiện'; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMyAccount(); });
+function myAccError(msg) { const b = document.getElementById('myacc-err'); b.textContent = msg; b.style.display = 'block'; }
+async function saveMyAccount() {
+  const u = myAccUser();
+  const name = document.getElementById('myacc-name').value.trim();
+  const cur = document.getElementById('myacc-cur').value;
+  const nw = document.getElementById('myacc-new').value;
+  const nw2 = document.getElementById('myacc-new2').value;
+  document.getElementById('myacc-err').style.display = 'none';
+  if (!name) return myAccError('Tên hiển thị không được để trống');
+  const changePw = !!(cur || nw || nw2);
+  if (changePw) {
+    if (!cur) return myAccError('Nhập mật khẩu hiện tại');
+    if (nw.length < 8) return myAccError('Mật khẩu mới cần ít nhất 8 ký tự');
+    if (!/[A-Za-z]/.test(nw) || !/[0-9]/.test(nw)) return myAccError('Mật khẩu mới cần có cả chữ và số');
+    if (nw !== nw2) return myAccError('Hai lần nhập mật khẩu mới chưa khớp');
+  }
+  if (name === u.name && !changePw) return myAccError('Bạn chưa thay đổi gì');
+  const payload = { action: 'update_my_profile', name };
+  if (changePw) { payload.current_password = cur; payload.new_password = nw; }
+  const btn = document.getElementById('myacc-save');
+  btn.disabled = true; btn.textContent = 'Đang lưu...';
+  try {
+    const r = await fetch(APPS_SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...authHeaders() }, body: JSON.stringify(payload) });
+    const res = await readApiJson(r);
+    if (!res || !res.ok) return myAccError((res && res.error) || 'Không lưu được, thử lại sau');
+    localStorage.setItem('fsc_user', JSON.stringify({ ...u, ...res.user }));
+    if (res.token) localStorage.setItem('fsc_token', res.token);
+    if (typeof currentUser === 'object' && currentUser) currentUser.name = res.user.name;
+    ['boss-name', 'user-name'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = res.user.name; });
+    ['boss-av', 'user-av'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = res.user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); });
+    closeMyAccount();
+    showToast(changePw ? '✅ Đã lưu và đổi mật khẩu. Email thông báo đã được gửi tới bạn.' : '✅ Đã lưu thông tin');
+  } catch (e) {
+    myAccError('Lỗi kết nối, thử lại sau');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Lưu thay đổi';
+  }
+}
 </script>
 </body>
 </html>

@@ -111,6 +111,22 @@ export async function sendNewAccountEmail(supabase, env, email, name, password) 
   return enqueueEmail(supabase, email, name, subject, body, htmlBody, `new_account:${email}:${Date.now()}`);
 }
 
+// Người dùng tự đổi mật khẩu: chỉ báo để họ phát hiện nếu không phải mình làm — KHÔNG gửi kèm mật khẩu.
+export async function sendSelfPasswordChangedEmail(supabase, env, email, name) {
+  const appUrl = env.APP_URL || '';
+  const loginLink = String(appUrl).replace(/\/$/, '') + '/index.html';
+  const when = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const subject = `Mật khẩu vừa được đổi - ${APP_NAME}`;
+  const body = `Chào ${name},\n\nMật khẩu tài khoản ${email} trên ${APP_NAME} vừa được đổi lúc ${when}.\n\n` +
+    `Nếu KHÔNG phải bạn đổi, hãy báo ngay cho Admin để khoá tài khoản.\n\n` +
+    `Đăng nhập tại: ${loginLink}\n\n${APP_NAME}`;
+  const htmlBody = `<p>Chào ${emailHtml(name)},</p>` +
+    `<p>Mật khẩu tài khoản <b>${emailHtml(email)}</b> trên <b>${emailHtml(APP_NAME)}</b> vừa được đổi lúc ${emailHtml(when)}.</p>` +
+    `<p>Nếu <b>không phải bạn</b> đổi, hãy báo ngay cho Admin để khoá tài khoản.</p>` +
+    openButtonHtml(loginLink, 'Đăng nhập') + `<p>${emailHtml(APP_NAME)}</p>`;
+  return enqueueEmail(supabase, email, name, subject, body, htmlBody, `self_password_changed:${email}:${Date.now()}`);
+}
+
 export async function sendPasswordChangedEmail(supabase, env, email, name, password) {
   const appUrl = env.APP_URL || '';
   const loginLink = String(appUrl).replace(/\/$/, '') + '/index.html';

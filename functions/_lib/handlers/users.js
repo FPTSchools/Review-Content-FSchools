@@ -1,6 +1,6 @@
 import { newId } from '../ids.js';
 import { normalizeEmail } from '../util.js';
-import { sendNewAccountEmail, sendPasswordChangedEmail } from '../email.js';
+import { sendNewAccountEmail, sendPasswordChangedEmail, sendSelfPasswordChangedEmail } from '../email.js';
 import { createSessionToken } from '../session.js';
 
 // ============================================================
@@ -99,6 +99,54 @@ export async function handleUpdateUser(supabase, env, p) {
     return { ok: true, email_sent };
   }
   return { ok: true };
+}
+
+// Mỗi người tự sửa hồ sơ của CHÍNH MÌNH (p.user_id bị ép theo phiên ở bindIdentity):
+// chỉ được đổi tên hiển thị và mật khẩu. Email, vai trò, cơ sở chỉ Admin sửa (update_user).
+// Đổi mật khẩu phải nhập đúng mật khẩu hiện tại; xong thì mọi phiên cũ (máy khác) mất hiệu lực
+// và trả token mới để máy đang dùng không bị đăng xuất.
+export const MIN_PASSWORD_LENGTH = 8;
+
+export async function handleUpdateMyProfile(supabase, env, p) {
+  const { data: user, error } = await supabase
+    .from('users').select('id, email, password, name, role, campus, active').eq('id', p.user_id).maybeSingle();
+  if (error) return { ok: false, error: 'Lỗi hệ thống, thử lại sau' };
+  if (!user || user.active !== true) return { ok: false, error: 'Không tìm thấy tài khoản' };
+
+  const patch = {};
+  const name = String(p.name == null ? '' : p.name).trim();
+  if (p.name !== undefined) {
+    if (!name) return { ok: false, error: 'Tên hiển thị không được để trống' };
+    if (name.length > 60) return { ok: false, error: 'Tên hiển thị tối đa 60 ký tự' };
+    if (name !== user.name) patch.name = name;
+  }
+
+  const newPassword = String(p.new_password || '');
+  if (newPassword) {
+    if (String(p.current_password || '') !== user.password) return { ok: false, error: 'Mật khẩu hiện tại không đúng' };
+    if (newPassword.length < MIN_PASSWORD_LENGTH) return { ok: false, error: `Mật khẩu mới cần ít nhất ${MIN_PASSWORD_LENGTH} ký tự` };
+    if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) return { ok: false, error: 'Mật khẩu mới cần có cả chữ và số' };
+    if (newPassword === user.password) return { ok: false, error: 'Mật khẩu mới phải khác mật khẩu hiện tại' };
+    patch.password = newPassword; // TODO bảo mật: nên hash
+  }
+
+  if (!Object.keys(patch).length) return { ok: false, error: 'Không có thay đổi nào để lưu' };
+
+  const { error: upErr } = await supabase.from('users').update(patch).eq('id', user.id);
+  if (upErr) return { ok: false, error: upErr.message };
+
+  const updated = { ...user, ...patch };
+  const out = {
+    ok: true,
+    user: { id: updated.id, email: updated.email, name: updated.name, role: updated.role, campus: updated.campus }
+  };
+  if (patch.password) {
+    const session = await createSessionToken(env, updated);
+    out.token = session.token;
+    out.expires_at = session.expires_at;
+    try { await sendSelfPasswordChangedEmail(supabase, env, updated.email, updated.name); } catch (e) {}
+  }
+  return out;
 }
 
 export async function handleDeleteUser(supabase, p) {

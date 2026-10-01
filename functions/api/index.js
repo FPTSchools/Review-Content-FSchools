@@ -42,7 +42,7 @@ export async function onRequestGet() {
 // gửi lỗi, hoặc trường hợp hiếm khi waitUntil bị dừng giữa chừng).
 const EMAIL_TRIGGER_ACTIONS = new Set([
   'submit', 'resubmit', 'approve', 'reject', 'request_revision', 'forward_to_next', 'change_reviewer',
-  'add_user', 'update_user'
+  'add_user', 'update_user', 'update_my_profile'
 ]);
 
 async function routeAction(p, supabase, env) {
@@ -52,6 +52,7 @@ async function routeAction(p, supabase, env) {
     case 'add_user': return users.handleAddUser(supabase, env, p);
     case 'update_user': return users.handleUpdateUser(supabase, env, p);
     case 'delete_user': return users.handleDeleteUser(supabase, p);
+    case 'update_my_profile': return users.handleUpdateMyProfile(supabase, env, p);
 
     case 'get_rules': return rules.handleGetRules(supabase);
     case 'save_rules': return rules.handleSaveRules(supabase, p);
