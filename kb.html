@@ -282,10 +282,30 @@ const VD = (() => {
 })();
 
 // ---- Khởi động ----
+// Quyền lưu trong trình duyệt (fsc_user) có từ lúc đăng nhập — mỗi lần mở trang hỏi lại server; nếu
+// admin đã đổi vai trò/cơ sở/tên thì cập nhật và tải lại để giao diện theo đúng quyền mới.
+async function refreshSessionUser(url) {
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...authHeaders() }, body: JSON.stringify({ action: 'get_me' }) });
+    const j = await r.json();
+    if (j && j.code === 'AUTH_REQUIRED') {
+      if (typeof handleAuthExpired === 'function') return handleAuthExpired();
+      localStorage.removeItem('fsc_user'); localStorage.removeItem('fsc_token'); location.href = 'index.html'; return;
+    }
+    if (!j || !j.ok || !j.user) return;
+    const old = JSON.parse(localStorage.getItem('fsc_user') || '{}');
+    const changed = ['id', 'email', 'name', 'role', 'campus'].some(k => String(old[k] ?? '') !== String(j.user[k] ?? ''));
+    if (!changed) return;
+    localStorage.setItem('fsc_user', JSON.stringify({ ...old, ...j.user }));
+    location.reload();
+  } catch (e) {}
+}
+
 async function init() {
   const stored = localStorage.getItem('fsc_user');
   if (!stored || !localStorage.getItem('fsc_token')) { location.href = 'index.html'; return; }
   me = JSON.parse(stored);
+  refreshSessionUser(API);
   document.getElementById('who').innerHTML = `${escHtml(me.name)}<br><span class="muted">${escHtml(CAMPUS_LABEL[me.campus] || me.campus || '')}</span>`;
   document.getElementById('back-link').href = ['ctv', 'leader_content'].includes(me.role) ? 'ctv.html' : 'boss.html';
   const allCampus = ['manager', 'admin', 'leader'].includes(me.role) || me.campus === 'chung';

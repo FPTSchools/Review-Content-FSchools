@@ -701,6 +701,25 @@ function parsePlatform(s) {
 // ============================================================
 // INIT
 // ============================================================
+// Quyền lưu trong trình duyệt (fsc_user) có từ lúc đăng nhập — mỗi lần mở trang hỏi lại server; nếu
+// admin đã đổi vai trò/cơ sở/tên thì cập nhật và tải lại để giao diện theo đúng quyền mới.
+async function refreshSessionUser(url) {
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...authHeaders() }, body: JSON.stringify({ action: 'get_me' }) });
+    const j = await r.json();
+    if (j && j.code === 'AUTH_REQUIRED') {
+      if (typeof handleAuthExpired === 'function') return handleAuthExpired();
+      localStorage.removeItem('fsc_user'); localStorage.removeItem('fsc_token'); location.href = 'index.html'; return;
+    }
+    if (!j || !j.ok || !j.user) return;
+    const old = JSON.parse(localStorage.getItem('fsc_user') || '{}');
+    const changed = ['id', 'email', 'name', 'role', 'campus'].some(k => String(old[k] ?? '') !== String(j.user[k] ?? ''));
+    if (!changed) return;
+    localStorage.setItem('fsc_user', JSON.stringify({ ...old, ...j.user }));
+    location.reload();
+  } catch (e) {}
+}
+
 function init() {
   const s = localStorage.getItem('fsc_user');
   const openId = new URLSearchParams(window.location.search).get('open');
@@ -709,6 +728,7 @@ function init() {
     return;
   }
   currentUser = JSON.parse(s);
+  refreshSessionUser(APPS_SCRIPT_URL);
   if (currentUser.role === 'ctv') { window.location.href = 'ctv.html'; return; }
   if (currentUser.role === 'leader_content') { window.location.href = 'ctv.html'; return; }
   const roleLabel = { admin:'Admin', manager:'Trưởng Ban TS', leader:'Trưởng phòng PR', leader_content:'Leader Content' };

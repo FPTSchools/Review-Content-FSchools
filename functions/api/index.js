@@ -183,6 +183,11 @@ export async function onRequestPost({ request, env, waitUntil }) {
       if (!isActionAllowed(p.action, me.role)) {
         return json({ ok: false, code: 'FORBIDDEN', error: 'Bạn không có quyền thực hiện thao tác này' });
       }
+      // Trang web gọi lúc mở để làm mới vai trò/cơ sở lưu trong trình duyệt (fsc_user) — nếu admin
+      // vừa đổi quyền, giao diện chuyển theo ngay thay vì giữ quyền cũ từ lần đăng nhập trước.
+      if (p.action === 'get_me') {
+        return json({ ok: true, user: { id: me.id, email: me.email, name: me.name, role: me.role, campus: me.campus } });
+      }
       p = bindIdentity(p, me);
     }
 

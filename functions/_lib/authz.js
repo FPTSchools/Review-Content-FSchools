@@ -16,6 +16,7 @@ const ADMIN = ['admin'];
 
 export const ACTION_ROLES = {
   // Nhân sự
+  get_me: ALL,
   get_users: ALL,
   add_user: ADMIN,
   update_user: ADMIN,
