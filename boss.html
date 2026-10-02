@@ -863,7 +863,7 @@ document.querySelectorAll('input.vn-date').forEach(VD.setup);
 
 
 // ---- Chọn nhanh kỳ đánh giá: tháng này/trước, tuần này/trước (thứ Hai → Chủ nhật), năm nay/trước ----
-const QUICK_RANGES = [['this_month', 'Tháng này'], ['last_month', 'Tháng trước'], ['this_week', 'Tuần này'], ['last_week', 'Tuần trước'], ['this_year', 'Năm nay'], ['last_year', 'Năm trước']];
+const QUICK_RANGES = [['this_week', 'Tuần này'], ['last_week', 'Tuần trước'], ['this_month', 'Tháng này'], ['last_month', 'Tháng trước'], ['this_year', 'Năm nay'], ['last_year', 'Năm trước']];
 function quickRangeDates(kind) {
   const t = new Date(), y = t.getFullYear(), m = t.getMonth(), d = t.getDate();
   const mon = new Date(y, m, d - ((t.getDay() + 6) % 7));   // thứ Hai của tuần này (giờ máy)

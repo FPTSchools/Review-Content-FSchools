@@ -230,6 +230,7 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
   .prod-table tr.total td.name{background:var(--surface2);}
   .prod-table td.zero{color:var(--text3);}
   .prod-note{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6;}
+  .prod-table tr.me td,.prod-table tr.me td.name{background:var(--accent-bg);}
   .quick-range{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
   .quick-chip{padding:5px 13px;border-radius:20px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:12px;cursor:pointer;font-family:var(--font);}
   .quick-chip:hover{background:var(--surface2);}
@@ -402,7 +403,7 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
     <div class="nav-item" id="nav-review" style="display:none" onclick="showPage('page-review',this)">✅ Duyệt bài CTV <span id="review-badge" style="display:none;background:var(--red);color:white;font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:4px"></span></div>
     <div class="nav-item" onclick="location.href='plan.html'">🗓️ Kế hoạch & Lịch</div>
     <div class="nav-item" onclick="location.href='kb.html'">📚 Thông tin chuẩn</div>
-    <div class="nav-item" onclick="showPage('page-stats',this)">📊 Thống kê cá nhân</div>
+    <div class="nav-item" onclick="showPage('page-stats',this)">🏆 Báo cáo</div>
     <div class="nav-item" onclick="showPage('page-docs',this)">🗂️ Kho tài liệu</div>
     <div class="sidebar-footer">
       <div class="user-chip">
@@ -628,37 +629,68 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
 
     <!-- PAGE: Thống kê cá nhân -->
     <div class="page" id="page-stats">
-      <div class="page-title">Thống kê cá nhân</div>
-      <div class="page-sub">Báo cáo hiệu suất của riêng bạn theo kỳ — cùng cách tính với Báo cáo của người duyệt</div>
+      <div class="page-title">Báo cáo</div>
+      <div class="page-sub">Sản lượng và xếp hạng của cả đội — cùng xem, cùng cố gắng</div>
       <div class="quick-range" id="quick-range"></div>
       <div class="period-row">
         <span style="font-size:12px;color:var(--text2)">Kỳ đánh giá:</span>
         <input type="text" class="vn-date" id="from-date">
         <span style="font-size:12px;color:var(--text2)">đến</span>
         <input type="text" class="vn-date" id="to-date">
-        <button class="btn btn-accent btn-sm" onclick="loadMyReport()">📊 Xem thống kê</button>
-        <button class="btn btn-outline btn-sm" onclick="exportProduction()">📥 Xuất CSV</button>
+        <button class="btn btn-accent btn-sm" onclick="loadTeamReport()">🏆 Xem báo cáo</button>
+        <button class="btn btn-outline btn-sm" onclick="exportProduction()">📥 Xuất CSV (sản lượng)</button>
       </div>
+
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin:4px 0 8px">Của bạn trong kỳ</div>
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-num" id="ps-total">0</div><div class="stat-lbl">Tổng bài gửi</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--blue)" id="ps-rank">--</div><div class="stat-lbl">Hạng của bạn</div></div>
+        <div class="stat-card"><div class="stat-num" id="ps-total">0</div><div class="stat-lbl">Bài đã gửi</div></div>
         <div class="stat-card"><div class="stat-num" style="color:var(--green)" id="ps-approved">0</div><div class="stat-lbl">Đã duyệt</div></div>
         <div class="stat-card"><div class="stat-num" style="color:var(--purple)" id="ps-revision">0</div><div class="stat-lbl">Cần sửa</div></div>
         <div class="stat-card"><div class="stat-num" style="color:var(--accent)" id="ps-avg-score">--</div><div class="stat-lbl">Điểm TB sếp chấm</div></div>
       </div>
+
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin:4px 0 8px">Cả đội trong kỳ</div>
+      <div class="report-overview">
+        <div class="report-card"><div class="report-num" id="ro-total">0</div><div class="report-lbl">Tổng bài gửi</div></div>
+        <div class="report-card"><div class="report-num" id="ro-rate" style="color:var(--green)">0%</div><div class="report-lbl">Tỷ lệ duyệt TB</div></div>
+        <div class="report-card"><div class="report-num" id="ro-ctv">0</div><div class="report-lbl">Số CTV tham gia</div></div>
+      </div>
+
       <div class="card" id="prod-card">
-        <div class="card-title">📊 Sản lượng của tôi</div>
+        <div class="card-title">📊 Sản lượng theo cá nhân</div>
         <div class="prod-toolbar">
           <span>Tính:</span>
           <select id="prod-scope" onchange="renderProduction()">
             <option value="all">Tất cả bài đã gửi</option>
             <option value="approved">Chỉ bài đã duyệt</option>
           </select>
+          <span>Cơ sở:</span>
+          <select id="prod-campus" onchange="renderProduction()">
+            <option value="">Tất cả</option>
+            <option value="hoa_lac">Hòa Lạc</option>
+            <option value="tay_hn">Tây HN</option>
+          </select>
         </div>
         <div class="prod-wrap"><table class="prod-table" id="prod-table"></table></div>
         <div class="prod-note" id="prod-note"></div>
       </div>
+
       <div class="card">
-        <div class="card-title">📈 Tỷ lệ duyệt</div>
+        <div class="card-title">🏆 Xếp hạng CTV</div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Hạng</th><th>Tên CTV</th><th>Cơ sở</th><th>Gửi</th><th>Duyệt</th><th>Tỷ lệ</th></tr></thead>
+            <tbody id="report-tbody"></tbody>
+          </table>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:10px">
+          * Thứ hạng theo điểm tổng hợp = 50% tỷ lệ duyệt + 50% điểm TB sếp chấm (thang 10). Điểm chấm chi tiết chỉ hiện với người được chấm.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📈 Tỷ lệ duyệt của bạn</div>
         <div id="approval-bar" style="height:12px;border-radius:6px;background:var(--surface2);overflow:hidden;margin-bottom:8px;">
           <div id="approval-fill" style="height:100%;background:var(--green);border-radius:6px;transition:width .6s;width:0%"></div>
         </div>
@@ -1019,7 +1051,7 @@ function showPage(id, el) {
   document.getElementById(id).classList.add('active');
   if(el) el.classList.add('active');
   if(id==='page-history') renderHistory();
-  if(id==='page-stats') renderStats();
+  if(id==='page-stats') openReportPage();
   if(id==='page-review') loadReviewQueue();
   if(id==='page-docs') loadDocumentsPage();
   closeMobileSidebar();
@@ -2193,7 +2225,7 @@ const VD = (() => {
 document.querySelectorAll('input.vn-date').forEach(VD.setup);
 
 // ---- Chọn nhanh kỳ đánh giá: tháng này/trước, tuần này/trước (thứ Hai → Chủ nhật), năm nay/trước ----
-const QUICK_RANGES = [['this_month', 'Tháng này'], ['last_month', 'Tháng trước'], ['this_week', 'Tuần này'], ['last_week', 'Tuần trước'], ['this_year', 'Năm nay'], ['last_year', 'Năm trước']];
+const QUICK_RANGES = [['this_week', 'Tuần này'], ['last_week', 'Tuần trước'], ['this_month', 'Tháng này'], ['last_month', 'Tháng trước'], ['this_year', 'Năm nay'], ['last_year', 'Năm trước']];
 function quickRangeDates(kind) {
   const t = new Date(), y = t.getFullYear(), m = t.getMonth(), d = t.getDate();
   const mon = new Date(y, m, d - ((t.getDay() + 6) % 7));   // thứ Hai của tuần này (giờ máy)
@@ -2221,17 +2253,17 @@ function applyQuickRange(kind) {
   const r = quickRangeDates(kind);
   VD.set('from-date', r.from); VD.set('to-date', r.to);
   renderQuickChips();
-  loadMyReport();
+  loadTeamReport();
 }
 
-// ---- Sản lượng của tôi (cùng cách tính với bảng "Sản lượng theo cá nhân" ở trang Báo cáo) ----
+// ---- Báo cáo: cả đội cùng xem (sản lượng + xếp hạng) để so sánh. Điểm sếp chấm của người khác bị server ẩn. ----
 const PROD_CHANNELS = [['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok'],['youtube','Youtube'],['zalo','Zalo'],['web','Website'],['email','Email'],['sms','SMS']];
 const NO_PILLAR = '__none__';
 
 function buildProduction() {
-  const res = myReportData || {};
+  const res = teamReport || {};
   const scope = document.getElementById('prod-scope').value;
-  const campus = '';
+  const campus = document.getElementById('prod-campus').value;
   const items = (res.items || []).filter(s => (scope !== 'approved' || s.status === 'approved') && (!campus || s.campus === campus));
   const planItems = (res.plan_items || []).filter(i => !campus || i.campus === campus);
   const nameOf = {};
@@ -2272,7 +2304,7 @@ function buildProduction() {
 }
 
 function renderProduction() {
-  if (!myReportData) return;
+  if (!teamReport) return;
   const { list, total, channels, pillarCols, hasPlan, scope } = buildProduction();
   const table = document.getElementById('prod-table');
   const note = document.getElementById('prod-note');
@@ -2296,8 +2328,8 @@ function renderProduction() {
     pillarCols.map(([, l], i) => `<th class="pil${i === 0 ? ' sep' : ''}">${escHtml(l)}</th>`).join('') +
     (hasPlan ? '<th class="sep">Được giao</th><th>Đã xong</th>' : '') + '</tr>';
   table.innerHTML = `<thead>${head1}${head2}</thead><tbody>` +
-    list.map(r => `<tr><td class="name">${escHtml(r.name)}</td><td><b>${r.total}</b></td>${n(r.multi)}${cells(r)}</tr>`).join('') +
-    '</tbody>';
+    list.map(r => `<tr${r.id === currentUser.id ? ' class="me"' : ''}><td class="name">${escHtml(r.name)}</td><td><b>${r.total}</b></td>${n(r.multi)}${cells(r)}</tr>`).join('') +
+    `<tr class="total"><td class="name">Tổng</td><td>${total.total}</td>${n(total.multi)}${cells(total)}</tr></tbody>`;
   note.innerHTML = [
     scope === 'approved' ? 'Chỉ đếm bài có trạng thái "Đã duyệt".' : 'Đếm mọi bài đã gửi trong kỳ (kể cả đang duyệt, cần sửa, từ chối; không tính bài đã huỷ). Bài gửi lại nhiều lần vẫn tính 1 bài.',
     '"Đăng nhiều kênh": số bài đăng từ 2 kênh trở lên. Bài đó được đếm ở MỖI kênh, nên tổng các cột kênh có thể lớn hơn "Tổng bài".',
@@ -2307,7 +2339,7 @@ function renderProduction() {
 }
 
 function exportProduction() {
-  if (!myReportData) { showToast('Xem thống kê trước'); return; }
+  if (!teamReport) { showToast('Xem báo cáo trước'); return; }
   const { list, total, channels, pillarCols, hasPlan } = buildProduction();
   const header = ['Người viết', 'Tổng bài', 'Đăng nhiều kênh', ...channels.map(([, l]) => 'Kênh: ' + l), ...pillarCols.map(([, l]) => 'Trụ: ' + l), ...(hasPlan ? ['Được giao', 'Đã xong'] : [])];
   const line = r => [r.name, r.total, r.multi, ...channels.map(([k]) => r.ch[k] || 0), ...pillarCols.map(([k]) => r.pil[k] || 0), ...(hasPlan ? [r.assigned, r.done] : [])];
@@ -2315,19 +2347,24 @@ function exportProduction() {
   const csv = '﻿' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  a.download = `thong-ke-ca-nhan-${myReportData.period.from}_${myReportData.period.to}.csv`;
+  a.download = `san-luong-${teamReport.period.from}_${teamReport.period.to}.csv`;
   a.click();
 }
 
 
-// "Thống kê cá nhân": kỳ mặc định = tháng này; số liệu lấy từ get_my_report (chỉ bài của chính mình).
-let myReportData = null;
-function renderStats() {
+let teamReport = null;
+
+// Mở trang: kỳ mặc định = tháng này, rồi tải báo cáo.
+function openReportPage() {
   if (!document.getElementById('from-date').value) {
     const r = quickRangeDates('this_month');
     VD.set('from-date', r.from); VD.set('to-date', r.to);
   }
-  loadMyReport();
+  loadTeamReport();
+}
+
+// Nhận xét gần nhất từ sếp (không phụ thuộc kỳ) — được gọi mỗi lần tải lại danh sách bài của mình.
+function renderStats() {
   const withComment = mySubmissions.find(s=>s.comment&&s.status!=='new');
   const commentEl = document.getElementById('latest-comment');
   if (withComment) {
@@ -2335,27 +2372,51 @@ function renderStats() {
   }
 }
 
-async function loadMyReport() {
+async function loadTeamReport() {
   const from = VD.get('from-date'), to = VD.get('to-date');
   if (from === null || to === null) { showToast('⚠️ Ngày chưa đúng dạng ngày/tháng/năm'); return; }
   if (!from || !to) { showToast('⚠️ Chọn kỳ đánh giá'); return; }
   if (to < from) { showToast('⚠️ "Đến ngày" phải sau "Từ ngày"'); return; }
   renderQuickChips();
   try {
-    const res = await callBackend({ action: 'get_my_report', from, to });
-    if (!res || !res.ok) { showToast('❌ ' + ((res && res.error) || 'Không tải được thống kê')); return; }
-    myReportData = res;
-    const o = res.overview || {}, me = (res.ctv_list || [])[0] || {};
-    const total = o.total || 0, approved = o.approved || 0;
+    const res = await callBackend({ action: 'get_report', from, to });
+    if (!res || !res.ok) { showToast('❌ ' + ((res && res.error) || 'Không tải được báo cáo')); return; }
+    teamReport = res;
+    const o = res.overview || {}, list = res.ctv_list || [];
+    const me = list.find(c => String(c.user_id) === String(currentUser.id));
+    const total = me ? me.total : 0, approved = me ? me.approved : 0;
     const rate = total ? Math.round(approved / total * 100) : 0;
     document.getElementById('ps-total').textContent = total;
     document.getElementById('ps-approved').textContent = approved;
-    document.getElementById('ps-revision').textContent = o.revision || 0;
-    document.getElementById('ps-avg-score').textContent = me.avgScore ? me.avgScore : '--';
+    document.getElementById('ps-revision').textContent = me ? me.revision : 0;
+    document.getElementById('ps-avg-score').textContent = me && me.avgScore ? me.avgScore : '--';
+    document.getElementById('ps-rank').textContent = me ? '#' + me.rank + '/' + list.length : '--';
     document.getElementById('approval-fill').style.width = rate + '%';
-    document.getElementById('approval-text').textContent = total ? `${approved}/${total} bài được duyệt (${rate}%)` : 'Chưa có bài nào trong kỳ này';
+    document.getElementById('approval-text').textContent = total ? `${approved}/${total} bài của bạn được duyệt (${rate}%)` : 'Bạn chưa gửi bài nào trong kỳ này';
+    document.getElementById('ro-total').textContent = o.total || 0;
+    document.getElementById('ro-rate').textContent = (o.avg_approval_rate || 0) + '%';
+    document.getElementById('ro-ctv').textContent = list.length;
     renderProduction();
-  } catch (e) { showToast('❌ Lỗi tải thống kê'); }
+    renderRankTable(list);
+  } catch (e) { showToast('❌ Lỗi tải báo cáo'); }
+}
+
+function renderRankTable(list) {
+  const body = document.getElementById('report-tbody');
+  if (!list.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--text3)">Không có bài nào trong kỳ này.</td></tr>'; return; }
+  body.innerHTML = list.map(c => {
+    const rankCls = c.rank === 1 ? 'rank-1' : c.rank === 2 ? 'rank-2' : c.rank === 3 ? 'rank-3' : 'rank-other';
+    const rateColor = c.approvalRate >= 70 ? 'var(--green)' : c.approvalRate >= 40 ? 'var(--amber)' : 'var(--red)';
+    const mine = String(c.user_id) === String(currentUser.id);
+    return `<tr${mine ? ' style="background:var(--accent-bg)"' : ''}>
+      <td><span class="rank-badge ${rankCls}">${c.rank}</span></td>
+      <td style="font-weight:500">${escHtml(c.name)}${mine ? ' <span style="font-size:10px;color:var(--accent);font-weight:600">(bạn)</span>' : ''}</td>
+      <td>${c.campus === 'hoa_lac' ? 'Hòa Lạc' : c.campus === 'tay_hn' ? 'Tây HN' : 'Cả 2'}</td>
+      <td>${c.total}</td>
+      <td style="color:var(--green)">${c.approved}</td>
+      <td><div style="display:flex;align-items:center;gap:6px"><div class="rate-bar" style="width:60px"><div class="rate-fill" style="width:${c.approvalRate}%;background:${rateColor}"></div></div><span style="color:${rateColor};font-size:11px;font-weight:500">${c.approvalRate}%</span></div></td>
+    </tr>`;
+  }).join('');
 }
 
 function showComment(id) {

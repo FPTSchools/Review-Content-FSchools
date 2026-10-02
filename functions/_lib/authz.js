@@ -56,8 +56,7 @@ export const ACTION_ROLES = {
   change_reviewer: REVIEWERS,
   save_inline_comments: REVIEWERS,
   get_submissions: ALL,
-  get_report: REVIEWERS,
-  get_my_report: ALL, // chỉ dữ liệu của chính mình (user_id ép theo phiên)
+  get_report: ALL, // CTV/Leader Content xem được báo cáo chung (điểm chấm của người khác bị ẩn ở handleGetReport)
   get_ai_accuracy_report: BOSS,
   check_submit_result: ALL,
   get_submission_versions: ALL,
