@@ -1744,11 +1744,13 @@ function buildProduction() {
   (allUsers || []).forEach(u => { nameOf[u.id] = u.name; });
 
   const rows = {};
-  const row = (id, name) => rows[id] || (rows[id] = { id, name: name || nameOf[id] || '(không rõ)', total: 0, ch: {}, pil: {}, assigned: 0, done: 0 });
+  const row = (id, name) => rows[id] || (rows[id] = { id, name: name || nameOf[id] || '(không rõ)', total: 0, multi: 0, ch: {}, pil: {}, assigned: 0, done: 0 });
   items.forEach(s => {
     const r = row(s.user_id, s.user_name);
     r.total++;
-    [...new Set(s.platform || [])].forEach(c => { r.ch[c] = (r.ch[c] || 0) + 1; });
+    const chs = [...new Set(s.platform || [])];
+    if (chs.length > 1) r.multi++;   // bài đăng từ 2 kênh trở lên
+    chs.forEach(c => { r.ch[c] = (r.ch[c] || 0) + 1; });
     const pk = s.pillar_id || NO_PILLAR;
     r.pil[pk] = (r.pil[pk] || 0) + 1;
   });
@@ -1766,9 +1768,9 @@ function buildProduction() {
   if (items.some(s => !s.pillar_id)) pillarCols.push([NO_PILLAR, 'Chưa phân loại']);
 
   const list = Object.values(rows).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'vi'));
-  const total = { name: 'Tổng', total: 0, ch: {}, pil: {}, assigned: 0, done: 0 };
+  const total = { name: 'Tổng', total: 0, multi: 0, ch: {}, pil: {}, assigned: 0, done: 0 };
   list.forEach(r => {
-    total.total += r.total; total.assigned += r.assigned; total.done += r.done;
+    total.total += r.total; total.multi += r.multi; total.assigned += r.assigned; total.done += r.done;
     Object.keys(r.ch).forEach(k => { total.ch[k] = (total.ch[k] || 0) + r.ch[k]; });
     Object.keys(r.pil).forEach(k => { total.pil[k] = (total.pil[k] || 0) + r.pil[k]; });
   });
@@ -1791,7 +1793,7 @@ function renderProduction() {
     channels.map(([k], i) => (i === 0 ? nSep : n)(r.ch[k] || 0)).join('') +
     pillarCols.map(([k], i) => (i === 0 ? nSep : n)(r.pil[k] || 0)).join('') +
     (hasPlan ? nSep(r.assigned) + n(r.done) : '');
-  const head1 = `<tr><th class="name" rowspan="2">Người viết</th><th rowspan="2">Tổng bài</th>` +
+  const head1 = `<tr><th class="name" rowspan="2">Người viết</th><th rowspan="2">Tổng bài</th><th rowspan="2" title="Số bài đăng từ 2 kênh trở lên">Đăng nhiều kênh</th>` +
     (channels.length ? `<th class="grp" colspan="${channels.length}">Theo kênh đăng</th>` : '') +
     `<th class="grp" colspan="${pillarCols.length}">Theo trụ content</th>` +
     (hasPlan ? `<th class="grp" colspan="2">Theo kế hoạch tháng</th>` : '') + '</tr>';
@@ -1800,11 +1802,11 @@ function renderProduction() {
     pillarCols.map(([, l], i) => `<th class="pil${i === 0 ? ' sep' : ''}">${escHtml(l)}</th>`).join('') +
     (hasPlan ? '<th class="sep">Được giao</th><th>Đã xong</th>' : '') + '</tr>';
   table.innerHTML = `<thead>${head1}${head2}</thead><tbody>` +
-    list.map(r => `<tr><td class="name">${escHtml(r.name)}</td><td><b>${r.total}</b></td>${cells(r)}</tr>`).join('') +
-    `<tr class="total"><td class="name">Tổng</td><td>${total.total}</td>${cells(total)}</tr></tbody>`;
+    list.map(r => `<tr><td class="name">${escHtml(r.name)}</td><td><b>${r.total}</b></td>${n(r.multi)}${cells(r)}</tr>`).join('') +
+    `<tr class="total"><td class="name">Tổng</td><td>${total.total}</td>${n(total.multi)}${cells(total)}</tr></tbody>`;
   note.innerHTML = [
     scope === 'approved' ? 'Chỉ đếm bài có trạng thái "Đã duyệt".' : 'Đếm mọi bài đã gửi trong kỳ (kể cả đang duyệt, cần sửa, từ chối; không tính bài đã huỷ). Bài gửi lại nhiều lần vẫn tính 1 bài.',
-    '1 bài đăng nhiều kênh được đếm ở mỗi kênh, nên tổng các cột kênh có thể lớn hơn "Tổng bài".',
+    '"Đăng nhiều kênh": số bài đăng từ 2 kênh trở lên. Bài đó được đếm ở MỖI kênh, nên tổng các cột kênh có thể lớn hơn "Tổng bài".',
     pillarCols.some(([k]) => k === NO_PILLAR) ? '"Chưa phân loại": bài gửi trước khi form có ô Trụ content.' : '',
     hasPlan ? '"Được giao / Đã xong": đầu việc trong Kế hoạch tháng của các tháng thuộc kỳ; "Đã xong" = bài đã duyệt hoặc đã đăng.' : 'Chưa có đầu việc Kế hoạch tháng nào trong kỳ này.'
   ].filter(Boolean).join('<br>');
@@ -1813,8 +1815,8 @@ function renderProduction() {
 function exportProduction() {
   if (!reportData) { showToast('Tạo báo cáo trước'); return; }
   const { list, total, channels, pillarCols, hasPlan } = buildProduction();
-  const header = ['Người viết', 'Tổng bài', ...channels.map(([, l]) => 'Kênh: ' + l), ...pillarCols.map(([, l]) => 'Trụ: ' + l), ...(hasPlan ? ['Được giao', 'Đã xong'] : [])];
-  const line = r => [r.name, r.total, ...channels.map(([k]) => r.ch[k] || 0), ...pillarCols.map(([k]) => r.pil[k] || 0), ...(hasPlan ? [r.assigned, r.done] : [])];
+  const header = ['Người viết', 'Tổng bài', 'Đăng nhiều kênh', ...channels.map(([, l]) => 'Kênh: ' + l), ...pillarCols.map(([, l]) => 'Trụ: ' + l), ...(hasPlan ? ['Được giao', 'Đã xong'] : [])];
+  const line = r => [r.name, r.total, r.multi, ...channels.map(([k]) => r.ch[k] || 0), ...pillarCols.map(([k]) => r.pil[k] || 0), ...(hasPlan ? [r.assigned, r.done] : [])];
   const rows = [header, ...list.map(line), line(total)];
   const csv = '﻿' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
   const a = document.createElement('a');
