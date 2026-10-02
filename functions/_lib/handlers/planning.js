@@ -364,7 +364,7 @@ export async function linkPlanItemToSubmission(supabase, planItemId, submissionI
 }
 
 // ============================================================
-// VIỆC CẦN LÀM (trang "Việc cần làm" của Trưởng phòng/Trưởng ban/Admin):
+// VIỆC CẦN LÀM (trang "Việc cần làm", mọi vai trò; CTV chỉ thấy đầu việc của mình):
 //   - sự kiện sắp diễn ra trong 14 ngày tới mà chưa có đầu việc/bài nào gắn vào
 //   - đầu việc Kế hoạch tháng đã quá hạn (chưa làm / cần sửa / bị từ chối) hoặc sắp tới hạn trong 3 ngày mà chưa làm
 // Phạm vi theo cơ sở của người xem (visibleCampuses). "Bài chờ duyệt quá hạn" tính ở trang từ danh sách bài có sẵn.
@@ -382,8 +382,10 @@ export async function handleGetTodo(supabase, p) {
   if (!actor) return { ok: false, error: 'Chưa đăng nhập' };
   const campuses = visibleCampuses(actor);
   const today = vnToday();
+  // CTV chỉ viết bài: không quản lý lịch sự kiện, chỉ thấy đầu việc được giao cho CHÍNH MÌNH.
+  const writerOnly = actor.role === 'ctv';
 
-  const evRes = await supabase.from('school_events')
+  const evRes = writerOnly ? { data: [] } : await supabase.from('school_events')
     .select('id, campus, title, department, start_date, end_date, status, time_note')
     .in('campus', campuses).neq('status', 'huy')
     .gte('start_date', today).lte('start_date', addDaysIso(today, TODO_EVENT_DAYS))
@@ -405,7 +407,8 @@ export async function handleGetTodo(supabase, p) {
     .order('deadline', { ascending: true });
   if (itRes.error) return { ok: false, error: itRes.error.message };
   const enriched = await enrichPlanItems(supabase, itRes.data || []);
-  const open = enriched.filter(i => i.deadline < today
+  const open = enriched.filter(i => !writerOnly || String(i.assignee_id) === String(actor.id))
+    .filter(i => i.deadline < today
     ? ['chua_lam', 'can_sua', 'tu_choi'].includes(i.plan_status)
     : i.plan_status === 'chua_lam');
   const ids = [...new Set(open.map(i => i.assignee_id).filter(Boolean))];

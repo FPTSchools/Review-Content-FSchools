@@ -139,6 +139,7 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
   .ai-assist-text{font-size:12px;color:var(--text);line-height:1.6;}
   .ai-use-btn{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--blue);color:white;border:none;cursor:pointer;font-family:var(--font);margin-top:5px;}
   .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;}
+  @media (max-width: 600px) { .stats-grid{grid-template-columns:repeat(3,1fr);} .report-overview{grid-template-columns:repeat(3,1fr);} .report-num{font-size:22px;} }
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;}
   .stat-num{font-size:22px;font-weight:600;line-height:1.1;}
   .stat-lbl{font-size:11px;color:var(--text3);margin-top:2px;}
@@ -215,7 +216,9 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
   .vdp-foot button{border:none;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--blue);padding:4px 8px;border-radius:6px;font-family:var(--font);}
   .vdp-foot button:hover{background:var(--blue-bg);}
   /* Bảng Sản lượng theo cá nhân — nhiều cột (kênh + trụ) nên cuộn ngang trong khung, cột tên cố định */
-  .prod-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--text2);}
+  .prod-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;margin-bottom:10px;font-size:12px;color:var(--text2);}
+  .prod-toolbar span{flex:none;}
+  .prod-toolbar select{width:auto;max-width:150px;min-width:0;flex:0 1 auto;display:inline-block;}
   .prod-toolbar select{padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;color:var(--text);background:var(--surface);}
   .prod-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
   .prod-table{border-collapse:collapse;width:100%;font-size:12px;}
@@ -399,6 +402,7 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
       <div class="logo-sub">Content Review</div>
     </div>
     <div class="nav-item active" onclick="showPage('page-submit',this)">✏️ Gửi bài duyệt</div>
+    <div class="nav-item" id="nav-todo" onclick="showPage('page-todo',this)">✅ Việc cần làm <span id="todo-badge" style="display:none;background:var(--red);color:white;font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:4px"></span></div>
     <div class="nav-item" onclick="showPage('page-history',this)">📋 Bài của tôi</div>
     <div class="nav-item" id="nav-review" style="display:none" onclick="showPage('page-review',this)">✅ Duyệt bài CTV <span id="review-badge" style="display:none;background:var(--red);color:white;font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:4px"></span></div>
     <div class="nav-item" onclick="location.href='plan.html'">🗓️ Kế hoạch & Lịch</div>
@@ -627,6 +631,14 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
       <div id="review-list"></div>
     </div>
 
+    <!-- PAGE: Việc cần làm -->
+    <div class="page" id="page-todo">
+      <div class="page-title">Việc cần làm</div>
+      <div class="page-sub" id="td-sub">Những việc cần xử lý — cập nhật mỗi lần mở trang</div>
+      <div class="report-overview" id="td-cards" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"></div>
+      <div id="td-sections"><div class="card" style="text-align:center;color:var(--text3);padding:20px">Đang tải...</div></div>
+    </div>
+
     <!-- PAGE: Thống kê cá nhân -->
     <div class="page" id="page-stats">
       <div class="page-title">Báo cáo</div>
@@ -662,8 +674,8 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
         <div class="prod-toolbar">
           <span>Tính:</span>
           <select id="prod-scope" onchange="renderProduction()">
-            <option value="all">Tất cả bài đã gửi</option>
-            <option value="approved">Chỉ bài đã duyệt</option>
+            <option value="all">Tất cả bài</option>
+            <option value="approved">Bài đã duyệt</option>
           </select>
           <span>Cơ sở:</span>
           <select id="prod-campus" onchange="renderProduction()">
@@ -929,6 +941,7 @@ function init() {
   loadPillars();
   loadWorkflows();
   loadMySubmissions().then(() => { if (openId) handleOpenDeepLink(openId); });
+  loadTodo();   // lấy sẵn việc từ kế hoạch để huy hiệu menu đúng ngay khi vào
 
   // Leader Content: hiện tab duyệt bài + checkbox dùng chung
   if (currentUser.role === 'leader_content') {
@@ -1051,6 +1064,7 @@ function showPage(id, el) {
   document.getElementById(id).classList.add('active');
   if(el) el.classList.add('active');
   if(id==='page-history') renderHistory();
+  if(id==='page-todo') loadTodo();
   if(id==='page-stats') openReportPage();
   if(id==='page-review') loadReviewQueue();
   if(id==='page-docs') loadDocumentsPage();
@@ -1248,6 +1262,7 @@ async function loadMySubmissions() {
       renderHistory();
       renderStats();
       updateHistoryBadge();
+      renderTodoBadge();
     }
   } catch(e) {}
 }
@@ -2256,6 +2271,104 @@ function applyQuickRange(kind) {
   loadTeamReport();
 }
 
+// ============================================================
+// VIỆC CẦN LÀM (CTV / Leader Content) — mỗi vai trò thấy phần của mình:
+//   CTV: bài cần sửa + đầu việc Kế hoạch tháng được giao cho mình (trễ / sắp tới hạn)
+//   Leader Content: thêm bài chờ mình duyệt quá hạn, sự kiện 14 ngày tới chưa có bài, đầu việc cả cơ sở
+// ============================================================
+const TODO_CAMPUS = { hoa_lac: 'Hòa Lạc', tay_hn: 'Tây HN', chung: 'Cả 2' };
+const todoDate = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '';
+const todoRow = (inner, onclick) => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);font-size:13px${onclick ? ';cursor:pointer' : ''}" ${onclick ? `onclick="${onclick}"` : ''}>${inner}</div>`;
+const todoPill = (text, color, bg) => `<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;color:${color};background:${bg};white-space:nowrap">${text}</span>`;
+const todoEmpty = msg => `<div style="padding:6px 0;color:var(--text3)">🎉 ${msg}</div>`;
+const todoLink = (href, text) => `<a href="${href}" style="font-size:12px;color:var(--blue);text-decoration:none;white-space:nowrap">${text}</a>`;
+let todoServer = null;   // { events, items } từ get_todo
+
+function todoRevisionList() {
+  const now = Date.now();
+  return (mySubmissions || []).filter(s => s.status === 'revision')
+    .map(s => ({ s, days: Math.max(0, Math.floor((now - new Date(s.reviewed_at || s.submitted_at)) / 86400000)) }))
+    .sort((a, b) => b.days - a.days);
+}
+function todoReviewOverdue() {
+  if (currentUser.role !== 'leader_content') return [];
+  const now = Date.now();
+  return (reviewQueue || []).filter(s => ['new', 'reviewing'].includes(s.status))
+    .map(s => ({ s, days: Math.floor((now - new Date(s.submitted_at)) / 86400000) }))
+    .filter(x => x.days >= 1).sort((a, b) => b.days - a.days);
+}
+function renderTodoBadge() {
+  const n = todoRevisionList().length + todoReviewOverdue().length + (todoServer ? todoServer.items.length + todoServer.events.length : 0);
+  const b = document.getElementById('todo-badge');
+  if (b) { b.textContent = n; b.style.display = n ? 'inline-block' : 'none'; }
+}
+
+async function loadTodo() {
+  try {
+    const res = await callBackend({ action: 'get_todo' });
+    todoServer = res && res.ok ? res : (todoServer || null);
+  } catch (e) {}
+  renderTodoPage();
+  renderTodoBadge();
+}
+
+function openTodoReview(id) {
+  showPage('page-review', document.getElementById('nav-review'));
+  setTimeout(() => { try { toggleRVCard(id); } catch (e) {} }, 250);
+}
+
+function renderTodoPage() {
+  const isLeader = currentUser.role === 'leader_content';
+  const rev = todoRevisionList(), over = todoReviewOverdue();
+  const items = todoServer ? todoServer.items : [], events = todoServer ? todoServer.events : [];
+  const serverFail = !todoServer;
+  const sections = [];   // [số thẻ, nhãn thẻ, màu, tiêu đề mục, html]
+
+  const revHtml = rev.length ? rev.map(({ s, days }) => todoRow(
+    `<div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(s.title || '(không có tiêu đề)')}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${s.reviewer_name ? 'Người duyệt: ' + escHtml(s.reviewer_name) : 'Có nhận xét từ người duyệt'}</div></div>` +
+    (days >= 2 ? todoPill('Đã ' + days + ' ngày chưa sửa', 'var(--red)', 'var(--red-bg)') : todoPill(days === 0 ? 'Mới hôm nay' : 'Đã ' + days + ' ngày chưa sửa', 'var(--amber)', 'var(--amber-bg)')) +
+    todoLink('javascript:void(0)', 'Xem nhận xét →'), `showComment('${s.id}')`)).join('') : todoEmpty('Không có bài nào đang chờ bạn sửa.');
+
+  const itemsHtml = serverFail ? '<span style="color:var(--red)">Không tải được dữ liệu kế hoạch. Thử lại sau.</span>'
+    : items.length ? items.map(i => todoRow(
+      `<b style="min-width:48px">${todoDate(i.deadline)}</b>
+       <div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(i.title)}</div>
+         <div style="font-size:11px;color:var(--text3);margin-top:2px">${TODO_CAMPUS[i.campus] || ''}${isLeader ? ' · ' + (i.assignee_name ? escHtml(i.assignee_name) : 'Chưa giao cho ai') : ''}${i.plan_status === 'can_sua' ? ' · cần sửa' : i.plan_status === 'tu_choi' ? ' · bị từ chối' : ''}</div></div>` +
+      (i.days_late > 0 ? todoPill('Trễ ' + i.days_late + ' ngày', 'var(--red)', 'var(--red-bg)')
+        : todoPill(i.days_late === 0 ? 'Hạn hôm nay' : 'Còn ' + (-i.days_late) + ' ngày', 'var(--amber)', 'var(--amber-bg)')) +
+      todoLink('plan.html', 'Mở kế hoạch →'))).join('')
+    : todoEmpty(isLeader ? 'Không có đầu việc nào trễ hoặc sắp tới hạn.' : 'Bạn không có đầu việc nào trễ hoặc sắp tới hạn.');
+
+  if (isLeader) {
+    const overHtml = over.length ? over.map(({ s, days }) => todoRow(
+      `<div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(s.title || '(không có tiêu đề)')}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${escHtml(s.user_name || '')} · ${TODO_CAMPUS[s.campus] || ''}</div></div>` +
+      (days >= 2 ? todoPill('Chờ ' + days + ' ngày', 'var(--red)', 'var(--red-bg)') : todoPill('Chờ ' + days + ' ngày', 'var(--amber)', 'var(--amber-bg)')),
+      `openTodoReview('${s.id}')`)).join('') : todoEmpty('Không có bài nào chờ bạn duyệt quá 1 ngày.');
+    const evHtml = serverFail ? '<span style="color:var(--red)">Không tải được dữ liệu kế hoạch. Thử lại sau.</span>'
+      : events.length ? events.map(e => todoRow(
+        `<b style="min-width:48px">${todoDate(e.start_date)}</b>
+         <div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(e.title)}</div>
+           <div style="font-size:11px;color:var(--text3);margin-top:2px">${TODO_CAMPUS[e.campus] || ''}${e.department ? ' · ' + escHtml(e.department) : ''}</div></div>` +
+        (e.status === 'cho_xac_nhan' ? todoPill('Chờ xác nhận', 'var(--amber)', 'var(--amber-bg)') : '') +
+        todoPill(e.days_left === 0 ? 'Hôm nay' : 'Còn ' + e.days_left + ' ngày', e.days_left <= 3 ? 'var(--red)' : 'var(--amber)', e.days_left <= 3 ? 'var(--red-bg)' : 'var(--amber-bg)') +
+        todoLink('plan.html', 'Tạo chuỗi bài →'))).join('')
+      : todoEmpty('Mọi sự kiện trong 14 ngày tới đều đã có bài.');
+    sections.push([over.length, 'Bài chờ bạn duyệt quá 1 ngày', 'var(--red)', '📥 Bài chờ tôi duyệt quá hạn <span style="font-size:10px;font-weight:400;color:var(--text3)">(vàng ≥ 1 ngày · đỏ ≥ 2 ngày)</span>', overHtml]);
+    sections.push([events.length, 'Sự kiện 14 ngày tới chưa có bài', 'var(--amber)', '📅 Sự kiện sắp diễn ra mà chưa có bài', evHtml]);
+  }
+  sections.push([items.length, isLeader ? 'Đầu việc kế hoạch trễ / sắp hạn' : 'Đầu việc của bạn trễ / sắp hạn', 'var(--purple)',
+    isLeader ? '⏰ Đầu việc Kế hoạch tháng trễ hoặc sắp tới hạn' : '⏰ Đầu việc Kế hoạch tháng được giao cho tôi', itemsHtml]);
+  sections.push([rev.length, 'Bài cần sửa của bạn', 'var(--blue)', '📝 Bài cần sửa của tôi', revHtml]);
+  if (!isLeader) sections.reverse();   // CTV: bài cần sửa lên đầu
+
+  document.getElementById('td-cards').innerHTML = sections.map(([n, label, color]) =>
+    `<div class="report-card"><div class="report-num" style="color:${color}">${n}</div><div class="report-lbl">${label}</div></div>`).join('');
+  document.getElementById('td-sections').innerHTML = sections.map(([, , , title, html]) =>
+    `<div class="card"><div class="card-title">${title}</div><div style="font-size:13px">${html}</div></div>`).join('');
+}
+
 // ---- Báo cáo: cả đội cùng xem (sản lượng + xếp hạng) để so sánh. Điểm sếp chấm của người khác bị server ẩn. ----
 const PROD_CHANNELS = [['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok'],['youtube','Youtube'],['zalo','Zalo'],['web','Website'],['email','Email'],['sms','SMS']];
 const NO_PILLAR = '__none__';
@@ -3226,6 +3339,7 @@ async function loadReviewQueue() {
     if (reviewQueue.length > 0) { badge.textContent = reviewQueue.length; badge.style.display = 'inline-block'; }
     else { badge.style.display = 'none'; }
     renderReviewQueue();
+    renderTodoBadge();
   } catch(e) {}
 }
 

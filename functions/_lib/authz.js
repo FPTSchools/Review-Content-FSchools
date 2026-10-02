@@ -99,7 +99,7 @@ export const ACTION_ROLES = {
   save_annual_plan_line: ALL,
   delete_annual_plan_line: ALL,
   copy_annual_plan: ALL,
-  get_todo: BOSS // trang "Việc cần làm" của Trưởng phòng/Trưởng ban/Admin
+  get_todo: ALL // trang "Việc cần làm": handler tự giới hạn theo vai trò (CTV chỉ đầu việc của mình, không có sự kiện)
 };
 
 export function isActionAllowed(action, role) {

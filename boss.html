@@ -221,7 +221,9 @@
   .report-num{font-size:26px;font-weight:600;}
   .report-lbl{font-size:11px;color:var(--text3);margin-top:2px;}
   /* Bảng Sản lượng theo cá nhân — nhiều cột (kênh + trụ) nên cuộn ngang trong khung, cột tên cố định */
-  .prod-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--text2);}
+  .prod-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;margin-bottom:10px;font-size:12px;color:var(--text2);}
+  .prod-toolbar span{flex:none;}
+  .prod-toolbar select{width:auto;max-width:150px;min-width:0;flex:0 1 auto;display:inline-block;}
   .prod-toolbar select{padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;color:var(--text);background:var(--surface);}
   .prod-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
   .prod-table{border-collapse:collapse;width:100%;font-size:12px;}
@@ -435,8 +437,8 @@
         <div class="prod-toolbar">
           <span>Tính:</span>
           <select id="prod-scope" onchange="renderProduction()">
-            <option value="all">Tất cả bài đã gửi</option>
-            <option value="approved">Chỉ bài đã duyệt</option>
+            <option value="all">Tất cả bài</option>
+            <option value="approved">Bài đã duyệt</option>
           </select>
           <span>Cơ sở:</span>
           <select id="prod-campus" onchange="renderProduction()">
