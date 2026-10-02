@@ -61,6 +61,14 @@
   .doc-categories-grid{column-count:3;column-gap:14px;margin-bottom:14px;}
   .doc-category-card{border-radius:var(--radius-lg);padding:14px;box-shadow:0 1px 4px rgba(0,0,0,0.07);display:inline-block;width:100%;box-sizing:border-box;break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;}
   .doc-category-card .card-title{background:none;border:none;padding:0;margin-bottom:8px;}
+  .doc-area-chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px;}
+  .doc-area-chip{padding:6px 14px;border-radius:20px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:12.5px;cursor:pointer;font-family:var(--font);}
+  .doc-area-chip span{color:var(--text3);margin-left:3px;}
+  .doc-area-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .doc-area-chip.active span{color:#fff;opacity:.85;}
+  .doc-area-title{font-size:14px;font-weight:700;margin:6px 0 10px;color:var(--text);}
+  .doc-area-section{margin-bottom:10px;}
+  .doc-area-badge{font-size:10.5px;padding:1px 8px;border-radius:10px;background:var(--blue-bg);color:var(--blue);margin-left:6px;}
   .doc-color-picker{display:flex;gap:8px;flex-wrap:wrap;}
   .doc-color-swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;box-sizing:border-box;display:inline-block;}
   .doc-color-swatch.selected{border-color:var(--text);box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--text);}
@@ -590,11 +598,12 @@
       <div class="page-header">
         <div><div class="page-title">Kho tài liệu</div><div class="page-sub">Link dùng chung — báo cáo, kế hoạch, ảnh, video, link họp, logo, hợp đồng...</div></div>
       </div>
-      <div id="doc-categories-list" class="doc-categories-grid"></div>
+      <div id="doc-categories-list"></div>
       <div class="card" id="doc-category-manage-card" style="display:none">
         <div class="card-title">⚙️ Quản lý danh mục (admin/manager)</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="text" id="doc-new-category-input" placeholder="Tên danh mục mới" style="flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:13px">
+          <select id="doc-new-category-area" style="padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:13px"><option value="chung">📂 Dùng chung</option><option value="sale">💼 Sale</option><option value="pr">📣 PR - Truyền thông</option></select>
         </div>
         <div id="doc-new-category-colors" class="doc-color-picker" style="margin-top:8px"></div>
         <div style="font-size:11px;color:var(--text3);margin-top:10px;margin-bottom:4px">Vai trò được xem danh mục này (chưa chọn = chưa ai xem được):</div>
@@ -3169,6 +3178,13 @@ function closeSubmissionVersionsBoss() {
 // ============================================================
 let _docCategories = [];
 let _docLinks = [];
+
+// Khu vực của danh mục (lớp nhóm): Dùng chung / Sale / PR - Truyền thông. Quyền xem vẫn theo vai trò.
+const DOC_AREAS = [['chung', '📂 Dùng chung'], ['sale', '💼 Sale'], ['pr', '📣 PR - Truyền thông']];
+let _docAreaFilter = 'all';
+const docAreaOf = c => (DOC_AREAS.some(a => a[0] === c.area) ? c.area : 'chung');
+const docAreaLabel = a => (DOC_AREAS.find(x => x[0] === a) || DOC_AREAS[0])[1];
+function setDocAreaFilter(a) { _docAreaFilter = a; renderDocumentLinks(); }
 let _docColorPalette = ['#FCE4E4','#FDEBD3','#FFF6D6','#E3F3D9','#D8F1EA','#DCEEFB','#E3E4FC','#F1E3FA','#FBE1F0','#E9E9E9'];
 let _newCategoryColor = _docColorPalette[0];
 let _editingCategoryId = null;
@@ -3177,6 +3193,7 @@ let _docRoleList = ['ctv','leader_content','leader','manager','admin'];
 const _docRoleLabels = { ctv:'CTV', leader_content:'Leader Content', leader:'Trưởng phòng', manager:'Trưởng ban', admin:'Admin' };
 let _newCategoryRoles = []; // chưa chọn vai trò nào = mặc định không ai xem được cho đến khi admin chọn
 let _editingCategoryRoles = null;
+let _editingCategoryArea = null;
 
 async function loadDocumentsPage() {
   const isDocAdmin = ['admin','manager'].includes(currentUser.role);
@@ -3209,8 +3226,10 @@ async function loadDocumentsPage() {
 function renderDocCategorySelect() {
   const sel = document.getElementById('doc-category-select');
   if (!sel) return;
-  sel.innerHTML = '<option value="">-- Chọn --</option>' +
-    _docCategories.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.name)}</option>`).join('');
+  sel.innerHTML = '<option value="">-- Chọn --</option>' + DOC_AREAS.map(([a, label]) => {
+    const cats = _docCategories.filter(c => docAreaOf(c) === a);
+    return cats.length ? `<optgroup label="${escHtml(label)}">${cats.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.name)}</option>`).join('')}</optgroup>` : '';
+  }).join('');
 }
 
 // Bộ chọn màu dạng chấm tròn — dùng chung cho cả form "thêm danh mục" và "sửa danh mục".
@@ -3273,6 +3292,7 @@ function renderDocCategoryManageList() {
       return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <input type="text" id="doc-edit-category-name" value="${escHtml(c.name)}" style="flex:1;padding:6px 9px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px">
+          <select id="doc-edit-category-area" onchange="_editingCategoryArea=this.value" style="padding:6px 9px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px">${DOC_AREAS.map(([v, l]) => `<option value="${v}"${v === _editingCategoryArea ? ' selected' : ''}>${escHtml(l)}</option>`).join('')}</select>
         </div>
         <div class="doc-color-picker" id="doc-edit-category-colors" style="margin-bottom:8px">${colorSwatchesHtml(_editingCategoryColor, 'selectEditCategoryColor')}</div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Vai trò được xem (chưa chọn = chưa ai xem được):</div>
@@ -3286,7 +3306,7 @@ function renderDocCategoryManageList() {
     return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
       <div style="display:flex;align-items:center;gap:8px">
         <span class="doc-color-dot" style="background:${color}"></span>
-        <span style="flex:1">${escHtml(c.name)} <span style="color:var(--text3)">(${count} link)</span></span>
+        <span style="flex:1">${escHtml(c.name)} <span style="color:var(--text3)">(${count} link)</span><span class="doc-area-badge">${escHtml(docAreaLabel(docAreaOf(c)))}</span></span>
         <button onclick="startEditCategory('${c.id}')" style="font-size:11px;padding:3px 9px;border-radius:20px;background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;font-family:var(--font)">Sửa</button>
         <button onclick="deleteDocumentCategory('${c.id}')" style="font-size:11px;padding:3px 9px;border-radius:20px;background:none;border:1px solid var(--border2);color:var(--red);cursor:pointer;font-family:var(--font)">Xoá</button>
       </div>
@@ -3301,12 +3321,14 @@ function startEditCategory(id) {
   _editingCategoryId = id;
   _editingCategoryColor = c.color || _docColorPalette[0];
   _editingCategoryRoles = parseCategoryRoles(c);
+  _editingCategoryArea = docAreaOf(c);
   renderDocCategoryManageList();
 }
 function cancelEditCategory() {
   _editingCategoryId = null;
   _editingCategoryColor = null;
   _editingCategoryRoles = null;
+  _editingCategoryArea = null;
   renderDocCategoryManageList();
 }
 function selectEditCategoryColor(color) {
@@ -3326,10 +3348,10 @@ async function saveEditCategory(id) {
   const name = nameInput ? nameInput.value.trim() : '';
   if (!name) { showToast('⚠️ Tên danh mục không được để trống'); return; }
   try {
-    const res = await callAPI({ action: 'update_document_category', id, name, color: _editingCategoryColor, allowed_roles: _editingCategoryRoles, role: currentUser.role, user_id: currentUser.id });
+    const res = await callAPI({ action: 'update_document_category', id, name, color: _editingCategoryColor, allowed_roles: _editingCategoryRoles, area: _editingCategoryArea, role: currentUser.role, user_id: currentUser.id });
     if (res.ok) {
       showToast('✅ Đã lưu danh mục');
-      _editingCategoryId = null; _editingCategoryColor = null; _editingCategoryRoles = null;
+      _editingCategoryId = null; _editingCategoryColor = null; _editingCategoryRoles = null; _editingCategoryArea = null;
       loadDocumentsPage();
     } else showToast('❌ Lỗi: ' + (res.error || 'Thử lại'));
   } catch (e) {
@@ -3344,7 +3366,7 @@ function renderDocumentLinks() {
     container.innerHTML = '<div class="card" style="text-align:center;color:var(--text3);padding:20px">Chưa có danh mục nào.</div>';
     return;
   }
-  container.innerHTML = _docCategories.map(cat => {
+  const cardHtml = cat => {
     const links = _docLinks.filter(l => String(l.category_id) === String(cat.id));
     const linksHtml = links.length
       ? links.map(l => {
@@ -3364,7 +3386,17 @@ function renderDocumentLinks() {
       <div class="card-title">📁 ${escHtml(cat.name)}</div>
       ${linksHtml}
     </div>`;
+  };
+  const counts = { all: _docCategories.length };
+  DOC_AREAS.forEach(([a]) => { counts[a] = _docCategories.filter(c => docAreaOf(c) === a).length; });
+  const chips = '<div class="doc-area-chips">' + [['all', 'Tất cả'], ...DOC_AREAS].map(([v, l]) =>
+    `<button class="doc-area-chip${_docAreaFilter === v ? ' active' : ''}" onclick="setDocAreaFilter('${v}')">${escHtml(l)} <span>${counts[v]}</span></button>`).join('') + '</div>';
+  const sections = DOC_AREAS.filter(([a]) => _docAreaFilter === 'all' || _docAreaFilter === a).map(([a, label]) => {
+    const cats = _docCategories.filter(c => docAreaOf(c) === a);
+    if (!cats.length) return _docAreaFilter === 'all' ? '' : '<div class="card" style="text-align:center;color:var(--text3);padding:20px">Khu vực này chưa có danh mục nào.</div>';
+    return `<div class="doc-area-section"><div class="doc-area-title">${escHtml(label)}</div><div class="doc-categories-grid">${cats.map(cardHtml).join('')}</div></div>`;
   }).join('');
+  container.innerHTML = chips + sections;
 }
 
 async function submitDocumentLink() {
@@ -3412,7 +3444,7 @@ async function addDocumentCategory() {
   const name = input.value.trim();
   if (!name) { showToast('⚠️ Nhập tên danh mục'); return; }
   try {
-    const res = await callAPI({ action: 'add_document_category', name, color: _newCategoryColor, allowed_roles: _newCategoryRoles, role: currentUser.role, user_id: currentUser.id });
+    const res = await callAPI({ action: 'add_document_category', name, color: _newCategoryColor, allowed_roles: _newCategoryRoles, area: document.getElementById('doc-new-category-area').value, role: currentUser.role, user_id: currentUser.id });
     if (res.ok) {
       showToast('✅ Đã thêm danh mục');
       input.value = '';

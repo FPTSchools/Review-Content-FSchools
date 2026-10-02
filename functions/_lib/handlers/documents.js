@@ -8,6 +8,9 @@ import { newId } from '../ids.js';
 const DOC_CATEGORY_ROLES = ['ctv', 'leader_content', 'leader', 'manager', 'admin'];
 const DOC_CATEGORY_COLORS = ['#FCE4E4','#FDEBD3','#FFF6D6','#E3F3D9','#D8F1EA','#DCEEFB','#E3E4FC','#F1E3FA','#FBE1F0','#E9E9E9'];
 const DOC_CATEGORY_DEFAULT_COLOR = '#E9E9E9';
+// Khu vực (lớp nhóm các danh mục). Chỉ để sắp xếp/tìm cho dễ — quyền xem vẫn theo allowed_roles.
+const DOC_AREAS = ['chung', 'sale', 'pr'];
+const parseArea = v => (DOC_AREAS.includes(v) ? v : 'chung');
 
 function isDocAdmin(p) {
   return ['admin', 'manager'].includes(String((p || {}).role || ''));
@@ -28,13 +31,13 @@ export async function handleGetDocumentCategories(supabase, p) {
   const role = (p || {}).role || '';
   const { data, error } = await supabase
     .from('document_categories')
-    .select('id, name, sort_order, created_by, created_at, color, allowed_roles')
+    .select('id, name, sort_order, created_by, created_at, color, allowed_roles, area')
     .order('sort_order', { ascending: true });
   if (error) return { ok: false, error: error.message };
 
   const categories = data.map(c => ({ ...c, color: c.color || DOC_CATEGORY_DEFAULT_COLOR }));
   const visible = ['admin', 'manager'].includes(role) ? categories : categories.filter(c => canRoleViewCategory(role, c));
-  return { ok: true, categories: visible, palette: DOC_CATEGORY_COLORS, roles: DOC_CATEGORY_ROLES };
+  return { ok: true, categories: visible, palette: DOC_CATEGORY_COLORS, roles: DOC_CATEGORY_ROLES, areas: DOC_AREAS };
 }
 
 export async function handleAddDocumentCategory(supabase, p) {
@@ -55,7 +58,7 @@ export async function handleAddDocumentCategory(supabase, p) {
   const id = newId('CAT');
   const { error } = await supabase.from('document_categories').insert({
     id, name, sort_order: nextOrder, created_by: p.user_id || p.user_name || null,
-    created_at: new Date().toISOString(), color, allowed_roles: allowedRoles
+    created_at: new Date().toISOString(), color, allowed_roles: allowedRoles, area: parseArea(p.area)
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true, id };
@@ -69,6 +72,10 @@ export async function handleUpdateDocumentCategory(supabase, p) {
   if (p.sort_order !== undefined) patch.sort_order = Number(p.sort_order) || 0;
   if (p.color !== undefined && DOC_CATEGORY_COLORS.includes(p.color)) patch.color = p.color;
   if (p.allowed_roles !== undefined) patch.allowed_roles = parseAllowedRoles(p.allowed_roles);
+  if (p.area !== undefined) {
+    if (!DOC_AREAS.includes(p.area)) return { ok: false, error: 'Khu vực không hợp lệ' };
+    patch.area = p.area;
+  }
 
   const { data, error } = await supabase.from('document_categories').update(patch).eq('id', p.id).select('id');
   if (error) return { ok: false, error: error.message };
