@@ -124,6 +124,7 @@ async function routeAction(p, supabase, env) {
     case 'save_annual_plan_line': return planning.handleSaveAnnualPlanLine(supabase, p);
     case 'delete_annual_plan_line': return planning.handleDeleteAnnualPlanLine(supabase, p);
     case 'copy_annual_plan': return planning.handleCopyAnnualPlan(supabase, p);
+    case 'get_todo': return planning.handleGetTodo(supabase, p);
 
     case 'process_email_queue': return handleProcessEmailQueue(supabase, env);
 

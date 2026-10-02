@@ -98,7 +98,8 @@ export const ACTION_ROLES = {
   get_annual_plan: ALL,
   save_annual_plan_line: ALL,
   delete_annual_plan_line: ALL,
-  copy_annual_plan: ALL
+  copy_annual_plan: ALL,
+  get_todo: BOSS // trang "Việc cần làm" của Trưởng phòng/Trưởng ban/Admin
 };
 
 export function isActionAllowed(action, role) {

@@ -362,3 +362,62 @@ export async function linkPlanItemToSubmission(supabase, planItemId, submissionI
     .eq('id', planItemId)
     .is('submission_id', null);
 }
+
+// ============================================================
+// VIỆC CẦN LÀM (trang "Việc cần làm" của Trưởng phòng/Trưởng ban/Admin):
+//   - sự kiện sắp diễn ra trong 14 ngày tới mà chưa có đầu việc/bài nào gắn vào
+//   - đầu việc Kế hoạch tháng đã quá hạn (chưa làm / cần sửa / bị từ chối) hoặc sắp tới hạn trong 3 ngày mà chưa làm
+// Phạm vi theo cơ sở của người xem (visibleCampuses). "Bài chờ duyệt quá hạn" tính ở trang từ danh sách bài có sẵn.
+// ============================================================
+const TODO_EVENT_DAYS = 14;
+const TODO_SOON_DAYS = 3;
+const TODO_LATE_LOOKBACK_DAYS = 60;
+
+function vnToday() { return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10); }
+function addDaysIso(iso, n) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function diffDaysIso(a, b) { return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000); }
+
+export async function handleGetTodo(supabase, p) {
+  const actor = await getActor(supabase, p.user_id);
+  if (!actor) return { ok: false, error: 'Chưa đăng nhập' };
+  const campuses = visibleCampuses(actor);
+  const today = vnToday();
+
+  const evRes = await supabase.from('school_events')
+    .select('id, campus, title, department, start_date, end_date, status, time_note')
+    .in('campus', campuses).neq('status', 'huy')
+    .gte('start_date', today).lte('start_date', addDaysIso(today, TODO_EVENT_DAYS))
+    .order('start_date', { ascending: true });
+  if (evRes.error) return { ok: false, error: evRes.error.message };
+  const evs = evRes.data || [];
+  const covered = new Set();
+  if (evs.length) {
+    const pi = await supabase.from('plan_items').select('event_id').in('event_id', evs.map(e => e.id));
+    if (pi.error) return { ok: false, error: pi.error.message };
+    (pi.data || []).forEach(r => covered.add(r.event_id));
+  }
+  const events = evs.filter(e => !covered.has(e.id)).map(e => ({ ...e, days_left: diffDaysIso(today, e.start_date) }));
+
+  const itRes = await supabase.from('plan_items')
+    .select('id, campus, title, deadline, assignee_id, submission_id, post_link, plan_month')
+    .in('campus', campuses).not('deadline', 'is', null)
+    .gte('deadline', addDaysIso(today, -TODO_LATE_LOOKBACK_DAYS)).lte('deadline', addDaysIso(today, TODO_SOON_DAYS))
+    .order('deadline', { ascending: true });
+  if (itRes.error) return { ok: false, error: itRes.error.message };
+  const enriched = await enrichPlanItems(supabase, itRes.data || []);
+  const open = enriched.filter(i => i.deadline < today
+    ? ['chua_lam', 'can_sua', 'tu_choi'].includes(i.plan_status)
+    : i.plan_status === 'chua_lam');
+  const ids = [...new Set(open.map(i => i.assignee_id).filter(Boolean))];
+  const names = {};
+  if (ids.length) {
+    const u = await supabase.from('users').select('id, name').in('id', ids);
+    (u.data || []).forEach(x => { names[x.id] = x.name; });
+  }
+  const items = open.map(i => ({
+    id: i.id, campus: i.campus, title: i.title, deadline: i.deadline, plan_status: i.plan_status,
+    assignee_name: i.assignee_id ? (names[i.assignee_id] || '') : '',
+    days_late: diffDaysIso(i.deadline, today)   // > 0: đã trễ; ≤ 0: sắp tới hạn
+  }));
+  return { ok: true, today, events, items };
+}

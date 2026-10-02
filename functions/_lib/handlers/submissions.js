@@ -441,6 +441,9 @@ export async function handleGetSubmissions(supabase, p) {
   return { ok: true, data: list };
 }
 
+// Trọng số điểm tổng hợp trong báo cáo xếp hạng (cộng lại = 1). Đổi ở đây là đổi cả công thức.
+const RANK_WEIGHTS = { volume: 0.4, approval: 0.3, score: 0.3 };
+
 export async function handleGetReport(supabase, p) {
   // Ngày chọn trên form (yyyy-mm-dd) tính theo giờ Việt Nam, và "đến ngày" gồm trọn ngày đó
   // (trước đây lấy 00:00 UTC nên bỏ sót bài gửi trong ngày cuối kỳ).
@@ -453,7 +456,8 @@ export async function handleGetReport(supabase, p) {
   const { data, error } = await query;
   if (error) return { ok: false, error: error.message };
 
-  let list = data;
+  // Bài đã huỷ không tính vào báo cáo (khớp với bảng "Sản lượng theo cá nhân").
+  let list = data.filter(s => s.status !== 'cancelled');
   if (p.campus && p.campus !== 'all') {
     list = list.filter(s => s.campus === p.campus || s.is_shared === true);
   }
@@ -475,11 +479,15 @@ export async function handleGetReport(supabase, p) {
     if (['new', 'reviewing'].includes(s.status)) ctvMap[key].pending++;
   });
 
+  // Điểm tổng hợp (thang 100) = 40% sản lượng + 30% tỷ lệ duyệt + 30% điểm TB sếp chấm (thang 10 → 100).
+  // Sản lượng = số bài đã gửi trong kỳ so với người gửi nhiều nhất cùng kỳ (người nhiều nhất = 100).
+  const maxTotal = Math.max(1, ...Object.values(ctvMap).map(c => c.total));
   const ctvList = Object.values(ctvMap).map(c => {
     const approvalRate = c.total ? Math.round(c.approved / c.total * 100) : 0;
     const avgScore = c.scores.length ? Math.round(c.total_score / c.scores.length * 10) / 10 : 0;
-    const finalScore = Math.round((approvalRate * 0.5 + avgScore * 5) * 10) / 10;
-    return { ...c, approvalRate, avgScore, finalScore };
+    const volumeScore = Math.round(c.total / maxTotal * 100);
+    const finalScore = Math.round((volumeScore * RANK_WEIGHTS.volume + approvalRate * RANK_WEIGHTS.approval + avgScore * 10 * RANK_WEIGHTS.score) * 10) / 10;
+    return { ...c, approvalRate, avgScore, volumeScore, finalScore };
   });
   ctvList.sort((a, b) => b.finalScore - a.finalScore);
   ctvList.forEach((c, i) => c.rank = i + 1);

@@ -351,7 +351,7 @@
     <div class="nav-item" onclick="showPage('page-all',this)">📋 Tất cả bài</div>
     <span class="nav-section">Báo cáo</span>
     <div class="nav-item" onclick="showPage('page-report',this)">🏆 Báo cáo</div>
-    <div class="nav-item" onclick="showPage('page-overview',this)">📊 Tổng quan</div>
+    <div class="nav-item" onclick="showPage('page-overview',this)">✅ Việc cần làm <span class="badge" id="todo-badge" style="display:none">0</span></div>
     <span class="nav-section">Dùng chung</span>
     <div class="nav-item" onclick="location.href='plan.html'">🗓️ Kế hoạch & Lịch</div>
     <div class="nav-item" onclick="location.href='kb.html'">📚 Thông tin chuẩn</div>
@@ -460,7 +460,7 @@
           </table>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:10px">
-          * Điểm tổng hợp = 50% tỷ lệ duyệt + 50% điểm TB sếp chấm (thang 10)
+          * Điểm tổng hợp (thang 100) = 40% sản lượng (số bài gửi so với người gửi nhiều nhất kỳ) + 30% tỷ lệ duyệt + 30% điểm TB sếp chấm (thang 10 quy đổi sang 100). Xuất sắc ≥ 80 · Tốt ≥ 60 · Trung bình ≥ 40.
         </div>
       </div>
       <div class="card" id="ai-report-card" style="display:none">
@@ -477,13 +477,23 @@
 
     <!-- OVERVIEW -->
     <div class="page" id="page-overview">
-      <div class="page-header"><div><div class="page-title">Tổng quan</div><div class="page-sub">Hiệu suất toàn đội</div></div></div>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-num" id="ov-total">0</div><div class="stat-lbl">Tổng bài</div></div>
-        <div class="stat-card"><div class="stat-num" style="color:var(--green)" id="ov-approved">0</div><div class="stat-lbl">Đã duyệt</div></div>
-        <div class="stat-card"><div class="stat-num" style="color:var(--purple)" id="ov-revision">0</div><div class="stat-lbl">Cần sửa</div></div>
-        <div class="stat-card"><div class="stat-num" style="color:var(--red)" id="ov-rejected">0</div><div class="stat-lbl">Từ chối</div></div>
-        <div class="stat-card"><div class="stat-num" style="color:var(--amber)" id="ov-pending">0</div><div class="stat-lbl">Chờ duyệt</div></div>
+      <div class="page-header"><div><div class="page-title">Việc cần làm</div><div class="page-sub">Những việc cần xử lý hôm nay — cập nhật mỗi lần mở trang</div></div></div>
+      <div class="report-overview">
+        <div class="report-card"><div class="report-num" id="td-pending" style="color:var(--red)">0</div><div class="report-lbl">Bài chờ duyệt quá 1 ngày</div></div>
+        <div class="report-card"><div class="report-num" id="td-events" style="color:var(--amber)">0</div><div class="report-lbl">Sự kiện 14 ngày tới chưa có bài</div></div>
+        <div class="report-card"><div class="report-num" id="td-items" style="color:var(--purple)">0</div><div class="report-lbl">Đầu việc kế hoạch trễ / sắp tới hạn</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📥 Bài chờ duyệt quá hạn <span style="font-size:10px;font-weight:400;color:var(--text3)">(tính từ lúc gửi · vàng ≥ 1 ngày · đỏ ≥ 2 ngày)</span></div>
+        <div id="td-pending-list" style="font-size:13px;color:var(--text3)">Đang tải...</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📅 Sự kiện sắp diễn ra mà chưa có bài <span style="font-size:10px;font-weight:400;color:var(--text3)">(chưa có đầu việc nào gắn vào sự kiện)</span></div>
+        <div id="td-events-list" style="font-size:13px;color:var(--text3)">Đang tải...</div>
+      </div>
+      <div class="card">
+        <div class="card-title">⏰ Đầu việc Kế hoạch tháng trễ hoặc sắp tới hạn <span style="font-size:10px;font-weight:400;color:var(--text3)">(trễ: chưa làm / cần sửa / bị từ chối · sắp hạn: trong 3 ngày mà chưa làm)</span></div>
+        <div id="td-items-list" style="font-size:13px;color:var(--text3)">Đang tải...</div>
       </div>
     </div>
 
@@ -920,7 +930,7 @@ function showPage(id, el) {
   document.getElementById(id).classList.add('active');
   if(el) el.classList.add('active');
   if(id==='page-all') renderAll();
-  if(id==='page-overview') renderOverview();
+  if(id==='page-overview') loadTodo();
   if(id==='page-rules') renderRulesPage();
   if(id==='page-docs') loadDocumentsPage();
   closeMobileSidebar();
@@ -1745,7 +1755,7 @@ function renderReport(res) {
   document.getElementById('prod-card').style.display = 'block';
   renderProduction();
 
-  const evalLabel = s => s>=8?'⭐ Xuất sắc':s>=6?'👍 Tốt':s>=4?'📈 Trung bình':'⚠️ Cần cải thiện';
+  const evalLabel = s => s>=80?'⭐ Xuất sắc':s>=60?'👍 Tốt':s>=40?'📈 Trung bình':'⚠️ Cần cải thiện';
   const tbody = document.getElementById('report-tbody');
   tbody.innerHTML = ctv_list.map(c => {
     const rankCls = c.rank===1?'rank-1':c.rank===2?'rank-2':c.rank===3?'rank-3':'rank-other';
@@ -1890,7 +1900,7 @@ function exportReport() {
   if (!reportData) { showToast('Tạo báo cáo trước'); return; }
   const rows = [['Hạng','Tên','Cơ sở','Tổng gửi','Đã duyệt','Tỷ lệ%','Điểm TB','Điểm TH','Đánh giá']];
   reportData.ctv_list.forEach(c => {
-    const ev = c.finalScore>=8?'Xuất sắc':c.finalScore>=6?'Tốt':c.finalScore>=4?'Trung bình':'Cần cải thiện';
+    const ev = c.finalScore>=80?'Xuất sắc':c.finalScore>=60?'Tốt':c.finalScore>=40?'Trung bình':'Cần cải thiện';
     rows.push([c.rank,c.name,c.campus,c.total,c.approved,c.approvalRate+'%',c.avgScore||0,c.finalScore,ev]);
   });
   const csv = rows.map(r=>r.join(',')).join('\n');
@@ -1942,12 +1952,74 @@ function exportSubmissionsDetail() {
 // ============================================================
 // OVERVIEW
 // ============================================================
-function renderOverview() {
-  document.getElementById('ov-total').textContent    = allSubs.length;
-  document.getElementById('ov-approved').textContent = allSubs.filter(s=>s.status==='approved').length;
-  document.getElementById('ov-revision').textContent = allSubs.filter(s=>s.status==='revision').length;
-  document.getElementById('ov-rejected').textContent = allSubs.filter(s=>s.status==='rejected').length;
-  document.getElementById('ov-pending').textContent  = allSubs.filter(s=>['new','reviewing'].includes(s.status)).length;
+// loadAll() gọi hàm này sau mỗi lần tải danh sách bài: chỉ cập nhật phần "bài chờ duyệt quá hạn" + huy hiệu menu.
+function renderOverview() { renderTodoPending(); }
+
+// ============================================================
+// VIỆC CẦN LÀM
+// ============================================================
+const TODO_CAMPUS = { hoa_lac: 'Hòa Lạc', tay_hn: 'Tây HN', chung: 'Cả 2' };
+const todoDate = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '';
+const todoRow = (inner, onclick) => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);font-size:13px${onclick ? ';cursor:pointer' : ''}" ${onclick ? `onclick="${onclick}"` : ''}>${inner}</div>`;
+const todoPill = (text, color, bg) => `<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;color:${color};background:${bg};white-space:nowrap">${text}</span>`;
+const todoEmpty = msg => `<div style="padding:6px 0;color:var(--text3)">🎉 ${msg}</div>`;
+
+function pendingOverdueList() {
+  const now = Date.now();
+  return (allSubs || [])
+    .filter(s => ['new', 'reviewing'].includes(s.status))
+    .map(s => ({ s, days: Math.floor((now - new Date(s.submitted_at)) / 86400000), mine: s.in_my_queue === true || s.in_my_queue === 'true' }))
+    .filter(x => x.days >= 1)
+    .sort((a, b) => (b.mine - a.mine) || (b.days - a.days));
+}
+
+function renderTodoPending() {
+  const list = pendingOverdueList();
+  const badge = document.getElementById('todo-badge');
+  if (badge) { badge.textContent = list.length; badge.style.display = list.length ? 'inline' : 'none'; }
+  const cnt = document.getElementById('td-pending'), box = document.getElementById('td-pending-list');
+  if (cnt) cnt.textContent = list.length;
+  if (!box) return;
+  box.style.color = '';
+  box.innerHTML = list.length ? list.map(({ s, days, mine }) => todoRow(
+    `<div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(s.title || '(không có tiêu đề)')}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${escHtml(s.user_name || '')} · ${TODO_CAMPUS[s.campus] || ''}${s.current_reviewer_name ? ' · đang chờ ' + escHtml(s.current_reviewer_name) : ''}</div></div>` +
+    (mine ? todoPill('Của bạn', 'var(--blue)', 'var(--blue-bg)') : '') +
+    (days >= 2 ? todoPill('Chờ ' + days + ' ngày', 'var(--red)', 'var(--red-bg)') : todoPill('Chờ ' + days + ' ngày', 'var(--amber)', 'var(--amber-bg)')),
+    `openTodoSubmission('${s.id}')`)).join('') : todoEmpty('Không có bài nào chờ duyệt quá 1 ngày.');
+}
+
+function openTodoSubmission(id) { window._deepLinkOpened = false; handleOpenDeepLink(id); }
+
+async function loadTodo() {
+  renderTodoPending();
+  const evBox = document.getElementById('td-events-list'), itBox = document.getElementById('td-items-list');
+  try {
+    const res = await callAPI({ action: 'get_todo' });
+    if (!res.ok) throw new Error(res.error || 'lỗi');
+    document.getElementById('td-events').textContent = res.events.length;
+    document.getElementById('td-items').textContent = res.items.length;
+    evBox.style.color = ''; itBox.style.color = '';
+    evBox.innerHTML = res.events.length ? res.events.map(e => todoRow(
+      `<b style="min-width:48px">${todoDate(e.start_date)}</b>
+       <div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(e.title)}</div>
+         <div style="font-size:11px;color:var(--text3);margin-top:2px">${TODO_CAMPUS[e.campus] || ''}${e.department ? ' · ' + escHtml(e.department) : ''}</div></div>` +
+      (e.status === 'cho_xac_nhan' ? todoPill('Chờ xác nhận', 'var(--amber)', 'var(--amber-bg)') : '') +
+      todoPill(e.days_left === 0 ? 'Hôm nay' : 'Còn ' + e.days_left + ' ngày', e.days_left <= 3 ? 'var(--red)' : 'var(--amber)', e.days_left <= 3 ? 'var(--red-bg)' : 'var(--amber-bg)') +
+      '<a href="plan.html" style="font-size:12px;color:var(--blue);text-decoration:none;white-space:nowrap">Tạo chuỗi bài →</a>')).join('')
+      : todoEmpty('Mọi sự kiện trong 14 ngày tới đều đã có bài.');
+    itBox.innerHTML = res.items.length ? res.items.map(i => todoRow(
+      `<b style="min-width:48px">${todoDate(i.deadline)}</b>
+       <div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(i.title)}</div>
+         <div style="font-size:11px;color:var(--text3);margin-top:2px">${TODO_CAMPUS[i.campus] || ''} · ${i.assignee_name ? escHtml(i.assignee_name) : 'Chưa giao cho ai'}${i.plan_status === 'can_sua' ? ' · cần sửa' : i.plan_status === 'tu_choi' ? ' · bị từ chối' : ''}</div></div>` +
+      (i.days_late > 0 ? todoPill('Trễ ' + i.days_late + ' ngày', 'var(--red)', 'var(--red-bg)')
+        : todoPill(i.days_late === 0 ? 'Hạn hôm nay' : 'Còn ' + (-i.days_late) + ' ngày', 'var(--amber)', 'var(--amber-bg)')) +
+      '<a href="plan.html" style="font-size:12px;color:var(--blue);text-decoration:none;white-space:nowrap">Mở kế hoạch →</a>')).join('')
+      : todoEmpty('Không có đầu việc nào trễ hoặc sắp tới hạn.');
+  } catch (e) {
+    const msg = '<span style="color:var(--red)">Không tải được dữ liệu kế hoạch. Thử lại sau.</span>';
+    evBox.innerHTML = msg; itBox.innerHTML = msg;
+  }
 }
 
 // ============================================================
