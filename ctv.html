@@ -195,6 +195,45 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
   .period-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
   .period-row input[type=date]{padding:6px 9px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;color:var(--text);outline:none;}
   .period-row input[type=date]:focus{border-color:var(--accent);}
+  .period-row input.vn-date{padding:6px 9px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;color:var(--text);outline:none;width:118px;}
+  .period-row input.vn-date:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg);}
+  .period-row input.vn-date.bad{border-color:var(--red);}
+  .vd-wrap{position:relative;display:inline-block;}
+  .vdp{position:absolute;z-index:60;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:10px;width:258px;}
+  .vdp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-weight:700;font-size:13px;color:var(--text);}
+  .vdp-nav{width:30px;height:30px;border-radius:50%;border:none;background:none;cursor:pointer;font-size:18px;color:var(--text2);}
+  .vdp-nav:hover{background:var(--surface2);}
+  .vdp-grid{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:12px;row-gap:1px;}
+  .vdp-grid .wd{font-size:10px;color:var(--text3);font-weight:600;padding-bottom:3px;}
+  .vdp-grid .md{height:30px;line-height:30px;border-radius:50%;cursor:pointer;color:var(--text);}
+  .vdp-grid .md:hover{background:var(--surface2);}
+  .vdp-grid .md.other{color:var(--border2);}
+  .vdp-grid .md.sun{color:var(--red);}
+  .vdp-grid .md.today{color:var(--accent);font-weight:700;}
+  .vdp-grid .md.pick{background:var(--blue);color:#fff;font-weight:700;}
+  .vdp-foot{display:flex;justify-content:space-between;margin-top:6px;}
+  .vdp-foot button{border:none;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--blue);padding:4px 8px;border-radius:6px;font-family:var(--font);}
+  .vdp-foot button:hover{background:var(--blue-bg);}
+  /* Bảng Sản lượng theo cá nhân — nhiều cột (kênh + trụ) nên cuộn ngang trong khung, cột tên cố định */
+  .prod-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--text2);}
+  .prod-toolbar select{padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;color:var(--text);background:var(--surface);}
+  .prod-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
+  .prod-table{border-collapse:collapse;width:100%;font-size:12px;}
+  .prod-table th,.prod-table td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .prod-table th{font-size:11px;font-weight:600;color:var(--text2);background:var(--surface2);white-space:normal;min-width:64px;vertical-align:bottom;line-height:1.35;}
+  .prod-table th.pil{min-width:118px;max-width:150px;}
+  .prod-table th.grp{text-align:center;border-left:1px solid var(--border);}
+  .prod-table td.sep,.prod-table th.sep{border-left:1px solid var(--border);}
+  .prod-table td.name,.prod-table th.name{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;min-width:130px;}
+  .prod-table th.name{background:var(--surface2);}
+  .prod-table tr.total td{font-weight:600;background:var(--surface2);}
+  .prod-table tr.total td.name{background:var(--surface2);}
+  .prod-table td.zero{color:var(--text3);}
+  .prod-note{font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6;}
+  .quick-range{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .quick-chip{padding:5px 13px;border-radius:20px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:12px;cursor:pointer;font-family:var(--font);}
+  .quick-chip:hover{background:var(--surface2);}
+  .quick-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
   .report-overview{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
   .report-card{background:var(--surface2);border-radius:var(--radius);padding:12px 14px;text-align:center;}
   .report-num{font-size:26px;font-weight:600;}
@@ -590,12 +629,33 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
     <!-- PAGE: Thống kê cá nhân -->
     <div class="page" id="page-stats">
       <div class="page-title">Thống kê cá nhân</div>
-      <div class="page-sub">Hiệu suất của bạn trong kỳ này</div>
+      <div class="page-sub">Báo cáo hiệu suất của riêng bạn theo kỳ — cùng cách tính với Báo cáo của người duyệt</div>
+      <div class="quick-range" id="quick-range"></div>
+      <div class="period-row">
+        <span style="font-size:12px;color:var(--text2)">Kỳ đánh giá:</span>
+        <input type="text" class="vn-date" id="from-date">
+        <span style="font-size:12px;color:var(--text2)">đến</span>
+        <input type="text" class="vn-date" id="to-date">
+        <button class="btn btn-accent btn-sm" onclick="loadMyReport()">📊 Xem thống kê</button>
+        <button class="btn btn-outline btn-sm" onclick="exportProduction()">📥 Xuất CSV</button>
+      </div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-num" id="ps-total">0</div><div class="stat-lbl">Tổng bài gửi</div></div>
         <div class="stat-card"><div class="stat-num" style="color:var(--green)" id="ps-approved">0</div><div class="stat-lbl">Đã duyệt</div></div>
         <div class="stat-card"><div class="stat-num" style="color:var(--purple)" id="ps-revision">0</div><div class="stat-lbl">Cần sửa</div></div>
         <div class="stat-card"><div class="stat-num" style="color:var(--accent)" id="ps-avg-score">--</div><div class="stat-lbl">Điểm TB sếp chấm</div></div>
+      </div>
+      <div class="card" id="prod-card">
+        <div class="card-title">📊 Sản lượng của tôi</div>
+        <div class="prod-toolbar">
+          <span>Tính:</span>
+          <select id="prod-scope" onchange="renderProduction()">
+            <option value="all">Tất cả bài đã gửi</option>
+            <option value="approved">Chỉ bài đã duyệt</option>
+          </select>
+        </div>
+        <div class="prod-wrap"><table class="prod-table" id="prod-table"></table></div>
+        <div class="prod-note" id="prod-note"></div>
       </div>
       <div class="card">
         <div class="card-title">📈 Tỷ lệ duyệt</div>
@@ -2064,26 +2124,238 @@ function renderHistory() {
   updateHistoryBadge();
 }
 
+// ---- Ô ngày kiểu Việt Nam (dd/mm/yyyy): gõ tay hoặc chọn trên bảng lịch, thứ Hai đầu tuần ----
+const VD = (() => {
+  const pad = n => String(n).padStart(2, '0');
+  const iso = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+  const fmt = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '';
+  const add = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const dow = s => (new Date(s + 'T00:00:00Z').getUTCDay() + 6) % 7;
+  const today = () => { const d = new Date(); return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); };
+  // '' = để trống, null = gõ sai, còn lại 'yyyy-mm-dd'
+  function parse(v) {
+    v = String(v || '').trim();
+    if (!v) return '';
+    const m = v.match(/^(\d{1,2})[\/\-.\s](\d{1,2})[\/\-.\s](\d{2}|\d{4})$/) || v.match(/^(\d{2})(\d{2})(\d{4})$/);
+    if (!m) return null;
+    let d = +m[1], mo = +m[2], y = +m[3];
+    if (y < 100) y += 2000;
+    const s = iso(y, mo, d), t = new Date(s + 'T00:00:00Z');
+    return t.getUTCMonth() + 1 === mo && t.getUTCDate() === d ? s : null;
+  }
+  let open = null;
+  function close() { if (open) { open.box.remove(); open = null; } }
+  function render() {
+    const { el, box, y, m } = open, picked = parse(el.value), t = today();
+    const first = iso(y, m, 1);
+    let d = add(first, -dow(first));
+    const cells = [];
+    for (let i = 0; i < 42; i++, d = add(d, 1)) {
+      if (i === 35 && d.slice(5, 7) !== pad(m)) break;
+      const cls = ['md', d.slice(5, 7) !== pad(m) ? 'other' : '', d === picked ? 'pick' : '', d === t ? 'today' : '', dow(d) === 6 ? 'sun' : ''].join(' ');
+      cells.push(`<div class="${cls}" data-d="${d}">${+d.slice(8)}</div>`);
+    }
+    box.innerHTML = `<div class="vdp-head"><button type="button" class="vdp-nav" data-nav="-1">‹</button><span>Tháng ${m}/${y}</span><button type="button" class="vdp-nav" data-nav="1">›</button></div>
+      <div class="vdp-grid">${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(w => `<div class="wd">${w}</div>`).join('')}${cells.join('')}</div>
+      <div class="vdp-foot"><button type="button" data-act="clear">Xoá</button><button type="button" data-act="today">Hôm nay</button></div>`;
+  }
+  function openFor(el) {
+    if (open && open.el === el) return;
+    close();
+    const cur = parse(el.value) || today();
+    const box = document.createElement('div');
+    box.className = 'vdp';
+    box.addEventListener('mousedown', e => e.preventDefault());
+    box.addEventListener('click', e => {
+      const nav = e.target.closest('[data-nav]'), day = e.target.closest('[data-d]'), act = e.target.closest('[data-act]');
+      if (nav) { let mm = open.m + +nav.dataset.nav, yy = open.y; if (mm < 1) { mm = 12; yy--; } if (mm > 12) { mm = 1; yy++; } open.m = mm; open.y = yy; render(); return; }
+      if (day || act) { el.value = day ? fmt(day.dataset.d) : act.dataset.act === 'today' ? fmt(today()) : ''; el.classList.remove('bad'); close(); }
+    });
+    el.parentNode.appendChild(box);
+    open = { el, box, y: +cur.slice(0, 4), m: +cur.slice(5, 7) };
+    render();
+  }
+  function setup(el) {
+    const wrap = document.createElement('span');
+    wrap.className = 'vd-wrap';
+    el.parentNode.insertBefore(wrap, el); wrap.appendChild(el);
+    el.placeholder = 'ngày/tháng/năm'; el.autocomplete = 'off'; el.inputMode = 'numeric';
+    el.addEventListener('focus', () => openFor(el));
+    el.addEventListener('click', () => openFor(el));
+    el.addEventListener('blur', () => { const v = parse(el.value); el.classList.toggle('bad', v === null); if (v) el.value = fmt(v); });
+    el.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Tab') close(); if (e.key === 'Enter') { e.preventDefault(); close(); el.blur(); } });
+  }
+  document.addEventListener('mousedown', e => { if (open && !open.box.contains(e.target) && e.target !== open.el) close(); });
+  const get = id => { const el = document.getElementById(id), v = parse(el.value); el.classList.toggle('bad', v === null); return v; };
+  const set = (id, s) => { const el = document.getElementById(id); el.value = fmt(s); el.classList.remove('bad'); };
+  return { setup, get, set, iso, fmt };
+})();
+document.querySelectorAll('input.vn-date').forEach(VD.setup);
+
+// ---- Chọn nhanh kỳ đánh giá: tháng này/trước, tuần này/trước (thứ Hai → Chủ nhật), năm nay/trước ----
+const QUICK_RANGES = [['this_month', 'Tháng này'], ['last_month', 'Tháng trước'], ['this_week', 'Tuần này'], ['last_week', 'Tuần trước'], ['this_year', 'Năm nay'], ['last_year', 'Năm trước']];
+function quickRangeDates(kind) {
+  const t = new Date(), y = t.getFullYear(), m = t.getMonth(), d = t.getDate();
+  const mon = new Date(y, m, d - ((t.getDay() + 6) % 7));   // thứ Hai của tuần này (giờ máy)
+  let a, b;
+  if (kind === 'this_month') { a = new Date(y, m, 1); b = new Date(y, m + 1, 0); }
+  else if (kind === 'last_month') { a = new Date(y, m - 1, 1); b = new Date(y, m, 0); }
+  else if (kind === 'this_week') { a = mon; b = new Date(y, mon.getMonth(), mon.getDate() + 6); }
+  else if (kind === 'last_week') { a = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() - 7); b = new Date(a.getFullYear(), a.getMonth(), a.getDate() + 6); }
+  else if (kind === 'this_year') { a = new Date(y, 0, 1); b = new Date(y, 11, 31); }
+  else { a = new Date(y - 1, 0, 1); b = new Date(y - 1, 11, 31); }
+  const iso = x => VD.iso(x.getFullYear(), x.getMonth() + 1, x.getDate());
+  return { from: iso(a), to: iso(b) };
+}
+// Nút nào khớp đúng kỳ đang chọn thì sáng lên (gõ ngày tay khác các kỳ này thì không nút nào sáng).
+function renderQuickChips() {
+  const el = document.getElementById('quick-range');
+  if (!el) return;
+  const from = VD.get('from-date'), to = VD.get('to-date');
+  el.innerHTML = QUICK_RANGES.map(([k, l]) => {
+    const r = quickRangeDates(k);
+    return `<button type="button" class="quick-chip${r.from === from && r.to === to ? ' active' : ''}" onclick="applyQuickRange('${k}')">${l}</button>`;
+  }).join('');
+}
+function applyQuickRange(kind) {
+  const r = quickRangeDates(kind);
+  VD.set('from-date', r.from); VD.set('to-date', r.to);
+  renderQuickChips();
+  loadMyReport();
+}
+
+// ---- Sản lượng của tôi (cùng cách tính với bảng "Sản lượng theo cá nhân" ở trang Báo cáo) ----
+const PROD_CHANNELS = [['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok'],['youtube','Youtube'],['zalo','Zalo'],['web','Website'],['email','Email'],['sms','SMS']];
+const NO_PILLAR = '__none__';
+
+function buildProduction() {
+  const res = myReportData || {};
+  const scope = document.getElementById('prod-scope').value;
+  const campus = '';
+  const items = (res.items || []).filter(s => (scope !== 'approved' || s.status === 'approved') && (!campus || s.campus === campus));
+  const planItems = (res.plan_items || []).filter(i => !campus || i.campus === campus);
+  const nameOf = {};
+  (allUsers || []).forEach(u => { nameOf[u.id] = u.name; });
+
+  const rows = {};
+  const row = (id, name) => rows[id] || (rows[id] = { id, name: name || nameOf[id] || '(không rõ)', total: 0, multi: 0, ch: {}, pil: {}, assigned: 0, done: 0 });
+  items.forEach(s => {
+    const r = row(s.user_id, s.user_name);
+    r.total++;
+    const chs = [...new Set(s.platform || [])];
+    if (chs.length > 1) r.multi++;   // bài đăng từ 2 kênh trở lên
+    chs.forEach(c => { r.ch[c] = (r.ch[c] || 0) + 1; });
+    const pk = s.pillar_id || NO_PILLAR;
+    r.pil[pk] = (r.pil[pk] || 0) + 1;
+  });
+  planItems.filter(i => i.assignee_id).forEach(i => {
+    const r = row(i.assignee_id);
+    r.assigned++;
+    if (['da_duyet', 'da_dang'].includes(i.plan_status)) r.done++;
+  });
+
+  // Chỉ hiện cột kênh có số liệu; cột trụ hiện đủ các trụ đang dùng (để thấy trụ nào bị bỏ trống).
+  const usedCh = new Set(items.flatMap(s => s.platform || []));
+  const channels = PROD_CHANNELS.filter(([k]) => usedCh.has(k));
+  const pillars = (res.pillars || []).filter(p => p.active !== false || items.some(s => s.pillar_id === p.id));
+  const pillarCols = pillars.map(p => [p.id, p.name]);
+  if (items.some(s => !s.pillar_id)) pillarCols.push([NO_PILLAR, 'Chưa phân loại']);
+
+  const list = Object.values(rows).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'vi'));
+  const total = { name: 'Tổng', total: 0, multi: 0, ch: {}, pil: {}, assigned: 0, done: 0 };
+  list.forEach(r => {
+    total.total += r.total; total.multi += r.multi; total.assigned += r.assigned; total.done += r.done;
+    Object.keys(r.ch).forEach(k => { total.ch[k] = (total.ch[k] || 0) + r.ch[k]; });
+    Object.keys(r.pil).forEach(k => { total.pil[k] = (total.pil[k] || 0) + r.pil[k]; });
+  });
+  return { list, total, channels, pillarCols, hasPlan: planItems.length > 0, scope };
+}
+
+function renderProduction() {
+  if (!myReportData) return;
+  const { list, total, channels, pillarCols, hasPlan, scope } = buildProduction();
+  const table = document.getElementById('prod-table');
+  const note = document.getElementById('prod-note');
+  if (!list.length) {
+    table.innerHTML = '<tr><td style="padding:16px;color:var(--text3)">Không có bài nào trong kỳ này.</td></tr>';
+    note.textContent = '';
+    return;
+  }
+  const n = v => v ? `<td>${v}</td>` : '<td class="zero">–</td>';
+  const nSep = v => v ? `<td class="sep">${v}</td>` : '<td class="sep zero">–</td>';
+  const cells = r =>
+    channels.map(([k], i) => (i === 0 ? nSep : n)(r.ch[k] || 0)).join('') +
+    pillarCols.map(([k], i) => (i === 0 ? nSep : n)(r.pil[k] || 0)).join('') +
+    (hasPlan ? nSep(r.assigned) + n(r.done) : '');
+  const head1 = `<tr><th class="name" rowspan="2">Người viết</th><th rowspan="2">Tổng bài</th><th rowspan="2" title="Số bài đăng từ 2 kênh trở lên">Đăng nhiều kênh</th>` +
+    (channels.length ? `<th class="grp" colspan="${channels.length}">Theo kênh đăng</th>` : '') +
+    `<th class="grp" colspan="${pillarCols.length}">Theo trụ content</th>` +
+    (hasPlan ? `<th class="grp" colspan="2">Theo kế hoạch tháng</th>` : '') + '</tr>';
+  const head2 = '<tr>' +
+    channels.map(([, l], i) => `<th${i === 0 ? ' class="sep"' : ''}>${l}</th>`).join('') +
+    pillarCols.map(([, l], i) => `<th class="pil${i === 0 ? ' sep' : ''}">${escHtml(l)}</th>`).join('') +
+    (hasPlan ? '<th class="sep">Được giao</th><th>Đã xong</th>' : '') + '</tr>';
+  table.innerHTML = `<thead>${head1}${head2}</thead><tbody>` +
+    list.map(r => `<tr><td class="name">${escHtml(r.name)}</td><td><b>${r.total}</b></td>${n(r.multi)}${cells(r)}</tr>`).join('') +
+    '</tbody>';
+  note.innerHTML = [
+    scope === 'approved' ? 'Chỉ đếm bài có trạng thái "Đã duyệt".' : 'Đếm mọi bài đã gửi trong kỳ (kể cả đang duyệt, cần sửa, từ chối; không tính bài đã huỷ). Bài gửi lại nhiều lần vẫn tính 1 bài.',
+    '"Đăng nhiều kênh": số bài đăng từ 2 kênh trở lên. Bài đó được đếm ở MỖI kênh, nên tổng các cột kênh có thể lớn hơn "Tổng bài".',
+    pillarCols.some(([k]) => k === NO_PILLAR) ? '"Chưa phân loại": bài gửi trước khi form có ô Trụ content.' : '',
+    hasPlan ? '"Được giao / Đã xong": đầu việc trong Kế hoạch tháng của các tháng thuộc kỳ; "Đã xong" = bài đã duyệt hoặc đã đăng.' : 'Chưa có đầu việc Kế hoạch tháng nào trong kỳ này.'
+  ].filter(Boolean).join('<br>');
+}
+
+function exportProduction() {
+  if (!myReportData) { showToast('Xem thống kê trước'); return; }
+  const { list, total, channels, pillarCols, hasPlan } = buildProduction();
+  const header = ['Người viết', 'Tổng bài', 'Đăng nhiều kênh', ...channels.map(([, l]) => 'Kênh: ' + l), ...pillarCols.map(([, l]) => 'Trụ: ' + l), ...(hasPlan ? ['Được giao', 'Đã xong'] : [])];
+  const line = r => [r.name, r.total, r.multi, ...channels.map(([k]) => r.ch[k] || 0), ...pillarCols.map(([k]) => r.pil[k] || 0), ...(hasPlan ? [r.assigned, r.done] : [])];
+  const rows = [header, ...list.map(line), line(total)];
+  const csv = '﻿' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `thong-ke-ca-nhan-${myReportData.period.from}_${myReportData.period.to}.csv`;
+  a.click();
+}
+
+
+// "Thống kê cá nhân": kỳ mặc định = tháng này; số liệu lấy từ get_my_report (chỉ bài của chính mình).
+let myReportData = null;
 function renderStats() {
-  const total    = mySubmissions.length;
-  const approved = mySubmissions.filter(s=>s.status==='approved').length;
-  const revision = mySubmissions.filter(s=>s.status==='revision').length;
-  const scores   = mySubmissions.filter(s=>s.score&&!isNaN(parseFloat(s.score))).map(s=>parseFloat(s.score));
-  const avgScore = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : '--';
-  const rate     = total ? Math.round(approved/total*100) : 0;
-
-  document.getElementById('ps-total').textContent = total;
-  document.getElementById('ps-approved').textContent = approved;
-  document.getElementById('ps-revision').textContent = revision;
-  document.getElementById('ps-avg-score').textContent = avgScore;
-  document.getElementById('approval-fill').style.width = rate + '%';
-  document.getElementById('approval-text').textContent = `${approved}/${total} bài được duyệt (${rate}%)`;
-
+  if (!document.getElementById('from-date').value) {
+    const r = quickRangeDates('this_month');
+    VD.set('from-date', r.from); VD.set('to-date', r.to);
+  }
+  loadMyReport();
   const withComment = mySubmissions.find(s=>s.comment&&s.status!=='new');
   const commentEl = document.getElementById('latest-comment');
   if (withComment) {
     commentEl.innerHTML = `<div class="boss-comment">${withComment.comment}</div><div style="font-size:11px;color:var(--text3);margin-top:5px">Bài: ${withComment.title}</div>`;
   }
+}
+
+async function loadMyReport() {
+  const from = VD.get('from-date'), to = VD.get('to-date');
+  if (from === null || to === null) { showToast('⚠️ Ngày chưa đúng dạng ngày/tháng/năm'); return; }
+  if (!from || !to) { showToast('⚠️ Chọn kỳ đánh giá'); return; }
+  if (to < from) { showToast('⚠️ "Đến ngày" phải sau "Từ ngày"'); return; }
+  renderQuickChips();
+  try {
+    const res = await callBackend({ action: 'get_my_report', from, to });
+    if (!res || !res.ok) { showToast('❌ ' + ((res && res.error) || 'Không tải được thống kê')); return; }
+    myReportData = res;
+    const o = res.overview || {}, me = (res.ctv_list || [])[0] || {};
+    const total = o.total || 0, approved = o.approved || 0;
+    const rate = total ? Math.round(approved / total * 100) : 0;
+    document.getElementById('ps-total').textContent = total;
+    document.getElementById('ps-approved').textContent = approved;
+    document.getElementById('ps-revision').textContent = o.revision || 0;
+    document.getElementById('ps-avg-score').textContent = me.avgScore ? me.avgScore : '--';
+    document.getElementById('approval-fill').style.width = rate + '%';
+    document.getElementById('approval-text').textContent = total ? `${approved}/${total} bài được duyệt (${rate}%)` : 'Chưa có bài nào trong kỳ này';
+    renderProduction();
+  } catch (e) { showToast('❌ Lỗi tải thống kê'); }
 }
 
 function showComment(id) {

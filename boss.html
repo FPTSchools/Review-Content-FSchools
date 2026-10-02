@@ -192,6 +192,10 @@
   .empty-state{text-align:center;padding:24px 16px;color:var(--text3);font-size:13px;}
   .period-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
   .period-row input.vn-date{padding:6px 9px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;color:var(--text);outline:none;width:118px;}
+  .quick-range{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .quick-chip{padding:5px 13px;border-radius:20px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:12px;cursor:pointer;font-family:var(--font);}
+  .quick-chip:hover{background:var(--surface2);}
+  .quick-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
   .period-row input.vn-date:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg);}
   .period-row input.vn-date.bad{border-color:var(--red);}
   /* Bảng chọn ngày kiểu Việt Nam (dd/mm/yyyy, thứ Hai đầu tuần) — thay <input type="date"> vì trình duyệt
@@ -346,7 +350,7 @@
     <div class="nav-item active" onclick="showPage('page-queue',this)">📥 Hàng chờ <span class="badge" id="badge-count">0</span></div>
     <div class="nav-item" onclick="showPage('page-all',this)">📋 Tất cả bài</div>
     <span class="nav-section">Báo cáo</span>
-    <div class="nav-item" onclick="showPage('page-report',this)">🏆 Báo cáo cuối kỳ</div>
+    <div class="nav-item" onclick="showPage('page-report',this)">🏆 Báo cáo</div>
     <div class="nav-item" onclick="showPage('page-overview',this)">📊 Tổng quan</div>
     <span class="nav-section">Dùng chung</span>
     <div class="nav-item" onclick="location.href='plan.html'">🗓️ Kế hoạch & Lịch</div>
@@ -406,9 +410,10 @@
       <div id="all-detail-panel"></div>
     </div>
 
-    <!-- REPORT cuối kỳ -->
+    <!-- BÁO CÁO -->
     <div class="page" id="page-report">
-      <div class="page-header"><div><div class="page-title">Báo cáo đánh giá cuối kỳ</div><div class="page-sub">Xếp hạng CTV theo hiệu suất</div></div></div>
+      <div class="page-header"><div><div class="page-title">Báo cáo</div><div class="page-sub">Xếp hạng CTV theo hiệu suất</div></div></div>
+      <div class="quick-range" id="quick-range"></div>
       <div class="period-row">
         <span style="font-size:12px;color:var(--text2)">Kỳ đánh giá:</span>
         <input type="text" class="vn-date" id="from-date">
@@ -856,6 +861,39 @@ const VD = (() => {
 })();
 document.querySelectorAll('input.vn-date').forEach(VD.setup);
 
+
+// ---- Chọn nhanh kỳ đánh giá: tháng này/trước, tuần này/trước (thứ Hai → Chủ nhật), năm nay/trước ----
+const QUICK_RANGES = [['this_month', 'Tháng này'], ['last_month', 'Tháng trước'], ['this_week', 'Tuần này'], ['last_week', 'Tuần trước'], ['this_year', 'Năm nay'], ['last_year', 'Năm trước']];
+function quickRangeDates(kind) {
+  const t = new Date(), y = t.getFullYear(), m = t.getMonth(), d = t.getDate();
+  const mon = new Date(y, m, d - ((t.getDay() + 6) % 7));   // thứ Hai của tuần này (giờ máy)
+  let a, b;
+  if (kind === 'this_month') { a = new Date(y, m, 1); b = new Date(y, m + 1, 0); }
+  else if (kind === 'last_month') { a = new Date(y, m - 1, 1); b = new Date(y, m, 0); }
+  else if (kind === 'this_week') { a = mon; b = new Date(y, mon.getMonth(), mon.getDate() + 6); }
+  else if (kind === 'last_week') { a = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() - 7); b = new Date(a.getFullYear(), a.getMonth(), a.getDate() + 6); }
+  else if (kind === 'this_year') { a = new Date(y, 0, 1); b = new Date(y, 11, 31); }
+  else { a = new Date(y - 1, 0, 1); b = new Date(y - 1, 11, 31); }
+  const iso = x => VD.iso(x.getFullYear(), x.getMonth() + 1, x.getDate());
+  return { from: iso(a), to: iso(b) };
+}
+// Nút nào khớp đúng kỳ đang chọn thì sáng lên (gõ ngày tay khác các kỳ này thì không nút nào sáng).
+function renderQuickChips() {
+  const el = document.getElementById('quick-range');
+  if (!el) return;
+  const from = VD.get('from-date'), to = VD.get('to-date');
+  el.innerHTML = QUICK_RANGES.map(([k, l]) => {
+    const r = quickRangeDates(k);
+    return `<button type="button" class="quick-chip${r.from === from && r.to === to ? ' active' : ''}" onclick="applyQuickRange('${k}')">${l}</button>`;
+  }).join('');
+}
+function applyQuickRange(kind) {
+  const r = quickRangeDates(kind);
+  VD.set('from-date', r.from); VD.set('to-date', r.to);
+  renderQuickChips();
+  loadReport();
+}
+
 // Kỳ báo cáo (yyyy-mm-dd) — trả null và báo lỗi nếu ô ngày gõ sai.
 function reportPeriod() {
   const from = VD.get('from-date'), to = VD.get('to-date');
@@ -870,6 +908,7 @@ function setDefaultDates() {
   // Lấy theo giờ máy (không qua toISOString — ở giờ Việt Nam sẽ lùi 1 ngày, vd 01/09 thành 31/08).
   VD.set('from-date', VD.iso(y, m + 1, 1));
   VD.set('to-date', VD.iso(y, m + 1, new Date(y, m + 1, 0).getDate()));
+  renderQuickChips();
 }
 
 // ============================================================
@@ -1608,11 +1647,12 @@ async function changeReviewer(id) {
 }
 
 // ============================================================
-// REPORT cuối kỳ
+// BÁO CÁO
 // ============================================================
 async function loadReport() {
   const period = reportPeriod();
   if (!period) return;
+  renderQuickChips();
   const { from, to } = period;
   if (!from||!to) { showToast('Chọn kỳ đánh giá'); return; }
 
@@ -1857,7 +1897,7 @@ function exportReport() {
   const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a'); a.href=url;
-  a.download=`bao-cao-cuoi-ky-${(reportData.period && reportData.period.from) || ''}.csv`;
+  a.download=`bao-cao-${(reportData.period && reportData.period.from) || ''}.csv`;
   a.click(); URL.revokeObjectURL(url);
 }
 

@@ -87,6 +87,7 @@ async function routeAction(p, supabase, env) {
     case 'save_inline_comments': return submissions.handleSaveInlineComments(supabase, p);
     case 'get_submissions': return submissions.handleGetSubmissions(supabase, p);
     case 'get_report': return submissions.handleGetReport(supabase, p);
+    case 'get_my_report': return submissions.handleGetMyReport(supabase, p);
     case 'get_ai_accuracy_report': return handleGetAiAccuracyReport(supabase, p);
     case 'check_submit_result': return submissions.handleCheckSubmitResult(supabase, p);
     case 'get_submission_versions': return handleGetSubmissionVersions(supabase, p);

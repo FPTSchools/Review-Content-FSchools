@@ -441,7 +441,8 @@ export async function handleGetSubmissions(supabase, p) {
   return { ok: true, data: list };
 }
 
-export async function handleGetReport(supabase, p) {
+// onlyUserId: chỉ tính bài/đầu việc của 1 người (dùng cho "Thống kê cá nhân" — xem handleGetMyReport).
+export async function handleGetReport(supabase, p, onlyUserId) {
   // Ngày chọn trên form (yyyy-mm-dd) tính theo giờ Việt Nam, và "đến ngày" gồm trọn ngày đó
   // (trước đây lấy 00:00 UTC nên bỏ sót bài gửi trong ngày cuối kỳ).
   const dayOnly = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
@@ -450,6 +451,7 @@ export async function handleGetReport(supabase, p) {
   let query = supabase.from('submissions').select('*');
   if (fromIso) query = query.gte('submitted_at', fromIso);
   if (toIso) query = query.lte('submitted_at', toIso);
+  if (onlyUserId) query = query.eq('user_id', onlyUserId);
   const { data, error } = await query;
   if (error) return { ok: false, error: error.message };
 
@@ -502,11 +504,18 @@ export async function handleGetReport(supabase, p) {
   }));
   const [{ data: pillars }, planItems] = await Promise.all([
     supabase.from('content_pillars').select('id, name, sort_order, active').order('sort_order'),
-    getPlanItemsForReport(supabase, p.from, p.to).catch(() => [])
+    getPlanItemsForReport(supabase, p.from, p.to).then(l => (onlyUserId ? l.filter(i => String(i.assignee_id) === String(onlyUserId)) : l)).catch(() => [])
   ]);
 
   return {
     ok: true, overview, ctv_list: ctvList, period: { from: p.from, to: p.to },
     items, pillars: pillars || [], plan_items: planItems
   };
+}
+
+// Báo cáo của CHÍNH MÌNH cùng định dạng với get_report, nhưng không bao giờ trả dữ liệu người khác:
+// user_id lấy từ phiên đăng nhập (bindIdentity ép p.user_id), không đọc từ tham số trình duyệt.
+export async function handleGetMyReport(supabase, p) {
+  if (!p.user_id) return { ok: false, error: 'Chưa đăng nhập' };
+  return handleGetReport(supabase, { from: p.from, to: p.to }, p.user_id);
 }
