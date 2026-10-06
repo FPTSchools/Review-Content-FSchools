@@ -1,0 +1,58 @@
+<!-- Chạy thử thủ công: mở http://localhost:8788/tests/richtext-test (wrangler pages dev) — tiêu đề tab = ALLPASS nếu mọi kiểm tra đạt. Không được đưa lên web (không nằm trong PUBLIC_FILES). -->
+<!doctype html><meta charset="utf-8"><title>richtext tests</title>
+<div id="ed" contenteditable></div><pre id="out"></pre>
+<script src="../richtext.js"></script>
+<script>
+const R = [];
+const ok = (name, cond, extra) => R.push((cond ? 'PASS ' : 'FAIL ') + name + (cond ? '' : ' :: ' + (extra || '')));
+const ed = document.getElementById('ed');
+function roundTrip(raw) { ed.innerHTML = rawToEditorHtml(raw); return serializeEditableContent(ed); }
+const samples = {
+  plain: 'Dòng 1\nDòng 2\n\nDòng 4',
+  basic: '**đậm** và *nghiêng* và __gạch chân__ và ~~gạch ngang~~ và ***cả hai***',
+  size: '[size=20]To[/size] thường [size=12]nhỏ[/size]',
+  combo: '[size=16][font=Arial][color=#C0392B][bg=#FEF08A]__~~**Rất nhiều**~~__[/bg][/color][/font][/size] hết',
+  link: 'Xem [link=https://fschools.vn/a-b/c]trang chủ[/link] nhé',
+  table: 'Trước\n[table=h]\nHạng | Tên | Điểm\n1 | **A** | 80\n2 | B \\| C | [color=#00843D]90[/color]\n[/table]\nSau bảng',
+  tableBlank: 'A\n[table]\nx | y\n[/table]\n\nB',
+  tableStart: '[table=h]\na | b\n[/table]',
+  list: '• Một\n• Hai\n1. Ba\n2. Bốn'
+};
+for (const k in samples) { const out = roundTrip(samples[k]); ok('roundtrip ' + k, out === samples[k], JSON.stringify(out)); }
+// render
+let h = renderTextFormatting(escHtml0(samples.table));
+function escHtml0(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+ok('render table th', /<th>Hạng<\/th>/.test(h) && /<td><b>A<\/b><\/td>/.test(h) && /B \| C/.test(h), h);
+h = renderTextFormatting(escHtml0(samples.link));
+ok('render link safe href', /href="https:\/\/fschools\.vn\/a%5Fb%2Ac"/.test(h) && !/<i>/.test(h), h);
+h = renderTextFormatting(escHtml0('[font=Comic Sans]x[/font] [link=javascript:alert(1)]bad[/link] [color=red]r[/color]'));
+ok('render unknown font/js link/bad color stay inert', !/<a /.test(h) && !/font-family/.test(h) && !/style="color/.test(h), h);
+h = renderTextFormatting(escHtml0('<img src=x onerror=alert(1)> [link=https://a.com/"onmouseover="x]t[/link]'));
+ok('xss escaped', !/<img/.test(h) && !/onmouseover=/.test(h.replace(/&quot;/g,'')) || !/"onmouseover/.test(h), h);
+// offsets + visible
+for (const k in samples) {
+  const raw = samples[k];
+  const d = document.createElement('div'); d.innerHTML = renderSelectableFormatted(raw, [], 'n-');
+  ok('selectable text == raw ' + k, d.textContent === raw, JSON.stringify(d.textContent));
+}
+ok('visible combo', visibleTextOf(samples.combo) === 'Rất nhiều hết', visibleTextOf(samples.combo));
+ok('visible table', visibleTextOf(samples.table).indexOf('[table') < 0 && visibleTextOf(samples.table).indexOf('Hạng | Tên') >= 0, visibleTextOf(samples.table));
+ok('visible link', visibleTextOf(samples.link) === 'Xem trang chủ nhé', visibleTextOf(samples.link));
+// comment highlight keeps range
+const raw2 = samples.combo; const s0 = raw2.indexOf('Rất'); const d2 = document.createElement('div');
+d2.innerHTML = renderSelectableFormatted(raw2, [{id:'c1', start:s0, end:s0+3}], 'n-');
+const hl = d2.querySelector('.ic-highlight'); ok('highlight text', hl && hl.textContent === 'Rất', hl && hl.textContent);
+ok('hasFormattingMarkup', hasFormattingMarkup('[color=#FFFFFF]x') && hasFormattingMarkup('~~x~~') && !hasFormattingMarkup('chữ thường'));
+// paste: Google Docs style
+const gdocs = '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-1"><p dir="ltr" style="line-height:1.38;margin-top:0pt"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;text-decoration:none;">Xin chào </span><span style="font-size:11pt;font-family:Arial,sans-serif;color:#cc0000;font-weight:700;">quan trọng</span></p><p dir="ltr"><span style="font-family:Georgia,serif;font-size:11pt;font-style:italic">Ghi chú</span></p><ul><li><span style="font-family:Arial">Mục A</span></li><li>Mục B</li></ul><p><a href="https://fschools.vn/x" style="color:#1155cc;text-decoration:underline"><span style="font-family:Arial">Link</span></a></p></b>';
+let p = pastedHtmlToEditorHtml(gdocs); ed.innerHTML = p; let praw = serializeEditableContent(ed);
+ok('paste gdocs base font dropped, color/bold kept', praw.indexOf('[font=Arial]') < 0 && /\[color=#CC0000\]\*\*quan trọng\*\*\[\/color\]/.test(praw) && /Xin chào /.test(praw), praw);
+ok('paste gdocs other font italic', /\[font=Georgia\]\*Ghi chú\*\[\/font\]/.test(praw), praw);
+ok('paste list -> bullets', /• Mục A\n• Mục B/.test(praw), praw);
+ok('paste link', /\[link=https:\/\/fschools\.vn\/x\]Link\[\/link\]/.test(praw), praw);
+const word = '<html><body><p class=MsoNormal><b>Tiêu đề</b></p>\n<table border=1><tr><td><p>Cột 1</p></td><td><p>Cột 2</p></td></tr><tr><td>a</td><td>b | c</td></tr></table>\n<p>Hết</p></body></html>';
+p = pastedHtmlToEditorHtml(word); ed.innerHTML = p; praw = serializeEditableContent(ed);
+ok('paste word table', /\[table\]\nCột 1 \| Cột 2\na \| b \\| c\n\[\/table\]/.test(praw) && /^\*\*Tiêu đề\*\*\n/.test(praw) && /Hết$/.test(praw), JSON.stringify(praw));
+ok('paste strips junk', pastedHtmlToEditorHtml('<scr'+'ipt>alert(1)</scr'+'ipt><style>p{}</style><img src=x>') === '', pastedHtmlToEditorHtml('<scr'+'ipt>alert(1)</scr'+'ipt><style>p{}</style><img src=x>'));
+document.getElementById('out').textContent = R.join('\n'); document.title = R.some(x=>x.startsWith('FAIL')) ? 'FAIL' : 'ALLPASS';
+</script>

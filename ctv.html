@@ -297,10 +297,36 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
   .ic-note-del{position:absolute;top:4px;right:6px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;}
   /* Form layout additions */
   .form-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-  .content-editable{width:100%;min-height:220px;max-height:520px;overflow-y:auto;resize:vertical;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:13px;line-height:1.7;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s;box-sizing:border-box;}
+  .content-editable{width:100%;min-height:clamp(380px,58vh,720px);max-height:none;overflow-y:visible;resize:vertical;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:14.5px;line-height:1.75;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s;box-sizing:border-box;}
   .content-editable:focus{border-color:var(--accent);}
   .content-editable:empty:before{content:attr(data-placeholder);color:var(--text3);}
-  .rt-toolbar{display:flex;gap:5px;align-items:center;margin-bottom:6px;flex-wrap:wrap;}
+  .rt-toolbar{display:flex;gap:5px;align-items:center;margin-bottom:6px;flex-wrap:wrap;position:sticky;top:0;z-index:20;background:var(--surface);padding:7px 8px;border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 2px 6px rgba(0,0,0,.05);}
+  .rt-sep{width:1px;height:20px;background:var(--border2);margin:0 3px;}
+  .rt-btn-wide{width:auto;padding:0 9px;font-size:12px;white-space:nowrap;}
+  .rt-colorbar{display:block;height:3px;border-radius:2px;margin:1px 5px 0;background:var(--accent);}
+  .rt-hl{background:#FEF08A;padding:0 3px;border-radius:2px;font-weight:600;}
+  #rt-font{width:auto;max-width:150px;padding:5px 8px;font-size:12px;height:28px;}
+  .rt-table-bar{display:none;gap:5px;align-items:center;flex-wrap:wrap;margin:-2px 0 6px;padding:6px 8px;background:var(--blue-bg);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--blue);}
+  .rt-table-bar.show{display:flex;}
+  .rt-table-bar button{padding:3px 9px;font-size:12px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);cursor:pointer;font-family:var(--font);color:var(--text);}
+  .rt-table-bar button:hover{background:var(--surface2);}
+  .rt-table-bar button.danger{color:var(--red);}
+  .rt-hint{display:none;font-size:11.5px;color:var(--amber);background:var(--amber-bg);border-radius:var(--radius);padding:6px 10px;margin-bottom:6px;line-height:1.5;}
+  .rt-pop{position:fixed;z-index:400;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px;min-width:180px;font-size:12px;}
+  .rt-pop .rt-pop-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:7px;}
+  .rt-swatches{display:grid;grid-template-columns:repeat(4,26px);gap:6px;margin-bottom:8px;}
+  .rt-swatch{width:26px;height:26px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--border2);cursor:pointer;padding:0;}
+  .rt-swatch:hover{transform:scale(1.12);}
+  .rt-pop-row{display:flex;gap:6px;align-items:center;margin-top:6px;}
+  .rt-pop input[type=text]{flex:1;min-width:220px;padding:6px 9px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:12px;}
+  .rt-pop button.rt-pop-btn{padding:5px 11px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface);cursor:pointer;font-family:var(--font);}
+  .rt-pop button.rt-pop-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .rt-tgrid{display:grid;grid-template-columns:repeat(8,20px);gap:3px;}
+  .rt-tcell{width:20px;height:20px;border:1px solid var(--border2);border-radius:3px;background:var(--surface);cursor:pointer;}
+  .rt-tcell.on{background:var(--accent-bg);border-color:var(--accent);}
+  #content-field.rt-expanded{position:fixed;inset:0;z-index:300;background:var(--bg);padding:14px 20px;overflow:auto;display:flex;flex-direction:column;margin:0;}
+  #content-field.rt-expanded .content-editable{flex:1;min-height:55vh;font-size:15.5px;}
+  @media (max-width:700px){.rt-toolbar{flex-wrap:nowrap;overflow-x:auto;}}
   .rt-btn{width:30px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:13px;color:var(--text);font-family:var(--font);}
   .rt-btn:hover{background:var(--surface2,#f1f5f9);}
   .rt-btn.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);}
@@ -512,22 +538,53 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
             <div id="aiw-result"></div>
           </div>
         </div>
-        <!-- Nội dung (ô to) -->
-        <div class="field">
+        <!-- Nội dung (ô to) — soạn trực tiếp tại đây, không cần soạn nơi khác rồi dán vào -->
+        <div class="field" id="content-field">
           <label>Nội dung <span class="req">*</span></label>
-          <div class="rt-toolbar">
-            <button type="button" class="rt-btn" id="rt-btn-bold" onclick="rtExec('bold')" title="In đậm (Ctrl+B)"><b>B</b></button>
-            <button type="button" class="rt-btn" id="rt-btn-italic" onclick="rtExec('italic')" title="In nghiêng (Ctrl+I)"><i>I</i></button>
-            <button type="button" class="rt-btn" id="rt-btn-underline" onclick="rtExec('underline')" title="Gạch chân (Ctrl+U)"><u>U</u></button>
-            <select id="rt-font-size" onchange="rtApplyFontSize(this.value); this.value='';" title="Bôi đen đoạn chữ muốn đổi cỡ trước khi chọn">
+          <div class="rt-toolbar" id="rt-toolbar" onmousedown="if(!event.target.closest('select,input'))event.preventDefault()">
+            <button type="button" class="rt-btn" onclick="rtExec('undo')" title="Hoàn tác (Ctrl+Z)">↶</button>
+            <button type="button" class="rt-btn" onclick="rtExec('redo')" title="Làm lại (Ctrl+Y)">↷</button>
+            <span class="rt-sep"></span>
+            <select id="rt-font" onchange="rtSetFont(this.value)" title="Phông chữ — bôi đen đoạn chữ trước khi chọn"></select>
+            <select id="rt-font-size" onchange="rtSetSize(this.value); this.value='';" title="Cỡ chữ — bôi đen đoạn chữ trước khi chọn">
               <option value="">Cỡ chữ…</option>
               <option value="12">Nhỏ</option>
               <option value="16">Vừa</option>
               <option value="20">Lớn</option>
               <option value="26">Rất lớn</option>
             </select>
+            <span class="rt-sep"></span>
+            <button type="button" class="rt-btn" id="rt-btn-bold" onclick="rtExec('bold')" title="In đậm (Ctrl+B)"><b>B</b></button>
+            <button type="button" class="rt-btn" id="rt-btn-italic" onclick="rtExec('italic')" title="In nghiêng (Ctrl+I)"><i>I</i></button>
+            <button type="button" class="rt-btn" id="rt-btn-underline" onclick="rtExec('underline')" title="Gạch chân (Ctrl+U)"><u>U</u></button>
+            <button type="button" class="rt-btn" id="rt-btn-strike" onclick="rtExec('strikeThrough')" title="Gạch ngang"><s>S</s></button>
+            <span class="rt-sep"></span>
+            <button type="button" class="rt-btn" id="rt-btn-color" onclick="rtOpenPop('color', this)" title="Màu chữ — bôi đen đoạn chữ trước khi chọn"><span style="font-weight:700;line-height:1">A</span><span class="rt-colorbar" id="rt-color-bar"></span></button>
+            <button type="button" class="rt-btn" id="rt-btn-bg" onclick="rtOpenPop('bg', this)" title="Tô nổi chữ (màu nền)"><span class="rt-hl">ab</span></button>
+            <span class="rt-sep"></span>
+            <button type="button" class="rt-btn" onclick="rtList('ul')" title="Danh sách gạch đầu dòng">• ≡</button>
+            <button type="button" class="rt-btn" onclick="rtList('ol')" title="Danh sách đánh số">1.</button>
+            <span class="rt-sep"></span>
+            <button type="button" class="rt-btn rt-btn-wide" onclick="rtOpenPop('link', this)" title="Chèn liên kết (Ctrl+K)">🔗 Liên kết</button>
+            <button type="button" class="rt-btn rt-btn-wide" onclick="rtOpenPop('table', this)" title="Chèn bảng">▦ Bảng</button>
+            <button type="button" class="rt-btn rt-btn-wide" onclick="rtClearFormat()" title="Xoá định dạng của đoạn đang bôi đen">⌫ Xoá định dạng</button>
+            <span style="flex:1"></span>
+            <button type="button" class="rt-btn rt-btn-wide" id="rt-expand-btn" onclick="rtToggleExpand()" title="Phóng to khung soạn (Esc để thu nhỏ)">⤢ Mở rộng</button>
           </div>
-          <div id="content-input" class="content-editable" contenteditable="true" data-placeholder="Nhập nội dung bài viết..." oninput="onContentInputChanged()" onmouseup="updateRtToolbarState()" onkeyup="updateRtToolbarState()"></div>
+          <div class="rt-table-bar" id="rt-table-bar">
+            <b>Bảng:</b>
+            <button type="button" onclick="rtTableOp('rowAbove')">+ Hàng trên</button>
+            <button type="button" onclick="rtTableOp('rowBelow')">+ Hàng dưới</button>
+            <button type="button" onclick="rtTableOp('colLeft')">+ Cột trái</button>
+            <button type="button" onclick="rtTableOp('colRight')">+ Cột phải</button>
+            <button type="button" class="danger" onclick="rtTableOp('delRow')">Xoá hàng</button>
+            <button type="button" class="danger" onclick="rtTableOp('delCol')">Xoá cột</button>
+            <button type="button" class="danger" onclick="rtTableOp('delTable')">Xoá bảng</button>
+            <span style="color:var(--text3)">Phím Tab: sang ô kế tiếp</span>
+          </div>
+          <div class="rt-hint" id="rt-channel-hint"></div>
+          <div id="content-input" class="content-editable" contenteditable="true" data-placeholder="Nhập nội dung bài viết... (soạn trực tiếp tại đây; dán từ Word/Google Docs vẫn giữ được đậm, màu, bảng, liên kết)" oninput="onContentInputChanged()" onpaste="rtOnPaste(event)" onkeydown="rtOnKeyDown(event)" onmouseup="rtSelectionChanged()" onkeyup="rtSelectionChanged()"></div>
+          <div class="rt-pop" id="rt-pop" style="display:none" onmousedown="if(!event.target.closest('input'))event.preventDefault()"></div>
           <div class="char-hint" id="char-count">0 ký tự</div>
           <div id="inline-image-hint" style="display:none;font-size:11px;color:var(--text3);margin-top:4px">🖼️ Nền tảng đăng có Web/Email — muốn chèn ảnh vào giữa đoạn văn, chỉ cần copy link Drive ảnh rồi dán/gõ thẳng vào đúng vị trí trong ô Nội dung, hệ thống tự nhận diện và hiện ảnh ở khối xem trước bên dưới.</div>
           <div class="content-block" id="content-live-preview" style="display:none;margin-top:8px"></div>
@@ -827,6 +884,7 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
   <button onclick="rvOpenCommentFromSelection()" style="font-size:11px;padding:5px 9px;border-radius:6px;background:none;border:none;cursor:pointer;font-family:var(--font);color:var(--accent);font-weight:600;white-space:nowrap">💬 Nhận xét</button>
 </div>
 
+<script src="richtext.js?v=20261006"></script>
 <script>
 // ============================================================
 // CONFIG
@@ -1507,6 +1565,7 @@ function platformWantsInlineImages() {
 
 function onPlatformChange() {
   renderLivePreview();
+  rtUpdateChannelHint();
 }
 
 // Thay link Drive ảnh nằm ngay trong 1 chuỗi HTML (đã escHtml phần chữ) bằng thẻ <img> thật.
@@ -1525,64 +1584,378 @@ function stripImagePlaceholdersForAI(text) {
 }
 
 // ============================================================
-// ĐỊNH DẠNG CHỮ (đậm/nghiêng/gạch chân/cỡ chữ) trong ô Nội dung
-// Ô Nội dung là 1 div contenteditable (không phải textarea) để gõ tới đâu thấy
-// định dạng ngay tới đó (dùng document.execCommand cho B/I/U — không có thư viện
-// rich-text nào trong dự án, execCommand tuy cũ nhưng vẫn chạy tốt trên Chrome/Edge).
-// Nội dung thật sự lưu vào DB vẫn là 1 chuỗi TEXT như cũ: lúc gửi bài,
-// serializeEditableContent() "dịch" HTML trong ô soạn thảo sang ký hiệu dạng chữ
-// (**đậm**, *nghiêng*, __gạch_chân__, [size=N]cỡ chữ[/size]) — y hệt cách Zalo/
-// Discord dùng ký hiệu để định dạng, để KHÔNG phải đổi cấu trúc cột `content` và
-// KHÔNG ảnh hưởng tính năng "bôi chọn nhận xét" (vẫn tính offset trên chuỗi thô).
-// renderTextFormatting() làm chiều ngược lại: từ ký hiệu ra HTML thật, dùng khi
-// hiển thị (chỉ đọc) và khi nạp lại nội dung cũ vào ô soạn thảo để sửa tiếp.
+// Ô SOẠN THẢO NỘI DUNG — soạn bài trực tiếp tại đây (không cần soạn nơi khác rồi dán vào).
+// Ô là 1 div contenteditable; nội dung lưu vào DB vẫn là 1 chuỗi TEXT có ký hiệu định dạng
+// (**đậm**, [color=#..]..., [table]... — danh sách đầy đủ + hàm đổi qua lại nằm trong richtext.js,
+// dùng chung với trang duyệt bài). Danh sách "• " / "1. " là chữ thường nên dán sang Facebook/Zalo vẫn đẹp.
 // ============================================================
-function rtExec(cmd) {
-  const el = document.getElementById('content-input');
+const rtEd = () => document.getElementById('content-input');
+let rtSavedRange = null;
+let rtLastColor = RT.TEXT_COLORS[0];
+let rtLastBg = RT.BG_COLORS[0];
+
+function rtInRange(range) { const el = rtEd(); return !!(range && el && el.contains(range.commonAncestorContainer)); }
+function rtSaveRange() {
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount && rtInRange(sel.getRangeAt(0))) rtSavedRange = sel.getRangeAt(0).cloneRange();
+}
+// Đưa con trỏ/vùng bôi đen về lại ô soạn trước khi chạy lệnh (bấm chọn font/màu có thể làm mất focus).
+function rtRestoreRange() {
+  const el = rtEd();
   el.focus();
-  document.execCommand(cmd, false, null);
+  if (rtSavedRange && rtInRange(rtSavedRange)) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(rtSavedRange);
+  }
+}
+function rtAfter() {
+  rtSaveRange();
   updateRtToolbarState();
   onContentInputChanged();
 }
 
-function rtApplyFontSize(px) {
+function rtExec(cmd) {
+  rtRestoreRange();
+  try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+  document.execCommand(cmd, false, null);
+  rtAfter();
+}
+
+function rtSetFont(name) {
+  rtRestoreRange();
+  try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+  document.execCommand('fontName', false, name || 'inherit');
+  rtAfter();
+}
+
+// Cỡ chữ: bọc đoạn đang bôi đen bằng <span style="font-size:..">. Dùng insertHTML để Ctrl+Z hoàn tác được.
+function rtSetSize(px) {
   if (!px) return;
-  const el = document.getElementById('content-input');
-  el.focus();
+  rtRestoreRange();
   const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !el.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !rtInRange(sel.getRangeAt(0))) {
     showToast('⚠️ Hãy bôi đen đoạn chữ muốn đổi cỡ trước');
     return;
   }
-  const range = sel.getRangeAt(0);
-  const span = document.createElement('span');
-  span.style.fontSize = px + 'px';
-  try {
-    span.appendChild(range.extractContents());
-    range.insertNode(span);
-    sel.removeAllRanges();
-    const after = document.createRange();
-    after.setStartAfter(span);
-    after.collapse(true);
-    sel.addRange(after);
-  } catch (e) {}
-  onContentInputChanged();
+  const box = document.createElement('div');
+  box.appendChild(sel.getRangeAt(0).cloneContents());
+  box.querySelectorAll('[style]').forEach(el => el.style.removeProperty('font-size'));
+  document.execCommand('insertHTML', false, '<span style="font-size:' + px + 'px">' + box.innerHTML + '</span>');
+  rtAfter();
 }
 
+function rtApplyColor(kind, hex) {
+  rtRestoreRange();
+  try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+  document.execCommand(kind === 'bg' ? 'hiliteColor' : 'foreColor', false, hex);
+  if (kind === 'bg') { if (hex !== 'transparent') rtLastBg = hex; }
+  else if (hex !== RT.DEFAULT_TEXT_COLOR) { rtLastColor = hex; const bar = document.getElementById('rt-color-bar'); if (bar) bar.style.background = hex; }
+  rtClosePop();
+  rtAfter();
+}
+
+// ---- Danh sách = chữ thường ("• " / "1. " ở đầu dòng), dùng insertText để Ctrl+Z hoàn tác được ----
+function rtWrapLooseNodes() {
+  const el = rtEd();
+  const isBlock = n => n.nodeType === 1 && /^(DIV|P|TABLE|UL|OL|H[1-6])$/.test(n.tagName);
+  let group = [];
+  const flushGroup = () => {
+    if (!group.length) return;
+    if (!(group.length === 1 && group[0].nodeType === 3 && !group[0].nodeValue.trim())) {
+      const d = document.createElement('div');
+      group[0].parentNode.insertBefore(d, group[0]);
+      group.forEach(n => d.appendChild(n));
+      if (!d.textContent) d.appendChild(document.createElement('br'));
+    }
+    group = [];
+  };
+  Array.from(el.childNodes).forEach(n => { if (isBlock(n)) flushGroup(); else group.push(n); });
+  flushGroup();
+}
+function rtSelectChars(block, count) {
+  const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+  let n = walker.nextNode(), left = count, startNode = null, startOff = 0, endNode = null, endOff = 0;
+  while (n && left >= 0) {
+    if (!startNode) { startNode = n; startOff = 0; }
+    if (n.nodeValue.length >= left) { endNode = n; endOff = left; break; }
+    left -= n.nodeValue.length; n = walker.nextNode();
+  }
+  if (!startNode || !endNode) return false;
+  const r = document.createRange();
+  r.setStart(startNode, startOff); r.setEnd(endNode, endOff);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  return true;
+}
+function rtCaretAtStart(block) {
+  const r = document.createRange();
+  r.setStart(block, 0); r.collapse(true);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+}
+function rtList(kind) {
+  rtRestoreRange();
+  if (rtCurrentCell()) { showToast('⚠️ Danh sách không dùng trong ô bảng — gõ "• " trước mỗi dòng nếu cần'); return; }
+  rtWrapLooseNodes();
+  const el = rtEd(), sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  const blocks = Array.from(el.children).filter(b => b.tagName === 'DIV' && range.intersectsNode(b));
+  if (!blocks.length) return;
+  const re = kind === 'ol' ? /^\d+\.\s/ : /^•\s/;
+  const anyPrefix = /^(•|\d+\.)\s/;
+  const allHave = blocks.every(b => re.test(b.textContent));
+  blocks.forEach((b, i) => {
+    const m = anyPrefix.exec(b.textContent);
+    if (m) { if (rtSelectChars(b, m[0].length)) document.execCommand('delete'); }
+    if (!allHave) { rtCaretAtStart(b); document.execCommand('insertText', false, kind === 'ol' ? (i + 1) + '. ' : '• '); }
+  });
+  rtAfter();
+}
+
+// ---- Xoá định dạng / liên kết ----
+function rtClearFormat() {
+  rtRestoreRange();
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed) { showToast('⚠️ Hãy bôi đen đoạn chữ muốn xoá định dạng trước'); return; }
+  try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+  document.execCommand('removeFormat', false, null);
+  document.execCommand('unlink', false, null);
+  rtAfter();
+}
+
+// ---- Bảng ----
+function rtCurrentCell() {
+  const sel = window.getSelection();
+  if (!sel || !sel.anchorNode) return null;
+  let n = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+  const cell = n && n.closest ? n.closest('td,th') : null;
+  return cell && rtEd().contains(cell) ? cell : null;
+}
+function rtInsertTable(rows, cols) {
+  rtRestoreRange();
+  const before = rtEd().querySelectorAll('table').length;
+  let html = '<table class="rt-table"><tbody>';
+  for (let r = 0; r < rows; r++) {
+    const tag = r === 0 ? 'th' : 'td';
+    html += '<tr>' + ('<' + tag + '><br></' + tag + '>').repeat(cols) + '</tr>';
+  }
+  html += '</tbody></table><div><br></div>';
+  document.execCommand('insertHTML', false, html);
+  const tables = rtEd().querySelectorAll('table');
+  if (tables.length > before) {
+    // con trỏ vào ô đầu tiên của bảng vừa chèn (bảng mới = bảng không có chữ nào, gần vị trí con trỏ nhất)
+    const sel = window.getSelection();
+    const cands = Array.from(tables).filter(t => !t.textContent.trim());
+    const t = cands.find(x => sel.rangeCount && x.compareDocumentPosition(sel.anchorNode) & Node.DOCUMENT_POSITION_FOLLOWING) || cands[cands.length - 1];
+    if (t && t.rows[0] && t.rows[0].cells[0]) {
+      const r = document.createRange();
+      r.selectNodeContents(t.rows[0].cells[0]); r.collapse(true);
+      sel.removeAllRanges(); sel.addRange(r);
+    }
+  }
+  rtClosePop();
+  rtAfter();
+}
+function rtNewCell(tag) { const c = document.createElement(tag); c.appendChild(document.createElement('br')); return c; }
+function rtTableOp(op) {
+  rtRestoreRange();
+  const cell = rtCurrentCell();
+  if (!cell) { showToast('⚠️ Bấm vào 1 ô trong bảng trước'); return; }
+  const row = cell.parentElement, table = cell.closest('table'), ci = cell.cellIndex;
+  const rows = Array.from(table.rows);
+  const focusCell = c => { if (!c) return; const r = document.createRange(); r.selectNodeContents(c); r.collapse(true); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); };
+  if (op === 'delTable') { table.remove(); }
+  else if (op === 'rowAbove' || op === 'rowBelow') {
+    if (op === 'rowAbove' && row.rowIndex === 0 && cell.tagName === 'TH') { showToast('Hàng tiêu đề luôn nằm trên cùng — dùng "+ Hàng dưới"'); return; }
+    const nr = document.createElement('tr');
+    for (let i = 0; i < row.cells.length; i++) nr.appendChild(rtNewCell('td'));
+    row.parentNode.insertBefore(nr, op === 'rowAbove' ? row : row.nextSibling);
+    focusCell(nr.cells[Math.min(ci, nr.cells.length - 1)]);
+  } else if (op === 'colLeft' || op === 'colRight') {
+    const at = op === 'colLeft' ? ci : ci + 1;
+    rows.forEach(r => {
+      const tag = r.cells[0] && r.cells[0].tagName === 'TH' ? 'th' : 'td';
+      r.insertBefore(rtNewCell(tag), r.cells[at] || null);
+    });
+    focusCell(row.cells[at]);
+  } else if (op === 'delRow') {
+    if (rows.length <= 1) table.remove();
+    else {
+      const next = rows[row.rowIndex + 1] || rows[row.rowIndex - 1];
+      row.remove();
+      focusCell(next && next.cells[Math.min(ci, next.cells.length - 1)]);
+    }
+  } else if (op === 'delCol') {
+    if (row.cells.length <= 1) table.remove();
+    else { rows.forEach(r => r.cells[ci] && r.deleteCell(ci)); focusCell(row.cells[Math.min(ci, row.cells.length - 1)]); }
+  }
+  rtAfter();
+  rtSelectionChanged();
+}
+
+// ---- Ô nổi (màu chữ, màu nền, liên kết, chọn cỡ bảng) ----
+function rtOpenPop(kind, btn) {
+  rtSaveRange();
+  const pop = document.getElementById('rt-pop');
+  if (pop.dataset.kind === kind && pop.style.display !== 'none') { rtClosePop(); return; }
+  let html = '';
+  if (kind === 'color' || kind === 'bg') {
+    const list = kind === 'color' ? RT.TEXT_COLORS : RT.BG_COLORS;
+    html = '<div class="rt-pop-title">' + (kind === 'color' ? 'Màu chữ' : 'Tô nổi chữ') + '</div><div class="rt-swatches">' +
+      list.map(c => '<button type="button" class="rt-swatch" style="background:' + c + '" title="' + c + '" onclick="rtApplyColor(\'' + kind + '\',\'' + c + '\')"></button>').join('') +
+      '</div><div class="rt-pop-row"><span>Màu khác:</span><input type="color" value="' + (kind === 'color' ? rtLastColor : rtLastBg) + '" onchange="rtApplyColor(\'' + kind + '\', this.value)"></div>' +
+      '<div class="rt-pop-row"><button type="button" class="rt-pop-btn" onclick="rtApplyColor(\'' + kind + '\',\'' + (kind === 'color' ? RT.DEFAULT_TEXT_COLOR : 'transparent') + '\')">' + (kind === 'color' ? 'Về màu mặc định' : 'Bỏ tô nổi') + '</button></div>';
+  } else if (kind === 'link') {
+    const sel = window.getSelection();
+    const hasSel = sel && sel.rangeCount && !sel.isCollapsed;
+    html = '<div class="rt-pop-title">Chèn liên kết</div>' +
+      (hasSel ? '' : '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Chưa bôi đen chữ — liên kết sẽ được chèn như một đường dẫn.</div>') +
+      '<div class="rt-pop-row"><input type="text" id="rt-link-url" placeholder="https://..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();rtApplyLink();}"></div>' +
+      '<div class="rt-pop-row"><button type="button" class="rt-pop-btn primary" onclick="rtApplyLink()">Áp dụng</button><button type="button" class="rt-pop-btn" onclick="rtRemoveLink()">Gỡ liên kết</button></div>';
+  } else if (kind === 'table') {
+    let cells = '';
+    for (let r = 1; r <= 6; r++) for (let c = 1; c <= 8; c++) cells += '<div class="rt-tcell" data-r="' + r + '" data-c="' + c + '" onmouseover="rtHoverTable(' + r + ',' + c + ')" onclick="rtInsertTable(' + r + ',' + c + ')"></div>';
+    html = '<div class="rt-pop-title">Chèn bảng</div><div class="rt-tgrid" onmouseleave="rtHoverTable(0,0)">' + cells + '</div><div id="rt-tlabel" style="margin-top:6px;color:var(--text3)">Rê chuột để chọn số hàng × cột (hàng đầu là tiêu đề)</div>';
+  }
+  pop.innerHTML = html;
+  pop.dataset.kind = kind;
+  pop.style.display = 'block';
+  const r = btn.getBoundingClientRect();
+  pop.style.top = Math.min(r.bottom + 6, window.innerHeight - pop.offsetHeight - 10) + 'px';
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 10)) + 'px';
+  if (kind === 'link') {
+    const inp = document.getElementById('rt-link-url');
+    const a = rtLinkAtCaret();
+    if (a) inp.value = a.getAttribute('href') || '';
+    inp.focus();
+  }
+}
+function rtClosePop() { const p = document.getElementById('rt-pop'); if (p) { p.style.display = 'none'; p.dataset.kind = ''; } }
+document.addEventListener('mousedown', e => {
+  const p = document.getElementById('rt-pop');
+  if (p && p.style.display !== 'none' && !p.contains(e.target) && !e.target.closest('#rt-toolbar')) rtClosePop();
+});
+function rtHoverTable(r, c) {
+  document.querySelectorAll('.rt-tcell').forEach(x => x.classList.toggle('on', +x.dataset.r <= r && +x.dataset.c <= c));
+  const l = document.getElementById('rt-tlabel');
+  if (l && r) l.textContent = r + ' hàng × ' + c + ' cột';
+}
+function rtLinkAtCaret() {
+  const sel = window.getSelection();
+  if (!sel || !sel.anchorNode) return null;
+  const n = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+  const a = n && n.closest ? n.closest('a') : null;
+  return a && rtEd().contains(a) ? a : null;
+}
+function rtApplyLink() {
+  let url = (document.getElementById('rt-link-url').value || '').trim();
+  if (!url) return;
+  if (!/^(https?:\/\/|mailto:)/i.test(url)) url = (url.indexOf('@') > 0 && url.indexOf('/') < 0 ? 'mailto:' : 'https://') + url;
+  if (!/^(https?:\/\/|mailto:)[^\]\s]+$/i.test(url)) { showToast('⚠️ Đường dẫn chưa hợp lệ'); return; }
+  rtRestoreRange();
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) document.execCommand('insertHTML', false, '<a href="' + url.replace(/"/g, '&quot;') + '">' + url.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</a>&nbsp;');
+  else document.execCommand('createLink', false, url);
+  rtClosePop();
+  rtAfter();
+}
+function rtRemoveLink() { rtRestoreRange(); document.execCommand('unlink', false, null); rtClosePop(); rtAfter(); }
+
+// ---- Phóng to khung soạn ----
+function rtToggleExpand(force) {
+  const f = document.getElementById('content-field');
+  const on = typeof force === 'boolean' ? force : !f.classList.contains('rt-expanded');
+  f.classList.toggle('rt-expanded', on);
+  document.body.style.overflow = on ? 'hidden' : '';
+  document.getElementById('rt-expand-btn').textContent = on ? '⤡ Thu nhỏ' : '⤢ Mở rộng';
+  rtEd().focus();
+}
+
+// ---- Bàn phím + dán ----
+function rtOnKeyDown(e) {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    rtOpenPop('link', document.querySelector('#rt-toolbar [onclick*="link"]'));
+    return;
+  }
+  if (e.key === 'Tab') {
+    const cell = rtCurrentCell();
+    if (!cell) return;
+    e.preventDefault();
+    const all = Array.from(cell.closest('table').querySelectorAll('th,td'));
+    let i = all.indexOf(cell) + (e.shiftKey ? -1 : 1);
+    if (i >= all.length) { rtTableOp('rowBelow'); return; }
+    if (i < 0) return;
+    const r = document.createRange(); r.selectNodeContents(all[i]); r.collapse(true);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { rtClosePop(); if (document.getElementById('content-field').classList.contains('rt-expanded')) rtToggleExpand(false); } });
+
+// Dán từ Word / Google Docs / web: giữ lại phần ô soạn hiểu được, bỏ phần còn lại (xem pastedHtmlToEditorHtml).
+function rtOnPaste(e) {
+  const cd = e.clipboardData;
+  if (!cd) return;
+  const html = cd.getData('text/html');
+  if (!html) return;   // chữ thuần: để trình duyệt tự dán
+  e.preventDefault();
+  let clean = '';
+  try { clean = pastedHtmlToEditorHtml(html); } catch (err) {}
+  if (clean) document.execCommand('insertHTML', false, clean);
+  else { const t = cd.getData('text/plain'); if (t) document.execCommand('insertText', false, t); }
+  rtAfter();
+}
+
+// ---- Trạng thái thanh công cụ ----
+function rtSelectionChanged() {
+  rtSaveRange();
+  updateRtToolbarState();
+}
 function updateRtToolbarState() {
   try {
-    const bold = document.getElementById('rt-btn-bold');
-    const italic = document.getElementById('rt-btn-italic');
-    const underline = document.getElementById('rt-btn-underline');
-    if (bold) bold.classList.toggle('active', document.queryCommandState('bold'));
-    if (italic) italic.classList.toggle('active', document.queryCommandState('italic'));
-    if (underline) underline.classList.toggle('active', document.queryCommandState('underline'));
+    const st = (id, cmd) => { const b = document.getElementById(id); if (b) b.classList.toggle('active', document.queryCommandState(cmd)); };
+    st('rt-btn-bold', 'bold'); st('rt-btn-italic', 'italic'); st('rt-btn-underline', 'underline'); st('rt-btn-strike', 'strikeThrough');
+    const fs = document.getElementById('rt-font');
+    if (fs && document.activeElement !== fs) {
+      const raw = (document.queryCommandValue('fontName') || '').split(',')[0].replace(/["']/g, '').trim().toLowerCase();
+      const hit = RT.FONT_NAMES.find(n => n.toLowerCase() === raw);
+      fs.value = hit || '';
+    }
+    const bar = document.getElementById('rt-table-bar');
+    if (bar) bar.classList.toggle('show', !!rtCurrentCell());
   } catch (e) {}
+}
+
+function rtInitToolbar() {
+  const fs = document.getElementById('rt-font');
+  if (fs && !fs.options.length) {
+    fs.innerHTML = '<option value="">Phông chữ</option>' + RT.FONT_NAMES.map(n => '<option value="' + n + '" style="font-family:' + RT.FONT_STACK[n] + '">' + n + '</option>').join('');
+  }
+  const bar = document.getElementById('rt-color-bar');
+  if (bar) bar.style.background = rtLastColor;
+  document.addEventListener('selectionchange', () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount && rtInRange(sel.getRangeAt(0))) rtSelectionChanged();
+  });
+}
+rtInitToolbar();
+
+// Nhắc khi nội dung có font/màu/bảng/liên kết mà bài đăng ở kênh chỉ nhận chữ thường.
+function rtUpdateChannelHint() {
+  const box = document.getElementById('rt-channel-hint');
+  if (!box) return;
+  const social = { facebook: 'Facebook', tiktok: 'TikTok', youtube: 'YouTube', zalo: 'Zalo', instagram: 'Instagram', sms: 'SMS' };
+  const picked = Array.from(document.querySelectorAll('.platform-cb:checked')).map(cb => cb.value).filter(v => social[v]);
+  const rich = /\[(?:font|color|bg|table|link)[=\]]/.test(getContentInputValue());
+  if (!picked.length || !rich) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.textContent = '⚠️ Khi đăng lên ' + picked.map(v => social[v]).join(', ') + ', font, màu chữ, bảng và liên kết sẽ không được giữ (các kênh này chỉ nhận chữ thường). Phần định dạng này có tác dụng ở bản đăng Web/Email.';
 }
 
 function onContentInputChanged() {
   updateChar();
   renderLivePreview();
+  rtUpdateChannelHint();
 }
 
 // Đọc nội dung trong ô soạn thảo, "dịch" HTML sang ký hiệu dạng chữ để lưu.
@@ -1591,166 +1964,13 @@ function getContentInputValue() {
   return el ? serializeEditableContent(el) : '';
 }
 
-// Nạp 1 chuỗi nội dung đã lưu (có thể có ký hiệu định dạng, hoặc text thường —
-// ví dụ nội dung AI gợi ý) vào ô soạn thảo, dựng lại đúng đậm/nghiêng/gạch chân/cỡ chữ.
+// Nạp 1 chuỗi nội dung đã lưu (có ký hiệu định dạng, hoặc chữ thường — ví dụ nội dung AI gợi ý) vào ô soạn thảo.
 function setContentInputValue(rawText) {
   const el = document.getElementById('content-input');
   if (!el) return;
-  const formatted = renderTextFormatting(escHtml(String(rawText || '')));
-  el.innerHTML = formatted.split('\n').map(line => '<div>' + (line || '<br>') + '</div>').join('');
+  el.innerHTML = rawToEditorHtml(rawText);
   updateChar();
-}
-
-function wrapFormatted(text, fmt) {
-  if (!text) return '';
-  let t = text;
-  if (fmt.bold && fmt.italic) t = '***' + t + '***';
-  else if (fmt.bold) t = '**' + t + '**';
-  else if (fmt.italic) t = '*' + t + '*';
-  if (fmt.underline) t = '__' + t + '__';
-  if (fmt.size) t = '[size=' + fmt.size + ']' + t + '[/size]';
-  return t;
-}
-
-// Duyệt cây DOM của ô contenteditable, dịch từng đoạn chữ + định dạng đang bọc nó
-// (kế thừa từ thẻ cha: b/strong, i/em, u, span có font-size) sang ký hiệu dạng chữ.
-function serializeEditableContent(root) {
-  if (!root) return '';
-  let out = '';
-  // Gom các đoạn chữ liền nhau cùng định dạng thành 1 cặp ký hiệu (tránh kiểu
-  // "[size=16]📌 [/size][size=16]Tiêu đề[/size]"), khoảng trắng thuần thì không bọc ký hiệu.
-  let run = '', runFmt = null;
-  const sameFmt = (a, b) => a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.size === b.size;
-  function flush() {
-    if (run) out += /^\s*$/.test(run) ? run : wrapFormatted(run, runFmt);
-    run = ''; runFmt = null;
-  }
-  function walk(node, fmt) {
-    if (node.nodeType === 3) {
-      if (runFmt && !sameFmt(runFmt, fmt)) flush();
-      run += node.nodeValue; runFmt = fmt;
-      return;
-    }
-    if (node.nodeType !== 1) return;
-    const tag = node.tagName;
-    if (tag === 'BR') { flush(); out += '\n'; return; }
-    const isBlock = (tag === 'DIV' || tag === 'P');
-    if (isBlock) flush();
-    if (isBlock && out && !out.endsWith('\n')) out += '\n';
-    const next = {
-      bold: fmt.bold || tag === 'B' || tag === 'STRONG',
-      italic: fmt.italic || tag === 'I' || tag === 'EM',
-      underline: fmt.underline || tag === 'U',
-      size: fmt.size
-    };
-    if (node.style && node.style.fontSize) {
-      const m = /^(\d+)px$/.exec(node.style.fontSize);
-      if (m) next.size = m[1];
-    }
-    Array.from(node.childNodes).forEach(child => walk(child, next));
-    if (isBlock) flush();
-    if (isBlock && !out.endsWith('\n')) out += '\n';
-  }
-  Array.from(root.childNodes).forEach(child => walk(child, { bold: false, italic: false, underline: false, size: null }));
-  flush();
-  return out.replace(/\n+$/, '');
-}
-
-// Chiều ngược lại: ký hiệu dạng chữ → HTML thật. Chạy SAU escHtml (an toàn — escHtml
-// không đụng tới * _ [ ] nên ký hiệu vẫn nguyên vẹn). Thứ tự quan trọng: xử lý cỡ chữ
-// (ngoài cùng) trước, rồi gạch chân, rồi đậm+nghiêng (***), rồi đậm (**), rồi nghiêng (*).
-function renderTextFormatting(html) {
-  if (!html) return html;
-  html = html.replace(/\[size=(\d{1,3})\]([\s\S]*?)\[\/size\]/g, '<span style="font-size:$1px">$2</span>');
-  html = html.replace(/__([\s\S]+?)__/g, '<u>$1</u>');
-  html = html.replace(/\*\*\*([\s\S]+?)\*\*\*/g, '<b><i>$1</i></b>');
-  html = html.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
-  html = html.replace(/\*([\s\S]+?)\*/g, '<i>$1</i>');
-  return html;
-}
-
-function hasFormattingMarkup(text) {
-  return /\*|__|\[size=\d/.test(String(text || ''));
-}
-
-// Ô "bôi chọn để nhận xét" (.inline-content) cũng hiển thị đúng đậm/nghiêng/gạch chân/cỡ chữ,
-// nhưng KHÔNG xoá ký hiệu khỏi DOM: ký hiệu (**, [size=N]...) được giữ lại trong <span class="ic-mk">
-// bị ẩn bằng CSS. Vị trí nhận xét (start/end) xưa nay tính trên chuỗi gốc CÓ ký hiệu, và
-// Range.toString() vẫn đếm cả chữ bị ẩn — nên nhận xét cũ lẫn mới vẫn khớp đúng chỗ.
-// Cách ghép cặp ký hiệu giống hệt renderTextFormatting() (cùng regex, cùng thứ tự).
-const FMT_RULES = [
-  { re: /\[size=(\d{1,3})\]([\s\S]*?)\[\/size\]/g, key: 'size', close: 7 },
-  { re: /__([\s\S]+?)__/g, key: 'u', open: 2, close: 2 },
-  { re: /\*\*\*([\s\S]+?)\*\*\*/g, key: 'bi', open: 3, close: 3 },
-  { re: /\*\*([\s\S]+?)\*\*/g, key: 'b', open: 2, close: 2 },
-  { re: /\*([\s\S]+?)\*/g, key: 'i', open: 1, close: 1 }
-];
-function formatMapOf(raw) {
-  const n = raw.length;
-  const f = { mk: new Uint8Array(n), b: new Uint8Array(n), it: new Uint8Array(n), u: new Uint8Array(n), size: new Array(n).fill('') };
-  const masked = raw.split('');
-  FMT_RULES.forEach(r => {
-    const src = masked.join('');
-    r.re.lastIndex = 0;
-    let m;
-    while ((m = r.re.exec(src))) {
-      const open = r.key === 'size' ? m[0].indexOf(']') + 1 : r.open;
-      const s = m.index, e = m.index + m[0].length;
-      for (let i = s; i < s + open; i++) { f.mk[i] = 1; masked[i] = '\u0000'; }
-      for (let i = e - r.close; i < e; i++) { f.mk[i] = 1; masked[i] = '\u0000'; }
-      for (let i = s + open; i < e - r.close; i++) {
-        if (r.key === 'size') { if (!f.size[i]) f.size[i] = m[1]; }
-        else if (r.key === 'u') f.u[i] = 1;
-        else if (r.key === 'b') f.b[i] = 1;
-        else if (r.key === 'i') f.it[i] = 1;
-        else { f.b[i] = 1; f.it[i] = 1; }
-      }
-    }
-  });
-  return f;
-}
-
-// Chữ người đọc thực sự nhìn thấy (bỏ ký hiệu định dạng) trong đoạn [start, end) của raw.
-function visibleTextOf(raw, start, end) {
-  raw = String(raw || '');
-  const f = formatMapOf(raw);
-  const a = Math.max(0, start == null ? 0 : start), b = Math.min(raw.length, end == null ? raw.length : end);
-  let out = '';
-  for (let i = a; i < b; i++) if (!f.mk[i]) out += raw[i];
-  return out;
-}
-
-// Dựng HTML cho ô bôi chọn: định dạng thật + ký hiệu ẩn + tô vàng các đoạn đã nhận xét.
-function renderSelectableFormatted(raw, comments, notePrefix) {
-  raw = String(raw || '');
-  comments = comments || [];
-  const n = raw.length;
-  const f = formatMapOf(raw);
-  const hl = new Int32Array(n).fill(-1);
-  comments.forEach((c, ci) => { for (let i = Math.max(0, c.start); i < Math.min(n, c.end); i++) hl[i] = ci; });
-  let html = '';
-  for (let i = 0; i < n;) {
-    let j = i + 1;
-    while (j < n && f.mk[j] === f.mk[i] && f.b[j] === f.b[i] && f.it[j] === f.it[i] && f.u[j] === f.u[i] && f.size[j] === f.size[i] && hl[j] === hl[i]) j++;
-    const txt = escHtml(raw.slice(i, j));
-    let piece;
-    if (f.mk[i]) piece = '<span class="ic-mk">' + txt + '</span>';
-    else {
-      const st = [];
-      if (f.b[i]) st.push('font-weight:700');
-      if (f.it[i]) st.push('font-style:italic');
-      if (f.u[i]) st.push('text-decoration:underline');
-      if (f.size[i]) st.push('font-size:' + f.size[i] + 'px');
-      piece = st.length ? '<span style="' + st.join(';') + '">' + txt + '</span>' : txt;
-    }
-    if (hl[i] >= 0) {
-      const c = comments[hl[i]];
-      piece = `<span class="ic-highlight" onclick="document.getElementById('${notePrefix}${c.id}').scrollIntoView({behavior:'smooth',block:'nearest'})">${piece}</span>`;
-    }
-    html += piece;
-    i = j;
-  }
-  return html;
+  rtUpdateChannelHint();
 }
 
 // Gộp cả 2 bước hiển thị chỉ-đọc: định dạng chữ + ảnh Drive. Dùng ở MỌI nơi hiển thị
@@ -2763,7 +2983,9 @@ function copyApprovedContent() {
 
 function updateChar() {
   const el = document.getElementById('content-input');
-  document.getElementById('char-count').textContent = (el ? el.textContent.length : 0) + ' ký tự';
+  const txt = el ? (el.innerText || el.textContent || '') : '';
+  const words = txt.trim() ? txt.trim().split(/\s+/).length : 0;
+  document.getElementById('char-count').textContent = (el ? el.textContent.length : 0) + ' ký tự · ' + words + ' từ';
 }
 
 function clearForm(options) {

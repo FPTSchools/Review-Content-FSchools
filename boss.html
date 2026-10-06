@@ -677,6 +677,7 @@
   </div>
 </div>
 
+<script src="richtext.js?v=20261006"></script>
 <script>
 // Backend mới (Cloudflare Pages Functions + Supabase) — cùng domain nên dùng path tương đối.
 // Bản cũ (Google Apps Script) không còn dùng ở bản deploy này (xem PROGRESS.md).
@@ -2687,105 +2688,8 @@ function stripImagePlaceholdersForAI(text) {
   return visibleTextOf(text).replace(DRIVE_IMG_URL_RE, '[Hình ảnh minh họa]');
 }
 
-// ============================================================
-// ĐỊNH DẠNG CHỮ (đậm/nghiêng/gạch chân/cỡ chữ) — xem giải thích đầy đủ ở ctv.html.
-// CTV soạn bằng ô contenteditable có thanh công cụ; lưu vào `content` dạng ký hiệu
-// chữ (**đậm**, *nghiêng*, __gạch_chân__, [size=N]...[/size]). Ở boss.html chỉ cần
-// chiều hiển thị (không có ô soạn thảo) — render lại đúng định dạng cho các khối XEM.
-// ============================================================
-function renderTextFormatting(html) {
-  if (!html) return html;
-  html = html.replace(/\[size=(\d{1,3})\]([\s\S]*?)\[\/size\]/g, '<span style="font-size:$1px">$2</span>');
-  html = html.replace(/__([\s\S]+?)__/g, '<u>$1</u>');
-  html = html.replace(/\*\*\*([\s\S]+?)\*\*\*/g, '<b><i>$1</i></b>');
-  html = html.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
-  html = html.replace(/\*([\s\S]+?)\*/g, '<i>$1</i>');
-  return html;
-}
-
-function hasFormattingMarkup(text) {
-  return /\*|__|\[size=\d/.test(String(text || ''));
-}
-
-// Ô "bôi chọn để nhận xét" (.inline-content) cũng hiển thị đúng đậm/nghiêng/gạch chân/cỡ chữ,
-// nhưng KHÔNG xoá ký hiệu khỏi DOM: ký hiệu (**, [size=N]...) được giữ lại trong <span class="ic-mk">
-// bị ẩn bằng CSS. Vị trí nhận xét (start/end) xưa nay tính trên chuỗi gốc CÓ ký hiệu, và
-// Range.toString() vẫn đếm cả chữ bị ẩn — nên nhận xét cũ lẫn mới vẫn khớp đúng chỗ.
-// Cách ghép cặp ký hiệu giống hệt renderTextFormatting() (cùng regex, cùng thứ tự).
-const FMT_RULES = [
-  { re: /\[size=(\d{1,3})\]([\s\S]*?)\[\/size\]/g, key: 'size', close: 7 },
-  { re: /__([\s\S]+?)__/g, key: 'u', open: 2, close: 2 },
-  { re: /\*\*\*([\s\S]+?)\*\*\*/g, key: 'bi', open: 3, close: 3 },
-  { re: /\*\*([\s\S]+?)\*\*/g, key: 'b', open: 2, close: 2 },
-  { re: /\*([\s\S]+?)\*/g, key: 'i', open: 1, close: 1 }
-];
-function formatMapOf(raw) {
-  const n = raw.length;
-  const f = { mk: new Uint8Array(n), b: new Uint8Array(n), it: new Uint8Array(n), u: new Uint8Array(n), size: new Array(n).fill('') };
-  const masked = raw.split('');
-  FMT_RULES.forEach(r => {
-    const src = masked.join('');
-    r.re.lastIndex = 0;
-    let m;
-    while ((m = r.re.exec(src))) {
-      const open = r.key === 'size' ? m[0].indexOf(']') + 1 : r.open;
-      const s = m.index, e = m.index + m[0].length;
-      for (let i = s; i < s + open; i++) { f.mk[i] = 1; masked[i] = '\u0000'; }
-      for (let i = e - r.close; i < e; i++) { f.mk[i] = 1; masked[i] = '\u0000'; }
-      for (let i = s + open; i < e - r.close; i++) {
-        if (r.key === 'size') { if (!f.size[i]) f.size[i] = m[1]; }
-        else if (r.key === 'u') f.u[i] = 1;
-        else if (r.key === 'b') f.b[i] = 1;
-        else if (r.key === 'i') f.it[i] = 1;
-        else { f.b[i] = 1; f.it[i] = 1; }
-      }
-    }
-  });
-  return f;
-}
-
-// Chữ người đọc thực sự nhìn thấy (bỏ ký hiệu định dạng) trong đoạn [start, end) của raw.
-function visibleTextOf(raw, start, end) {
-  raw = String(raw || '');
-  const f = formatMapOf(raw);
-  const a = Math.max(0, start == null ? 0 : start), b = Math.min(raw.length, end == null ? raw.length : end);
-  let out = '';
-  for (let i = a; i < b; i++) if (!f.mk[i]) out += raw[i];
-  return out;
-}
-
-// Dựng HTML cho ô bôi chọn: định dạng thật + ký hiệu ẩn + tô vàng các đoạn đã nhận xét.
-function renderSelectableFormatted(raw, comments, notePrefix) {
-  raw = String(raw || '');
-  comments = comments || [];
-  const n = raw.length;
-  const f = formatMapOf(raw);
-  const hl = new Int32Array(n).fill(-1);
-  comments.forEach((c, ci) => { for (let i = Math.max(0, c.start); i < Math.min(n, c.end); i++) hl[i] = ci; });
-  let html = '';
-  for (let i = 0; i < n;) {
-    let j = i + 1;
-    while (j < n && f.mk[j] === f.mk[i] && f.b[j] === f.b[i] && f.it[j] === f.it[i] && f.u[j] === f.u[i] && f.size[j] === f.size[i] && hl[j] === hl[i]) j++;
-    const txt = escHtml(raw.slice(i, j));
-    let piece;
-    if (f.mk[i]) piece = '<span class="ic-mk">' + txt + '</span>';
-    else {
-      const st = [];
-      if (f.b[i]) st.push('font-weight:700');
-      if (f.it[i]) st.push('font-style:italic');
-      if (f.u[i]) st.push('text-decoration:underline');
-      if (f.size[i]) st.push('font-size:' + f.size[i] + 'px');
-      piece = st.length ? '<span style="' + st.join(';') + '">' + txt + '</span>' : txt;
-    }
-    if (hl[i] >= 0) {
-      const c = comments[hl[i]];
-      piece = `<span class="ic-highlight" onclick="document.getElementById('${notePrefix}${c.id}').scrollIntoView({behavior:'smooth',block:'nearest'})">${piece}</span>`;
-    }
-    html += piece;
-    i = j;
-  }
-  return html;
-}
+// Định dạng chữ (đậm, nghiêng, màu, font, bảng...): renderTextFormatting, hasFormattingMarkup, visibleTextOf,
+// renderSelectableFormatted nằm trong richtext.js (dùng chung với ctv.html — ký hiệu chỉ định nghĩa ở 1 nơi).
 
 // Gộp cả 2 bước hiển thị chỉ-đọc: định dạng chữ + ảnh Drive.
 function renderContentDisplay(html) {
