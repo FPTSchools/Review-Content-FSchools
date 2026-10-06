@@ -297,12 +297,20 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
   .ic-note-del{position:absolute;top:4px;right:6px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;}
   /* Form layout additions */
   .form-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .form-row-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  @media (max-width:600px){.form-row-2{grid-template-columns:1fr;}}
+  .pillar-chips{display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);transition:border-color .15s;}
+  .pillar-chip{padding:6px 14px;border-radius:20px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:13px;cursor:pointer;font-family:var(--font);}
+  .pillar-chip:hover{background:var(--surface2);}
+  .pillar-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
   .content-editable{width:100%;min-height:clamp(380px,58vh,720px);max-height:none;overflow-y:visible;resize:vertical;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:14.5px;line-height:1.75;color:var(--text);background:var(--surface);outline:none;transition:border-color .15s;box-sizing:border-box;}
   .content-editable:focus{border-color:var(--accent);}
   .content-editable:empty:before{content:attr(data-placeholder);color:var(--text3);}
   .rt-toolbar{display:flex;gap:5px;align-items:center;margin-bottom:6px;flex-wrap:wrap;position:sticky;top:0;z-index:20;background:var(--surface);padding:7px 8px;border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 2px 6px rgba(0,0,0,.05);}
   .rt-sep{width:1px;height:20px;background:var(--border2);margin:0 3px;}
-  .rt-btn-wide{width:auto;padding:0 9px;font-size:12px;white-space:nowrap;}
+  .rt-toolbar .rt-btn{flex:none;}
+  .rt-toolbar .rt-btn-wide{width:auto;padding:0 10px;font-size:12px;white-space:nowrap;}
+  .rt-toolbar select{flex:none;}
   .rt-colorbar{display:block;height:3px;border-radius:2px;margin:1px 5px 0;background:var(--accent);}
   .rt-hl{background:#FEF08A;padding:0 3px;border-radius:2px;font-weight:600;}
   #rt-font{width:auto;max-width:150px;padding:5px 8px;font-size:12px;height:28px;}
@@ -469,8 +477,13 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
 
       <div class="card">
         <div class="card-title">📋 Thông tin bài viết</div>
-        <!-- 3 dropdown cùng 1 dòng -->
-        <div class="form-row-3">
+        <!-- Trụ content: 1 hàng bấm chọn cho nhanh (khớp đầu mục Kế hoạch tháng, dùng để báo cáo sản lượng theo trụ) -->
+        <div class="field">
+          <label>Trụ content <span class="req">*</span></label>
+          <div id="pillar-chips" class="pillar-chips"><span style="font-size:12px;color:var(--text3)">Đang tải trụ content...</span></div>
+          <select id="pillar" style="display:none"><option value="">-- Chọn --</option></select>
+        </div>
+        <div class="form-row-2">
           <div class="field">
             <label>Cơ sở <span class="req">*</span></label>
             <select id="campus"><option value="">-- Chọn --</option></select>
@@ -485,21 +498,6 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
               <option value="kich_ban_video">Kịch bản Video</option>
             </select>
           </div>
-          <div class="field">
-            <label>Đối tượng <span class="req">*</span></label>
-            <select id="audience">
-              <option value="">-- Chọn --</option>
-              <option value="phu_huynh">Phụ huynh học sinh THCS</option>
-              <option value="hoc_sinh">Học sinh lớp 9</option>
-              <option value="ca_hai">Phụ huynh + Học sinh</option>
-              <option value="general">Công chúng chung</option>
-            </select>
-          </div>
-        </div>
-        <!-- Trụ content: khớp với đầu mục Kế hoạch tháng, dùng để báo cáo sản lượng theo trụ -->
-        <div class="field">
-          <label>Trụ content <span class="req">*</span></label>
-          <select id="pillar"><option value="">-- Chọn --</option></select>
         </div>
         <!-- Nền tảng đăng: checkbox multi-select -->
         <div class="field" id="platform-field">
@@ -1034,6 +1032,25 @@ function setPillarValue(id) {
   el.value = id || '';
   // Danh sách chưa tải xong → nhớ lại để loadPillars() chọn khi có dữ liệu.
   el.dataset.pending = (id && el.value !== id) ? id : '';
+  renderPillarChips();
+}
+
+// Trụ content hiện thành 1 hàng nút bấm chọn (chọn 1). <select id="pillar"> vẫn là nơi giữ giá trị (ẩn) để bản nháp,
+// kiểm tra bắt buộc và gửi bài dùng chung 1 nguồn như cũ.
+function renderPillarChips() {
+  const box = document.getElementById('pillar-chips'), sel = document.getElementById('pillar');
+  if (!box || !sel) return;
+  const opts = Array.from(sel.options).filter(o => o.value);
+  if (!opts.length) { box.innerHTML = '<span style="font-size:12px;color:var(--text3)">Chưa có trụ content nào — Admin tạo ở Kế hoạch & Lịch, tab Trụ content.</span>'; return; }
+  const cur = sel.value || sel.dataset.pending || '';
+  box.innerHTML = opts.map(o => `<button type="button" class="pillar-chip${o.value === cur ? ' active' : ''}" onclick="pickPillar('${escHtml(o.value)}')">${o.value === cur ? '✓ ' : ''}${escHtml(o.text)}</button>`).join('');
+}
+function pickPillar(id) {
+  const sel = document.getElementById('pillar');
+  sel.value = sel.value === id ? '' : id;   // bấm lại nút đang chọn = bỏ chọn
+  sel.dataset.pending = '';
+  ['input', 'change'].forEach(t => sel.dispatchEvent(new Event(t, { bubbles: true })));
+  renderPillarChips();
 }
 
 // Mở từ nút "Viết bài" ở trang Kế hoạch & Lịch (plan.html?...): điền sẵn tiêu đề, cơ sở, kênh đăng,
@@ -1354,7 +1371,7 @@ async function runAiWrite() {
       title: document.getElementById('title-input').value.trim(),
       campus: document.getElementById('campus').value, campus_label: selectedText('campus'),
       content_type: selectedText('content-type'), content_type_code: document.getElementById('content-type').value,
-      audience: selectedText('audience'), pillar_name: selectedText('pillar'),
+      pillar_name: selectedText('pillar'),
       platform: Array.from(document.querySelectorAll('.platform-cb:checked')).map(cb => cb.value),
       reviewer_ids: reviewers.map(r => r.id),
       length: document.getElementById('aiw-length').value
@@ -1434,9 +1451,7 @@ async function runAI() {
   btn.disabled = true;
 
   const typeEl = document.getElementById('content-type');
-  const audEl  = document.getElementById('audience');
   const typeTxt = typeEl.options[typeEl.selectedIndex].text;
-  const audTxt  = audEl.options[audEl.selectedIndex].text;
 
   try {
     const titleVal = document.getElementById('title-input').value.trim();
@@ -1445,7 +1460,6 @@ async function runAI() {
       title: titleVal,
       content: stripImagePlaceholdersForAI(content),
       content_type: typeTxt,
-      audience: audTxt,
       campus: document.getElementById('campus').value,
       rules: {
         banned_words:      (RULES.banned_words  || []),
@@ -2196,7 +2210,6 @@ async function submitPost() {
   const campus  = document.getElementById('campus').value;
   const cType   = document.getElementById('content-type').value;
   const pillar  = document.getElementById('pillar').value;
-  const aud     = document.getElementById('audience').value;
   const title   = document.getElementById('title-input').value.trim();
   const content = getContentInputValue().trim();
   const driveLinks = document.getElementById('drive-links-input').value.trim();
@@ -2207,8 +2220,7 @@ async function submitPost() {
   const checks = [
     { val: campus,  id: 'campus',       label: 'Cơ sở' },
     { val: cType,   id: 'content-type', label: 'Loại content' },
-    { val: aud,     id: 'audience',     label: 'Đối tượng' },
-    { val: pillar,  id: 'pillar',       label: 'Trụ content' },
+    { val: pillar,  id: 'pillar-chips', label: 'Trụ content' },
     { val: title,   id: 'title-input',  label: 'Tiêu đề' },
     { val: content, id: 'content-input',label: 'Nội dung bài' },
   ];
@@ -2257,7 +2269,7 @@ async function submitPost() {
       data: {
         id: isEdit ? window._editId : undefined,
         user_id: currentUser.id, user_name: currentUser.name, user_email: currentUser.email,
-        campus, content_type: cType, audience: aud, title, content, note,
+        campus, content_type: cType, title, content, note,
         pillar_id: pillar,
         platform: platform,
         drive_links: driveLinks,
@@ -2984,7 +2996,7 @@ function clearForm(options) {
   }
 
   detachPlanItem();
-  ['campus','content-type','audience'].forEach(id=>document.getElementById(id).value='');
+  ['campus','content-type'].forEach(id=>document.getElementById(id).value='');
   setPillarValue('');
   document.getElementById('title-input').value='';
   document.getElementById('outline-input').value='';
@@ -3189,7 +3201,6 @@ function collectCurrentDraft() {
       campus: document.getElementById('campus')?.value || '',
       content_type: document.getElementById('content-type')?.value || '',
       pillar_id: document.getElementById('pillar')?.value || '',
-      audience: document.getElementById('audience')?.value || '',
       title: document.getElementById('title-input')?.value || '',
       outline: document.getElementById('outline-input')?.value || '',
       content: getContentInputValue(),
@@ -3347,7 +3358,6 @@ function restoreDraft(id) {
   document.getElementById('campus').value = f.campus || '';
   document.getElementById('content-type').value = f.content_type || '';
   setPillarValue(f.pillar_id || '');
-  document.getElementById('audience').value = f.audience || '';
   document.getElementById('title-input').value = f.title || '';
   document.getElementById('outline-input').value = f.outline || '';
   if (f.outline) toggleAiw(true);
@@ -3399,7 +3409,7 @@ function newDraft() {
 }
 
 async function initDraftManager() {
-  const fieldIds = ['campus','content-type','pillar','audience','title-input','outline-input','content-input','note-input','drive-links-input','evidence-links-input','is-shared-checkbox'];
+  const fieldIds = ['campus','content-type','pillar','title-input','outline-input','content-input','note-input','drive-links-input','evidence-links-input','is-shared-checkbox'];
   fieldIds.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -4231,7 +4241,6 @@ function editAndResubmit(id) {
     document.getElementById('campus').value = s.campus || '';
     document.getElementById('content-type').value = s.content_type || '';
     setPillarValue(s.pillar_id || '');
-    document.getElementById('audience').value = s.audience || '';
     document.getElementById('title-input').value = s.title || '';
     setContentInputValue(s.content || '');
     document.getElementById('note-input').value = s.note||'';
@@ -4298,7 +4307,6 @@ function editSubmission(id) {
     document.getElementById('campus').value = s.campus || '';
     document.getElementById('content-type').value = s.content_type || '';
     setPillarValue(s.pillar_id || '');
-    document.getElementById('audience').value = s.audience || '';
     document.getElementById('title-input').value = s.title || '';
     setContentInputValue(s.content || '');
     document.getElementById('note-input').value = s.note||'';

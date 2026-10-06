@@ -212,7 +212,7 @@ export async function handleAiCheckContent(supabase, env, p) {
     ' Viết positives/issues/suggestion bằng tiếng Việt, text thuần (không markdown, không **).';
   sys += '\n\n' + aiContext.promptText + fewShot.promptText + factsBlock;
 
-  const prompt = `${sys}\n\nLoại: ${p.content_type || ''}\nĐối tượng: ${p.audience || ''}\n\nTIÊU ĐỀ: ${p.title || ''}\n\nNỘI DUNG:\n${p.content || ''}`;
+  const prompt = `${sys}\n\nLoại: ${p.content_type || ''}\n\nTIÊU ĐỀ: ${p.title || ''}\n\nNỘI DUNG:\n${p.content || ''}`;
 
   let raw;
   try {
@@ -323,7 +323,7 @@ export async function handleAiWriteFromOutline(supabase, env, p) {
     '',
     '=== YÊU CẦU BÀI ===',
     `Tiêu đề / chủ đề: ${p.title || '(chưa có — tự đặt theo dàn ý)'}`,
-    `Cơ sở: ${p.campus_label || p.campus || 'chưa chọn'} · Loại content: ${p.content_type || 'chưa chọn'} · Đối tượng: ${p.audience || 'chưa chọn'} · Trụ content: ${p.pillar_name || 'chưa chọn'}`,
+    `Cơ sở: ${p.campus_label || p.campus || 'chưa chọn'} · Loại content: ${p.content_type || 'chưa chọn'} · Trụ content: ${p.pillar_name || 'chưa chọn'}`,
     `Độ dài: ${length}.`,
     'Kênh đăng:', platformGuide,
     '',
