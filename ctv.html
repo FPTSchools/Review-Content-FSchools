@@ -2993,6 +2993,7 @@ function clearForm(options) {
     // Flush ngay trước khi xóa để không phụ thuộc vào timer 700 ms.
     saveDraftToStorage(true);
     if (!options.silent && !confirm('Xóa nội dung đang nhập khỏi form? Bản nháp vừa lưu vẫn được giữ lại.')) return false;
+    archiveCurrentDraft();
   }
 
   detachPlanItem();
@@ -3105,7 +3106,11 @@ function mergeDraftLists(localDrafts, remoteDrafts) {
   [...(localDrafts || []), ...(remoteDrafts || [])].forEach(d => {
     if (!d || !d.id) return;
     const previous = byId[d.id];
-    if (!previous || new Date(d.updated_at || 0) >= new Date(previous.updated_at || 0)) byId[d.id] = d;
+    if (!previous) { byId[d.id] = d; return; }
+    // Bản có chữ luôn thắng bản trống (dù trống mới hơn) — để không mất bài vì 1 lần tự lưu form trống.
+    const dHas = draftHasContent(d), pHas = draftHasContent(previous);
+    if (dHas !== pHas) { if (dHas) byId[d.id] = d; return; }
+    if (new Date(d.updated_at || 0) >= new Date(previous.updated_at || 0)) byId[d.id] = d;
   });
   return Object.values(byId)
     .sort((a,b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))
@@ -3174,7 +3179,9 @@ async function deleteDraftFromServer(id) {
 // Dọn các bản nháp trùng lặp do lỗi trước đây (mỗi lần tải lại trang lại tự tạo bản mới).
 // Chỉ giữ lại đúng 1 bản mới nhất, gộp về ID cố định của user, xoá phần còn lại cả local lẫn server.
 async function dedupeLegacyDrafts() {
-  const drafts = readDrafts();
+  const all = readDrafts();
+  const archivedDrafts = all.filter(d => String(d.id).indexOf('_arch_') > 0);   // bản người dùng chủ động giữ: không dọn
+  const drafts = all.filter(d => String(d.id).indexOf('_arch_') < 0);
   if (!drafts.length) return;
   const singleId = getSingleDraftId();
   if (drafts.length === 1 && drafts[0].id === singleId) return; // đã gọn sẵn, không cần dọn
@@ -3183,11 +3190,25 @@ async function dedupeLegacyDrafts() {
   const idsToRemove = drafts.slice(1).map(d => d.id);
   if (oldLatestId !== singleId) idsToRemove.push(oldLatestId);
   latest.id = singleId;
-  writeDrafts([latest]);
+  writeDrafts([latest].concat(archivedDrafts));
   renderDraftList();
   const uniqueIds = [...new Set(idsToRemove)];
   await Promise.all(uniqueIds.map(id => deleteDraftFromServer(id)));
   await syncDraftToServer(latest);
+}
+
+// Cất bản nháp đang viết sang 1 bản riêng (id có hậu tố _arch_) để lần tự lưu kế tiếp (cùng id cố định) không ghi đè nó.
+function archiveCurrentDraft() {
+  const singleId = getSingleDraftId();
+  const cur = readDrafts().find(d => d.id === singleId);
+  if (!cur || !draftHasContent(cur)) return;
+  const arch = Object.assign({}, cur, { id: singleId + '_arch_' + Date.now(), updated_at: new Date().toISOString() });
+  const rest = readDrafts().filter(d => d.id !== singleId);
+  const archived = rest.filter(d => String(d.id).indexOf('_arch_') > 0);
+  const others = rest.filter(d => String(d.id).indexOf('_arch_') < 0);
+  writeDrafts([arch].concat(archived, others).slice(0, DRAFT_MAX_COUNT));
+  syncDraftToServer(arch);
+  deleteDraftFromServer(singleId);
 }
 
 function collectCurrentDraft() {
@@ -3218,13 +3239,14 @@ function collectCurrentDraft() {
   };
 }
 
+// "Có nội dung" = người dùng đã THỰC SỰ viết gì đó (tiêu đề, dàn ý, nội dung, ghi chú, link).
+// Không tính cơ sở / loại / trụ / kênh / người duyệt: các ô này hay được điền sẵn (vd cơ sở theo tài khoản),
+// nếu tính thì 1 form TRỐNG cũng bị coi là "có nội dung" và tự lưu ĐÈ lên bản nháp đang viết dở
+// (mỗi người chỉ có 1 bản nháp tự động, id cố định) — mở trang rồi đóng lại là mất bài.
+const DRAFT_TEXT_FIELDS = ['title', 'outline', 'content', 'note', 'drive_links', 'evidence_links'];
 function draftHasContent(draft) {
   const f = draft && draft.fields ? draft.fields : {};
-  return Object.values(f).some(v => {
-    if (typeof v === 'string') return !!v.trim();
-    if (Array.isArray(v)) return v.length > 0;
-    return !!v;
-  }) || !!(draft && draft.reviewers && draft.reviewers.length);
+  return DRAFT_TEXT_FIELDS.some(k => typeof f[k] === 'string' && f[k].trim() !== '');
 }
 
 function currentFormHasData() {
@@ -3347,12 +3369,13 @@ function resetAiForDraft() {
   window._lastAiSuggestion = '';
 }
 
-function restoreDraft(id) {
+function restoreDraft(id, opts) {
+  opts = opts || {};
   const draft = readDrafts().find(d => d.id === id);
-  if (!draft) { showToast('Không tìm thấy bản nháp'); renderDraftList(); return; }
-  if (currentFormHasData() && id !== _activeDraftId && !confirm('Thay thế nội dung hiện tại bằng bản nháp này?')) return;
+  if (!draft) { if (!opts.quiet) showToast('Không tìm thấy bản nháp'); renderDraftList(); return; }
+  if (!opts.quiet && currentFormHasData() && id !== _activeDraftId && !confirm('Thay thế nội dung hiện tại bằng bản nháp này?')) return;
 
-  showPage('page-submit', document.querySelector('.nav-item'));
+  if (!opts.quiet) showPage('page-submit', document.querySelector('.nav-item'));
   _draftHydrating = true;
   const f = draft.fields || {};
   document.getElementById('campus').value = f.campus || '';
@@ -3384,7 +3407,20 @@ function restoreDraft(id) {
   _draftHydrating = false;
   renderDraftList();
   setDraftStatus('Đã khôi phục bản nháp', 'saved');
-  showToast('✅ Đã khôi phục bản nháp');
+  if (!opts.quiet) showToast('✅ Đã khôi phục bản nháp');
+}
+
+// Vào trang với form trống mà đang có bản nháp viết dở → mở lại luôn, để người dùng thấy ngay và viết tiếp
+// (trước đây phải bấm "Mở"; ai gõ thẳng vào form trống thì bản nháp cũ bị ghi đè). Không làm khi mở từ link
+// (?open= bài cần duyệt, ?plan_item= đầu việc kế hoạch) hoặc khi đang sửa/gửi lại bài đã gửi.
+function maybeAutoRestoreDraft() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('open') || params.get('plan_item')) return;
+  if (currentFormHasData() || window._editId || window._resubmitId) return;
+  const d = readDrafts().find(x => x.id === getSingleDraftId() && draftHasContent(x));
+  if (!d) return;
+  restoreDraft(d.id, { quiet: true });
+  showToast('📝 Đã mở lại bản nháp đang viết dở của bạn. Muốn viết bài khác: bấm "Bản nháp mới" (bản này vẫn được giữ).');
 }
 
 function deleteDraft(id) {
@@ -3419,7 +3455,8 @@ async function initDraftManager() {
   });
   renderDraftList();
   await dedupeLegacyDrafts();
-  loadDraftsFromServer();
+  await loadDraftsFromServer();
+  maybeAutoRestoreDraft();
   window.addEventListener('beforeunload', () => {
     // beforeunload không chờ được fetch; localStorage vẫn giữ bản mới nhất.
     if (currentFormHasData()) saveDraftToStorage(false, { skipServer: true });

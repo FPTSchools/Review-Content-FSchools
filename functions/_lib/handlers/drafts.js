@@ -2,16 +2,28 @@
 // DRAFTS — port từ handleSaveDraft/handleGetDrafts/handleDeleteDraft.
 // ============================================================
 
+// Bản nháp "có chữ" = có tiêu đề / dàn ý / nội dung / ghi chú / link. Các ô chọn sẵn (cơ sở, kênh...) không tính.
+const DRAFT_TEXT_FIELDS = ['title', 'outline', 'content', 'note', 'drive_links', 'evidence_links'];
+function draftHasText(draft) {
+  const f = (draft && draft.fields) || {};
+  return DRAFT_TEXT_FIELDS.some(k => typeof f[k] === 'string' && f[k].trim() !== '');
+}
+
 export async function handleSaveDraft(supabase, p) {
   const d = p.draft || {};
   if (!p.user_id || !d.id) return { ok: false, error: 'Thiếu user_id hoặc draft id' };
   const now = new Date().toISOString();
 
   const { data: existing, error: findError } = await supabase
-    .from('drafts').select('id, updated_at').eq('id', d.id).eq('user_id', p.user_id).maybeSingle();
+    .from('drafts').select('id, updated_at, payload').eq('id', d.id).eq('user_id', p.user_id).maybeSingle();
   if (findError) return { ok: false, error: findError.message };
 
   if (existing) {
+    // Trang bản cũ (chưa tải lại) từng tự lưu 1 form trống đè lên bài đang viết dở → giữ nguyên bản đang có.
+    // Xoá nháp chủ động đi qua action delete_draft, không qua đây.
+    if (draftHasText(existing.payload) && !draftHasText(d)) {
+      return { ok: true, id: d.id, updated_at: existing.updated_at, ignored_empty: true };
+    }
     const storedAt = new Date(existing.updated_at || 0).getTime();
     const incomingAt = new Date(d.updated_at || now).getTime();
     if (storedAt && incomingAt && incomingAt < storedAt) {
