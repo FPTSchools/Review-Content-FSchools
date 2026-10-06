@@ -24,7 +24,7 @@ let h = renderTextFormatting(escHtml0(samples.table));
 function escHtml0(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 ok('render table th', /<th>Hạng<\/th>/.test(h) && /<td><b>A<\/b><\/td>/.test(h) && /B \| C/.test(h), h);
 h = renderTextFormatting(escHtml0(samples.link));
-ok('render link safe href', /href="https:\/\/fschools\.vn\/a%5Fb%2Ac"/.test(h) && !/<i>/.test(h), h);
+ok('render link safe href', /href="https:\/\/fschools\.vn\/a-b[/]c"/.test(h) && !/<i>/.test(h), h);
 h = renderTextFormatting(escHtml0('[font=Comic Sans]x[/font] [link=javascript:alert(1)]bad[/link] [color=red]r[/color]'));
 ok('render unknown font/js link/bad color stay inert', !/<a /.test(h) && !/font-family/.test(h) && !/style="color/.test(h), h);
 h = renderTextFormatting(escHtml0('<img src=x onerror=alert(1)> [link=https://a.com/"onmouseover="x]t[/link]'));
@@ -54,5 +54,39 @@ const word = '<html><body><p class=MsoNormal><b>Tiêu đề</b></p>\n<table bord
 p = pastedHtmlToEditorHtml(word); ed.innerHTML = p; praw = serializeEditableContent(ed);
 ok('paste word table', /\[table\]\nCột 1 \| Cột 2\na \| b \\| c\n\[\/table\]/.test(praw) && /^\*\*Tiêu đề\*\*\n/.test(praw) && /Hết$/.test(praw), JSON.stringify(praw));
 ok('paste strips junk', pastedHtmlToEditorHtml('<scr'+'ipt>alert(1)</scr'+'ipt><style>p{}</style><img src=x>') === '', pastedHtmlToEditorHtml('<scr'+'ipt>alert(1)</scr'+'ipt><style>p{}</style><img src=x>'));
+
+// ---- khung nhận xét: ảnh + bảng thật, vị trí chữ vẫn khớp chuỗi thô ----
+const IMG = 'https://drive.google.com/file/d/1AbC_dEf-123/view?usp=sharing';
+const rich = ['Mở bài', IMG, '[table=h]', 'Môn | Giờ | Ghi chú', 'Bóng đá | 07h45 | A \\| B', '', '[/table]', '', 'Kết **bài** [link=https://fschools.vn]web[/link]'].join('\n');
+const box = document.createElement('div'); document.body.appendChild(box);
+box.innerHTML = renderSelectableFormatted(rich, [], 'n-', { images: true });
+ok('rich: textContent == raw', box.textContent === rich, JSON.stringify(box.textContent));
+ok('rich: 1 image, link text hidden', box.querySelectorAll('img.ic-img').length === 1 && /thumbnail\?id=1AbC_dEf-123/.test(box.innerHTML), box.innerHTML.slice(0, 200));
+ok('rich: real table 3 header cells + 3 body cells', box.querySelectorAll('table.rt-table th').length === 3 && box.querySelectorAll('table.rt-table td').length === 3, box.innerHTML);
+// vị trí chọn: chọn chữ "07h45" trong ô → chỉ số trên DOM == chỉ số trong chuỗi thô
+const cell = Array.from(box.querySelectorAll('td')).find(td => td.textContent.indexOf('07h45') >= 0);
+const tn = (function w(n) { if (n.nodeType === 3 && n.nodeValue.indexOf('07h45') >= 0) return n; for (const c of n.childNodes) { const r = w(c); if (r) return r; } })(cell);
+const rg = document.createRange(); rg.setStart(tn, tn.nodeValue.indexOf('07h45')); rg.setEnd(tn, tn.nodeValue.indexOf('07h45') + 5);
+const pre = document.createRange(); pre.selectNodeContents(box); pre.setEnd(rg.startContainer, rg.startOffset);
+ok('rich: selection offset inside table cell matches raw', pre.toString().length === rich.indexOf('07h45') && rg.toString() === '07h45', pre.toString().length + ' vs ' + rich.indexOf('07h45'));
+// nhận xét tô vàng trong ô bảng và trên chữ sau ảnh
+const c1 = rich.indexOf('Bóng đá'), c2 = rich.indexOf('bài', rich.indexOf('Kết'));
+box.innerHTML = renderSelectableFormatted(rich, [{ id: 'a', start: c1, end: c1 + 7 }, { id: 'b', start: c2, end: c2 + 3 }], 'n-', { images: true });
+const hls = Array.from(box.querySelectorAll('.ic-highlight')).map(x => x.textContent);
+ok('rich: highlights keep text, offsets unchanged', hls.join('|') === 'Bóng đá|bài' && box.textContent === rich, hls.join('|'));
+box.innerHTML = renderSelectableFormatted(rich, [], 'n-');
+ok('no images option -> no img, text equal', box.querySelectorAll('img').length === 0 && box.textContent === rich);
+const tricky = '[link=https://drive.google.com/file/d/ZZZ/view]xem ảnh[/link]';
+box.innerHTML = renderSelectableFormatted(tricky, [], 'n-', { images: true });
+ok('image URL inside [link=] stays a link', box.querySelectorAll('img').length === 0 && box.textContent === tricky, box.innerHTML);
+const two = 'A\n[table]\nx | y\n[/table]\n[table=h]\np | q\n[/table]\nB';
+box.innerHTML = renderSelectableFormatted(two, [], 'n-', { images: true });
+ok('two tables: text == raw, 2 tables', box.textContent === two && box.querySelectorAll('table').length === 2, JSON.stringify(box.textContent));
+box.remove();
+// bài lưu bằng CRLF (Windows)
+const crlfRaw = 'Dòng 1\r\n\r\n**Đậm**\r\n' + IMG + '\r\nHết';
+const cb = document.createElement('div'); document.body.appendChild(cb); cb.innerHTML = renderSelectableFormatted(crlfRaw, [], 'n-', { images: true });
+ok('CRLF: DOM text == raw (offsets stay aligned)', cb.textContent === crlfRaw, JSON.stringify(cb.textContent) + ' vs ' + JSON.stringify(crlfRaw));
+cb.remove();
 document.getElementById('out').textContent = R.join('\n'); document.title = R.some(x=>x.startsWith('FAIL')) ? 'FAIL' : 'ALLPASS';
 </script>

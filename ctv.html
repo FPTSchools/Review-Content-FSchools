@@ -1979,20 +1979,6 @@ function renderContentDisplay(html) {
   return injectInlineImages(renderTextFormatting(html));
 }
 
-// Khối "xem trước hiển thị" chỉ-đọc trong thẻ duyệt bài — KHÔNG dùng để bôi chọn nhận xét
-// (bôi chọn vẫn dùng ô .inline-content y như cũ, offset tính trên text gốc, không đổi).
-// Chỉ hiện khi bài có chọn nền tảng Web/Email — các nền tảng khác không cần.
-function buildInlineImagePreview(s) {
-  const platformList = parseMaybeJson(s.platform_parsed || s.platform, []);
-  const wantsInline = Array.isArray(platformList) && (platformList.includes('web') || platformList.includes('email'));
-  const raw = s.content || '';
-  if (!wantsInline || (!hasInlineImageLink(raw) && !hasFormattingMarkup(raw))) return '';
-  const html = renderContentDisplay(escHtml(raw));
-  return '<div style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;background:var(--surface2,#f8fafc)">' +
-    '<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase">👁 Xem trước hiển thị</div>' +
-    '<div style="font-size:13px;line-height:1.8;white-space:pre-wrap">' + html + '</div></div>';
-}
-
 function renderLivePreview() {
   const wrap = document.getElementById('content-live-preview');
   const hint = document.getElementById('inline-image-hint');
@@ -3606,11 +3592,10 @@ function renderReviewQueue() {
           <div style="font-size:11px;color:var(--text3)">✍️ Bôi chọn bất kỳ đoạn nào (kể cả tiêu đề) để thêm nhận xét trực tiếp</div>
           <button class="btn btn-outline btn-sm" onclick="showReviewerHistory('${s.id}')" style="white-space:nowrap">🧾 Xem nhận xét các vòng trước</button>
         </div>
-        ${buildInlineImagePreview(s)}
         <div class="inline-editor-wrap" id="rvew-${s.id}">
           <div class="inline-content" id="rvc-content-${s.id}" onmouseup="onRVTextSelect('${s.id}',event,'content')">
             <div style="font-size:16px;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--border);cursor:text" onmouseup="event.stopPropagation();onRVTextSelect('${s.id}',event,'title')" id="rvc-title-${s.id}">${escHtml(s.title||'')}</div>
-            <div style="font-size:13px;line-height:1.8" id="rvc-body-${s.id}">${renderSelectableFormatted(s.content, [], 'rvcn-')}</div>
+            <div style="font-size:13px;line-height:1.8" id="rvc-body-${s.id}">${renderSelectableFormatted(s.content, [], 'rvcn-', { images: true })}</div>
           </div>
           <div class="ic-sidebar" id="rvc-sidebar-${s.id}"><div style="font-size:11px;color:var(--text3);padding:8px;text-align:center">Bôi chọn đoạn văn để thêm nhận xét</div></div>
         </div>
@@ -3865,7 +3850,7 @@ function renderRVInlineEditor(subId) {
   }
   const bodyEl = document.getElementById('rvc-body-'+subId);
   if (bodyEl) {
-    bodyEl.innerHTML = renderSelectableFormatted(s.content, contentComments, 'rvcn-');
+    bodyEl.innerHTML = renderSelectableFormatted(s.content, contentComments, 'rvcn-', { images: true });
   }
   const allSorted = [...comments].sort((a,b)=>a.zone==='title'&&b.zone!=='title'?-1:1);
   if (!comments.length) {

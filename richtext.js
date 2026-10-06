@@ -181,43 +181,125 @@
   }
 
   // Dựng HTML cho ô bôi chọn: định dạng thật + ký hiệu ẩn + tô vàng các đoạn đã nhận xét.
-  function renderSelectableFormatted(raw, comments, notePrefix) {
+  // opts.images = true: link ảnh Google Drive trong bài hiện thành ẢNH thật ngay tại chỗ (không cần khối xem trước riêng).
+  // Bảng cũng hiện thành bảng thật. Quy tắc bất di bất dịch: mọi ký tự của chuỗi thô vẫn nằm trong DOM đúng thứ tự
+  // (ký hiệu, link ảnh, dấu "|", xuống dòng được ẩn bằng CSS chứ không xoá) và ảnh chỉ là phần tử không có chữ,
+  // nên vị trí nhận xét đo bằng Range.toString() vẫn khớp với chuỗi thô.
+  var DRIVE_IMG_RE = /https?:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)(?:\/[^\s<>"']*)?/g;
+
+  function imgTag(id) {
+    return '<img class="ic-img" loading="lazy" alt="Ảnh minh họa" src="https://drive.google.com/thumbnail?id=' + id + '&amp;sz=w1000"' +
+      ' onclick="event.stopPropagation();window.open(\'https://drive.google.com/file/d/' + id + '/view\',\'_blank\')">';
+  }
+
+  function renderSelectableFormatted(raw, comments, notePrefix, opts) {
     raw = String(raw || '');
     comments = comments || [];
-    var n = raw.length;
+    opts = opts || {};
+    var n = raw.length, i, m;
     var f = formatMapOf(raw);
-    var hl = new Int32Array(n).fill(-1);
-    comments.forEach(function (c, ci) { for (var i = Math.max(0, c.start); i < Math.min(n, c.end); i++) hl[i] = ci; });
-    var html = '';
-    for (var i = 0; i < n;) {
-      var j = i + 1;
-      while (j < n && f.mk[j] === f.mk[i] && f.b[j] === f.b[i] && f.it[j] === f.it[i] && f.u[j] === f.u[i] && f.st[j] === f.st[i] &&
-        f.size[j] === f.size[i] && f.font[j] === f.font[i] && f.color[j] === f.color[i] && f.bg[j] === f.bg[i] && f.link[j] === f.link[i] && hl[j] === hl[i]) j++;
-      var txt = esc(raw.slice(i, j));
-      var piece;
-      if (f.mk[i]) piece = '<span class="ic-mk">' + txt + '</span>';
-      else {
-        var st = [];
-        if (f.b[i]) st.push('font-weight:700');
-        if (f.it[i]) st.push('font-style:italic');
-        var deco = [];
-        if (f.u[i] || f.link[i]) deco.push('underline');
-        if (f.st[i]) deco.push('line-through');
-        if (deco.length) st.push('text-decoration:' + deco.join(' '));
-        if (f.size[i]) st.push('font-size:' + f.size[i] + 'px');
-        if (f.font[i]) st.push('font-family:' + FONT_STACK[f.font[i]]);
-        if (f.color[i]) st.push('color:' + f.color[i]);
-        else if (f.link[i]) st.push('color:#003DA5');
-        if (f.bg[i]) st.push('background:' + f.bg[i]);
-        piece = st.length ? '<span style="' + st.join(';') + '">' + txt + '</span>' : txt;
+
+    // Link ảnh Drive → ẩn chữ link (vẫn giữ trong DOM) + thêm thẻ <img> ngay sau link
+    var imgAt = new Int32Array(n).fill(-1), imgs = [];
+    if (opts.images) {
+      DRIVE_IMG_RE.lastIndex = 0;
+      while ((m = DRIVE_IMG_RE.exec(raw))) {
+        var s0 = m.index, e0 = s0 + m[0].length;
+        if (f.mk[s0]) continue;   // link nằm trong ký hiệu khác (vd đích của [link=...]) thì bỏ qua
+        imgs.push({ id: m[1], e: e0 });
+        for (i = s0; i < e0; i++) { imgAt[i] = imgs.length - 1; f.mk[i] = 1; }
       }
-      if (hl[i] >= 0) {
-        var c = comments[hl[i]];
-        piece = '<span class="ic-highlight" onclick="document.getElementById(\'' + notePrefix + c.id + '\').scrollIntoView({behavior:\'smooth\',block:\'nearest\'})">' + piece + '</span>';
-      }
-      html += piece;
-      i = j;
     }
+
+    var hl = new Int32Array(n).fill(-1);
+    comments.forEach(function (c, ci) { for (var k = Math.max(0, c.start); k < Math.min(n, c.end); k++) hl[k] = ci; });
+
+    function hidden(a, b) { return b > a ? '<span class="ic-mk">' + esc(raw.slice(a, b)).replace(/\r/g, '&#13;') + '</span>' : ''; }
+
+    // HTML cho đoạn [a, b) của chuỗi thô (chia thành các "đoạn" cùng định dạng)
+    function runsHtml(a, b) {
+      var html = '';
+      for (var p = a; p < b;) {
+        var j = p + 1;
+        while (j < b && f.mk[j] === f.mk[p] && f.b[j] === f.b[p] && f.it[j] === f.it[p] && f.u[j] === f.u[p] && f.st[j] === f.st[p] &&
+          f.size[j] === f.size[p] && f.font[j] === f.font[p] && f.color[j] === f.color[p] && f.bg[j] === f.bg[p] && f.link[j] === f.link[p] &&
+          imgAt[j] === imgAt[p] && hl[j] === hl[p]) j++;
+        var txt = esc(raw.slice(p, j)).replace(/\r/g, '<span class="ic-mk">&#13;</span>');
+        var piece;
+        if (f.mk[p]) {
+          piece = '<span class="ic-mk">' + txt + '</span>';
+          if (imgAt[p] >= 0 && j === imgs[imgAt[p]].e) piece += imgTag(imgs[imgAt[p]].id);
+        } else {
+          var st = [];
+          if (f.b[p]) st.push('font-weight:700');
+          if (f.it[p]) st.push('font-style:italic');
+          var deco = [];
+          if (f.u[p] || f.link[p]) deco.push('underline');
+          if (f.st[p]) deco.push('line-through');
+          if (deco.length) st.push('text-decoration:' + deco.join(' '));
+          if (f.size[p]) st.push('font-size:' + f.size[p] + 'px');
+          if (f.font[p]) st.push('font-family:' + FONT_STACK[f.font[p]]);
+          if (f.color[p]) st.push('color:' + f.color[p]);
+          else if (f.link[p]) st.push('color:#003DA5');
+          if (f.bg[p]) st.push('background:' + f.bg[p]);
+          piece = st.length ? '<span style="' + st.join(';') + '">' + txt + '</span>' : txt;
+        }
+        if (hl[p] >= 0) {
+          var c = comments[hl[p]];
+          piece = '<span class="ic-highlight" onclick="document.getElementById(\'' + notePrefix + c.id + '\').scrollIntoView({behavior:\'smooth\',block:\'nearest\'})">' + piece + '</span>';
+        }
+        html += piece;
+        p = j;
+      }
+      return html;
+    }
+
+    // Bảng thật: mỗi ô chứa đúng đoạn chữ của nó; dấu "|" ngăn cách, khoảng trắng đầu/cuối ô, xuống dòng giữa các hàng,
+    // ký hiệu [table]..[/table] đều nằm trong <span class="ic-mk"> ẩn, đặt đúng thứ tự như trong chuỗi thô.
+    function tableHtml(t) {
+      var html = hidden(t.s, t.s + t.open);
+      var bs = t.s + t.open, be = t.e - 8;   // 8 = độ dài "[/table]"
+      var rows = [], pending = [], p = bs, k;
+      for (k = bs; k <= be; k++) {
+        if (k === be || raw[k] === '\n') {
+          if (raw.slice(p, k).trim() === '') pending.push([p, Math.min(k + 1, be)]);
+          else { rows.push({ a: p, b: k, pend: pending, nl: k < be ? [k, k + 1] : null }); pending = []; }
+          p = k + 1;
+        }
+      }
+      var out = '<table class="rt-table"><tbody>';
+      rows.forEach(function (row, ri) {
+        var cells = [], cs = row.a, q;
+        for (q = row.a; q < row.b; q++) {
+          if (raw[q] === '\\' && raw[q + 1] === '|') { f.mk[q] = 1; q++; }     // "\|" trong ô: ẩn dấu gạch ngược, hiện dấu |
+          else if (raw[q] === '|') { cells.push([cs, q]); cs = q + 1; }
+        }
+        cells.push([cs, row.b]);
+        var tag = (t.h && ri === 0) ? 'th' : 'td';
+        out += '<tr>';
+        cells.forEach(function (c, ci) {
+          var ts = c[0], te = c[1];
+          while (ts < te && /\s/.test(raw[ts])) ts++;
+          while (te > ts && /\s/.test(raw[te - 1])) te--;
+          var cell = '';
+          if (ci === 0) row.pend.forEach(function (pr) { cell += hidden(pr[0], pr[1]); });
+          if (ci > 0) cell += hidden(c[0] - 1, c[0]);                    // dấu | ngăn cách ô
+          cell += hidden(c[0], ts) + runsHtml(ts, te) + hidden(te, c[1]);
+          if (ci === cells.length - 1 && row.nl) cell += hidden(row.nl[0], row.nl[1]);
+          out += '<' + tag + '>' + cell + '</' + tag + '>';
+        });
+        out += '</tr>';
+      });
+      out += '</tbody></table>';
+      pending.forEach(function (pr) { out += hidden(pr[0], pr[1]); });
+      return html + out + hidden(be, t.e);
+    }
+
+    var regions = [], re = /\[table(=h)?\][\s\S]*?\[\/table\]/g;
+    while ((m = re.exec(raw))) regions.push({ s: m.index, e: m.index + m[0].length, h: !!m[1], open: m[0].indexOf(']') + 1 });
+    var html = '', pos = 0;
+    regions.forEach(function (t) { html += runsHtml(pos, t.s) + tableHtml(t); pos = t.e; });
+    html += runsHtml(pos, n);
     return html;
   }
 
@@ -389,7 +471,9 @@
       '.rt-table td,.rt-table th,.content-editable table td,.content-editable table th{border:1px solid #C8CDE0;padding:5px 10px;vertical-align:top;min-width:56px;text-align:left;}' +
       '.rt-table th,.content-editable table th{background:#F0F2F8;font-weight:600;text-transform:none;letter-spacing:normal;font-size:inherit;color:inherit;}' +
       '.rt-table td,.content-editable table td{font-size:inherit;color:inherit;}' +
-      '.content-editable a,.content-block a{color:#003DA5;text-decoration:underline;}';
+      '.content-editable a,.content-block a{color:#003DA5;text-decoration:underline;}' +
+      '.ic-img{display:block;max-width:100%;max-height:420px;border-radius:8px;margin:8px 0;cursor:zoom-in;background:#F0F2F8;}' +
+      '.inline-content .rt-table{white-space:normal;}';
     document.head.appendChild(style);
   }
 
