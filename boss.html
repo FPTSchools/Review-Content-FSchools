@@ -3353,6 +3353,7 @@ async function saveEditCategory(id) {
   const nameInput = document.getElementById('doc-edit-category-name');
   const name = nameInput ? nameInput.value.trim() : '';
   if (!name) { showToast('⚠️ Tên danh mục không được để trống'); return; }
+  if (!(_editingCategoryRoles || []).length && !confirm('Chưa tick vai trò nào được xem danh mục này.\n\nChỉ Admin và Trưởng ban sẽ thấy nó. Vẫn lưu?')) return;
   try {
     const res = await callAPI({ action: 'update_document_category', id, name, color: _editingCategoryColor, allowed_roles: _editingCategoryRoles, area: _editingCategoryArea, role: currentUser.role, user_id: currentUser.id });
     if (res.ok) {
@@ -3389,7 +3390,7 @@ function renderDocumentLinks() {
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:6px 0">Chưa có link nào trong danh mục này.</div>';
     return `<div class="card doc-category-card" style="background:${escHtml(cat.color || '#E9E9E9')}">
-      <div class="card-title">📁 ${escHtml(cat.name)}</div>
+      <div class="card-title">📁 ${escHtml(cat.name)}${(['admin','manager'].includes(currentUser.role) && !parseCategoryRoles(cat).length) ? ' <span style="font-size:10px;font-weight:600;color:var(--red);background:var(--red-bg,#FDECEC);padding:2px 8px;border-radius:10px;margin-left:6px;white-space:nowrap">⚠️ Chỉ Admin/Trưởng ban xem được — bấm Sửa để chọn vai trò</span>' : ''}</div>
       ${linksHtml}
     </div>`;
   };
@@ -3449,6 +3450,7 @@ async function addDocumentCategory() {
   const input = document.getElementById('doc-new-category-input');
   const name = input.value.trim();
   if (!name) { showToast('⚠️ Nhập tên danh mục'); return; }
+  if (!_newCategoryRoles.length && !confirm('Bạn chưa tick vai trò nào được xem danh mục này.\n\nChỉ Admin và Trưởng ban sẽ thấy nó — Trưởng phòng, Leader Content, CTV sẽ KHÔNG thấy.\n\nVẫn thêm danh mục?')) return;
   try {
     const res = await callAPI({ action: 'add_document_category', name, color: _newCategoryColor, allowed_roles: _newCategoryRoles, area: document.getElementById('doc-new-category-area').value, role: currentUser.role, user_id: currentUser.id });
     if (res.ok) {
