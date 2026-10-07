@@ -3190,7 +3190,7 @@ const DOC_AREAS = [['chung', '📂 Dùng chung'], ['sale', '💼 Sale'], ['pr', 
 let _docAreaFilter = 'all';
 const docAreaOf = c => (DOC_AREAS.some(a => a[0] === c.area) ? c.area : 'chung');
 const docAreaLabel = a => (DOC_AREAS.find(x => x[0] === a) || DOC_AREAS[0])[1];
-function setDocAreaFilter(a) { _docAreaFilter = a; renderDocumentLinks(); }
+function setDocAreaFilter(a) { _docAreaFilter = a; renderDocCategorySelect(); renderDocumentLinks(); }
 let _docColorPalette = ['#FCE4E4','#FDEBD3','#FFF6D6','#E3F3D9','#D8F1EA','#DCEEFB','#E3E4FC','#F1E3FA','#FBE1F0','#E9E9E9'];
 let _newCategoryColor = _docColorPalette[0];
 let _editingCategoryId = null;
@@ -3232,10 +3232,24 @@ async function loadDocumentsPage() {
 function renderDocCategorySelect() {
   const sel = document.getElementById('doc-category-select');
   if (!sel) return;
-  sel.innerHTML = '<option value="">-- Chọn --</option>' + DOC_AREAS.map(([a, label]) => {
-    const cats = _docCategories.filter(c => docAreaOf(c) === a);
-    return cats.length ? `<optgroup label="${escHtml(label)}">${cats.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.name)}</option>`).join('')}</optgroup>` : '';
-  }).join('');
+  const keep = sel.value;
+  // Đang xem 1 khu vực (Dùng chung / Sale / PR - Truyền thông) → ô "Danh mục" của mục Thêm link mới chỉ hiện đúng danh mục
+  // của khu vực đó; đang xem "Tất cả" thì hiện đủ, gom theo khu vực.
+  const areas = _docAreaFilter === 'all' ? DOC_AREAS : DOC_AREAS.filter(([a]) => a === _docAreaFilter);
+  const groups = areas.map(([a, label]) => ({ label, cats: _docCategories.filter(c => docAreaOf(c) === a) })).filter(g => g.cats.length);
+  if (_docAreaFilter !== 'all' && !groups.length) {
+    sel.innerHTML = '<option value="">-- Khu vực này chưa có danh mục --</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  const opt = c => `<option value="${escHtml(c.id)}">${escHtml(c.name)}</option>`;
+  sel.innerHTML = '<option value="">-- Chọn --</option>' + (_docAreaFilter === 'all'
+    ? groups.map(g => `<optgroup label="${escHtml(g.label)}">${g.cats.map(opt).join('')}</optgroup>`).join('')
+    : groups[0].cats.map(opt).join(''));
+  // giữ lại lựa chọn cũ nếu danh mục đó vẫn còn trong danh sách đang hiện; nếu chỉ có 1 danh mục thì chọn sẵn
+  sel.value = Array.from(sel.options).some(o => o.value && o.value === keep) ? keep : '';
+  if (!sel.value && _docAreaFilter !== 'all' && groups[0].cats.length === 1) sel.value = groups[0].cats[0].id;
 }
 
 // Bộ chọn màu dạng chấm tròn — dùng chung cho cả form "thêm danh mục" và "sửa danh mục".
