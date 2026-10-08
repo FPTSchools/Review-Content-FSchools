@@ -180,6 +180,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
     return json({ ok: false, error: 'Body không phải JSON hợp lệ' });
   }
   if (!p || typeof p !== 'object' || Array.isArray(p)) return json({ ok: false, error: 'Body không hợp lệ' });
+  // Địa chỉ IP người gọi do Cloudflare cấp — ghi đè mọi giá trị client_ip trình duyệt gửi lên (dùng chống dò mật khẩu).
+  p.client_ip = request.headers.get('CF-Connecting-IP') || '';
 
   let supabase;
   try {

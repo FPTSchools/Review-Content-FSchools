@@ -21,8 +21,8 @@
 CREATE TABLE users (
   id          TEXT PRIMARY KEY,
   email       TEXT NOT NULL UNIQUE,
-  -- TODO bảo mật: app hiện lưu password dạng plaintext (kể cả gửi qua email khi tạo/đổi mật khẩu).
-  -- Khi lên Postgres nên đổi sang lưu hash (bcrypt/argon2) và bỏ việc gửi mật khẩu qua email.
+  -- Từ 2026-10-09: cột này lưu mật khẩu đã BĂM (pbkdf2$<vòng>$<salt>$<hash>, xem functions/_lib/password.js), không còn chữ thường.
+  -- Mật khẩu tạm gửi qua email (tài khoản mới / admin đổi mật khẩu) bị xoá khỏi email_queue sau khi gửi.
   password    TEXT NOT NULL,
   name        TEXT NOT NULL,
   role        TEXT NOT NULL CHECK (role IN ('ctv','leader_content','leader','manager','admin')),

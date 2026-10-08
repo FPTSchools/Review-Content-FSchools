@@ -2,6 +2,8 @@ import { newId } from '../ids.js';
 import { normalizeEmail } from '../util.js';
 import { sendNewAccountEmail, sendPasswordChangedEmail, sendSelfPasswordChangedEmail } from '../email.js';
 import { createSessionToken } from '../session.js';
+import { hashPassword, verifyPassword, needsRehash } from '../password.js';
+import { loginKeys, checkLoginLock, recordLoginFailure, clearLoginFailures } from '../loginGuard.js';
 
 // ============================================================
 // USERS — port 1:1 từ handleLogin/handleGetUsers/handleAddUser/handleUpdateUser/handleDeleteUser
@@ -13,6 +15,11 @@ export async function handleLogin(supabase, env, p) {
   const password = String(p.password || '');
   if (!email || !password) return { ok: false, error: 'Email hoặc mật khẩu không đúng' };
 
+  // Chống dò mật khẩu: đang bị tạm khoá thì từ chối ngay, không kiểm tra mật khẩu. client_ip do router đặt từ header (không tin body).
+  const keys = loginKeys(email, p.client_ip);
+  const lock = await checkLoginLock(supabase, keys);
+  if (lock.minutes) return { ok: false, code: 'LOGIN_LOCKED', error: `Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau ${lock.minutes} phút.` };
+
   const { data: user, error } = await supabase
     .from('users')
     .select('id, email, password, name, role, campus, active')
@@ -20,12 +27,19 @@ export async function handleLogin(supabase, env, p) {
     .maybeSingle();
 
   if (error) return { ok: false, error: 'Lỗi hệ thống, thử lại sau' };
-  if (!user || user.password !== password || user.active !== true) {
+  // Luôn chạy phép băm kể cả khi email không tồn tại → thời gian phản hồi không lộ email nào có trong hệ thống.
+  const valid = await verifyPassword(password, user ? user.password : 'pbkdf2$100000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=');
+  if (!user || !valid || user.active !== true) {
+    await recordLoginFailure(supabase, keys, lock.rows);
     return { ok: false, error: 'Email hoặc mật khẩu không đúng' };
   }
+  await clearLoginFailures(supabase, keys);
 
+  // Mật khẩu cũ còn dạng chữ thường (hoặc băm số vòng thấp): băm lại ngay khi người dùng đăng nhập đúng.
   const now = new Date().toISOString();
-  await supabase.from('users').update({ last_login: now }).eq('id', user.id);
+  const patch = { last_login: now };
+  if (needsRehash(user.password)) { patch.password = await hashPassword(password); user.password = patch.password; }
+  await supabase.from('users').update(patch).eq('id', user.id);
 
   const session = await createSessionToken(env, user);
   return {
@@ -55,7 +69,7 @@ export async function handleAddUser(supabase, env, p) {
   const { error } = await supabase.from('users').insert({
     id,
     email,
-    password: p.password, // TODO bảo mật: nên hash trước khi lưu — xem ghi chú trong schema.sql
+    password: await hashPassword(p.password),
     name: p.name,
     role: p.role,
     campus: p.campus || null,
@@ -84,7 +98,7 @@ export async function handleUpdateUser(supabase, env, p) {
   }
   if (p.role) patch.role = p.role;
   if (p.campus !== undefined) patch.campus = p.campus;
-  if (p.password) patch.password = p.password; // TODO bảo mật: nên hash
+  if (p.password) patch.password = await hashPassword(p.password);
 
   const { data, error } = await supabase.from('users').update(patch).eq('id', p.id).select('id, email, name').maybeSingle();
   if (error) return { ok: false, error: error.message };
@@ -123,11 +137,19 @@ export async function handleUpdateMyProfile(supabase, env, p) {
 
   const newPassword = String(p.new_password || '');
   if (newPassword) {
-    if (String(p.current_password || '') !== user.password) return { ok: false, error: 'Mật khẩu hiện tại không đúng' };
+    // Chống dò mật khẩu hiện tại qua màn hình đổi mật khẩu (kẻ cầm được phiên đăng nhập): dùng chung bộ đếm theo tài khoản.
+    const keys = { ei: 'pf:' + String(user.email).toLowerCase() };
+    const lock = await checkLoginLock(supabase, keys);
+    if (lock.minutes) return { ok: false, code: 'LOGIN_LOCKED', error: `Bạn đã nhập sai mật khẩu hiện tại quá nhiều lần. Vui lòng thử lại sau ${lock.minutes} phút.` };
+    if (!(await verifyPassword(String(p.current_password || ''), user.password))) {
+      await recordLoginFailure(supabase, keys, lock.rows);
+      return { ok: false, error: 'Mật khẩu hiện tại không đúng' };
+    }
+    await clearLoginFailures(supabase, keys);
     if (newPassword.length < MIN_PASSWORD_LENGTH) return { ok: false, error: `Mật khẩu mới cần ít nhất ${MIN_PASSWORD_LENGTH} ký tự` };
     if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) return { ok: false, error: 'Mật khẩu mới cần có cả chữ và số' };
-    if (newPassword === user.password) return { ok: false, error: 'Mật khẩu mới phải khác mật khẩu hiện tại' };
-    patch.password = newPassword; // TODO bảo mật: nên hash
+    if (newPassword === String(p.current_password || '')) return { ok: false, error: 'Mật khẩu mới phải khác mật khẩu hiện tại' };
+    patch.password = await hashPassword(newPassword);
   }
 
   if (!Object.keys(patch).length) return { ok: false, error: 'Không có thay đổi nào để lưu' };

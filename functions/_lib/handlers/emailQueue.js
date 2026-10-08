@@ -29,6 +29,10 @@ export async function handleProcessEmailQueue(supabase, env) {
     try {
       await sendViaGmail(env, { to: row.to_email, subject: row.subject, html: row.html_body, text: row.body });
       await supabase.from('email_queue').update({ status: 'sent', sent_at: new Date().toISOString(), last_error: null }).eq('id', row.id);
+      // Email có mật khẩu tạm (tài khoản mới / admin đổi mật khẩu): gửi xong xoá nội dung khỏi hàng đợi để mật khẩu không nằm lại trong DB.
+      if (/^(new_account|password_changed):/.test(String(row.event_key || ''))) {
+        await supabase.from('email_queue').update({ body: '[Nội dung có mật khẩu — đã xoá sau khi gửi]', html_body: '[Nội dung có mật khẩu — đã xoá sau khi gửi]' }).eq('id', row.id);
+      }
       sent++;
     } catch (e) {
       await supabase.from('email_queue').update({ status: 'failed', last_error: String((e && e.message) || e) }).eq('id', row.id);
