@@ -99,6 +99,9 @@ export const ACTION_ROLES = {
   save_annual_plan_line: ALL,
   delete_annual_plan_line: ALL,
   copy_annual_plan: ALL,
+  get_plan_templates: ALL,
+  save_plan_template: ALL,    // handler tự kiểm tra: chỉ PLAN_EDITOR_ROLES
+  delete_plan_template: ALL,  // handler tự kiểm tra: chỉ PLAN_EDITOR_ROLES
   get_todo: ALL // trang "Việc cần làm": handler tự giới hạn theo vai trò (CTV chỉ đầu việc của mình, không có sự kiện)
 };
 

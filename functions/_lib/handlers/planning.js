@@ -424,3 +424,54 @@ export async function handleGetTodo(supabase, p) {
   }));
   return { ok: true, today, events, items };
 }
+
+// ============================================================
+// MẪU KẾ HOẠCH NĂM — link Google Sheet mẫu của từng phòng ban (bảng plan_templates).
+// Xem: mọi người dùng đã đăng nhập. Thêm/sửa/xoá: PLAN_EDITOR_ROLES. Không gắn cơ sở (dùng chung toàn trường).
+// ============================================================
+const SHEET_URL_RE = /^https:\/\/docs\.google\.com\/spreadsheets\/[^\s]+$/i;
+
+export async function handleGetPlanTemplates(supabase, p) {
+  const actor = await getActor(supabase, p.user_id);
+  if (!actor) return { ok: false, error: 'Chưa đăng nhập' };
+  let q = supabase.from('plan_templates').select('*').order('department', { ascending: true }).order('created_at', { ascending: true });
+  if (SCHOOL_YEAR_RE.test(String(p.school_year || ''))) q = q.eq('school_year', p.school_year);
+  const { data, error } = await q;
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, templates: data || [] };
+}
+
+export async function handleSavePlanTemplate(supabase, p) {
+  const actor = await getActor(supabase, p.user_id);
+  if (!actor || !PLAN_EDITOR_ROLES.includes(actor.role)) return { ok: false, error: 'Bạn không có quyền sửa mẫu kế hoạch năm' };
+  const t = p.template || {};
+  const department = cleanText(t.department), title = cleanText(t.title), url = cleanText(t.url);
+  if (!department) return { ok: false, error: 'Thiếu phòng ban' };
+  if (!title) return { ok: false, error: 'Thiếu tên mẫu' };
+  if (!url || !SHEET_URL_RE.test(url)) return { ok: false, error: 'Link phải là Google Sheet (bắt đầu bằng https://docs.google.com/spreadsheets/...)' };
+  if (!SCHOOL_YEAR_RE.test(String(t.school_year || ''))) return { ok: false, error: 'Thiếu năm học' };
+  const row = {
+    school_year: t.school_year, department: department.slice(0, 120), title: title.slice(0, 200), url: url.slice(0, 1000),
+    note: cleanText(t.note) ? String(t.note).trim().slice(0, 500) : null, updated_at: new Date().toISOString()
+  };
+  if (t.id) {
+    const { data, error } = await supabase.from('plan_templates').update(row).eq('id', t.id).select('id');
+    if (error) return { ok: false, error: error.message };
+    if (!data || !data.length) return { ok: false, error: 'Không tìm thấy mẫu' };
+    return { ok: true, id: t.id };
+  }
+  const id = newId('TPL') + '_' + Math.random().toString(36).slice(2, 6);
+  const { error } = await supabase.from('plan_templates').insert({ id, ...row, created_by: actor.id, created_by_name: actor.name });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, id };
+}
+
+export async function handleDeletePlanTemplate(supabase, p) {
+  const actor = await getActor(supabase, p.user_id);
+  if (!actor || !PLAN_EDITOR_ROLES.includes(actor.role)) return { ok: false, error: 'Bạn không có quyền xoá mẫu kế hoạch năm' };
+  if (!p.id) return { ok: false, error: 'Thiếu id' };
+  const { data, error } = await supabase.from('plan_templates').delete().eq('id', p.id).select('id');
+  if (error) return { ok: false, error: error.message };
+  if (!data || !data.length) return { ok: false, error: 'Không tìm thấy mẫu' };
+  return { ok: true };
+}

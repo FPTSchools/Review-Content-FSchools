@@ -356,6 +356,7 @@
     <button class="tab active" data-tab="cal" onclick="switchTab('cal')">📅 Lịch kế hoạch</button>
     <button class="tab" data-tab="plan" onclick="switchTab('plan')">Danh sách việc tháng</button>
     <button class="tab" data-tab="events" onclick="switchTab('events')">Danh sách sự kiện</button>
+    <button class="tab" data-tab="templates" onclick="switchTab('templates')">📑 Mẫu kế hoạch năm</button>
     <button class="tab" data-tab="pillars" id="tab-pillars" style="display:none" onclick="switchTab('pillars')">Trụ content</button>
   </div>
 
@@ -413,6 +414,17 @@
     <div id="ev-notice"></div>
     <div id="ev-upcoming"></div>
     <div id="ev-list"><div class="empty">Đang tải…</div></div>
+  </section>
+
+  <!-- MẪU KẾ HOẠCH NĂM: link Google Sheet mẫu của từng phòng ban -->
+  <section id="view-templates" style="display:none">
+    <div class="toolbar">
+      <select id="tpl-year" onchange="loadTemplates()"></select>
+      <span class="muted">Link Google Sheet mẫu để từng phòng ban/tổ lập kế hoạch cả năm</span>
+      <span class="spacer"></span>
+      <button class="btn primary editor-only" onclick="openTemplateModal()">+ Thêm mẫu</button>
+    </div>
+    <div id="tpl-list"><div class="empty">Đang tải…</div></div>
   </section>
 
   <!-- TRỤ CONTENT -->
@@ -497,6 +509,26 @@
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('event-modal')">Huỷ</button>
       <button class="btn primary" onclick="saveEvent()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: mẫu kế hoạch năm (link Google Sheet) -->
+<div class="modal-back" id="tpl-modal" onclick="if(event.target===this)closeModal('tpl-modal')">
+  <div class="modal">
+    <h2 id="tpl-modal-title">Thêm mẫu kế hoạch năm</h2>
+    <input type="hidden" id="tpl-id">
+    <div class="grid2">
+      <div class="field"><label>Phòng ban / tổ *</label><input type="text" id="tpl-dept" list="tpl-dept-list" placeholder="Vd: CTHS, PDP, Tổ Tự nhiên..."><datalist id="tpl-dept-list"></datalist></div>
+      <div class="field"><label>Năm học *</label><select id="tpl-year-f"></select></div>
+    </div>
+    <div class="field"><label>Tên mẫu *</label><input type="text" id="tpl-title" placeholder="Vd: Mẫu kế hoạch năm học 2026-2027 — CTHS"></div>
+    <div class="field"><label>Link Google Sheet *</label><input type="text" id="tpl-url" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
+    <div class="field"><label>Ghi chú</label><input type="text" id="tpl-note" placeholder="Hạn nộp, người phụ trách, cách điền..."></div>
+    <div class="muted" style="margin-bottom:6px">Nhớ chia sẻ file ở chế độ cho phép người trong trường xem/sửa để mọi người mở được.</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('tpl-modal')">Huỷ</button>
+      <button class="btn primary" onclick="saveTemplate()">Lưu</button>
     </div>
   </div>
 </div>
@@ -626,6 +658,8 @@ async function init() {
   fillSelect(document.getElementById('ev-campus'), campuses, campuses[0][0]);
   fillSelect(document.getElementById('cal-campus'), campuses, campuses[0][0]);
   const sy = currentSchoolYear(); const [a] = sy.split('-').map(Number);
+  { const ys = [[`${a-1}-${a}`, `Năm học ${a-1}-${a}`], [sy, `Năm học ${sy}`], [`${a+1}-${a+2}`, `Năm học ${a+1}-${a+2}`]];
+    fillSelect(document.getElementById('tpl-year'), ys, sy); fillSelect(document.getElementById('tpl-year-f'), ys, sy); }
   fillSelect(document.getElementById('ev-year'), [[`${a-1}-${a}`, `Năm học ${a-1}-${a}`], [sy, `Năm học ${sy}`], [`${a+1}-${a+2}`, `Năm học ${a+1}-${a+2}`]], sy);
   fillSelect(document.getElementById('plan-month'), monthOptions(), todayIso().slice(0, 7));
   document.getElementById('it-channels').innerHTML = CHANNELS.map(([v, l]) => `<label><input type="checkbox" value="${v}">${l}</label>`).join('');
@@ -662,11 +696,88 @@ function reloadActive() { if (activeTab === 'cal') loadCal(true); else if (activ
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['cal','plan','events','pillars'].forEach(v => document.getElementById('view-' + v).style.display = v === tab ? '' : 'none');
+  ['cal','plan','events','templates','pillars'].forEach(v => document.getElementById('view-' + v).style.display = v === tab ? '' : 'none');
   if (tab === 'cal') loadCal();
   if (tab === 'plan') loadPlan();
   if (tab === 'events') loadEvents();
+  if (tab === 'templates') loadTemplates();
   if (tab === 'pillars') renderPillars();
+}
+
+// ---------------- Mẫu kế hoạch năm (link Google Sheet của các phòng ban) ----------------
+let tplList = [];
+const TPL_COMMON_DEPTS = ['CTHS', 'PDP', 'Đào tạo', 'VP', 'STEM', 'TTCM', 'Thư viện', 'Tổ Tự nhiên', 'Tổ Xã hội', 'Tổ Tiếng Anh', 'Tuyển sinh', 'Truyền thông'];
+
+async function loadTemplates() {
+  document.getElementById('tpl-list').innerHTML = '<div class="empty">Đang tải…</div>';
+  const res = await api('get_plan_templates', { school_year: document.getElementById('tpl-year').value });
+  if (!res.ok) { document.getElementById('tpl-list').innerHTML = `<div class="empty">${escHtml(res.error || 'Lỗi tải mẫu')}</div>`; return; }
+  tplList = res.templates || [];
+  renderTemplates();
+}
+
+function renderTemplates() {
+  const box = document.getElementById('tpl-list');
+  if (!tplList.length) {
+    box.innerHTML = `<div class="empty">Chưa có mẫu nào cho năm học này.${isEditor ? ' Bấm "+ Thêm mẫu" để lưu link Google Sheet của phòng ban.' : ''}</div>`;
+    return;
+  }
+  const byDept = {};
+  tplList.forEach(t => { (byDept[t.department] = byDept[t.department] || []).push(t); });
+  box.innerHTML = Object.keys(byDept).sort((a, b) => a.localeCompare(b, 'vi')).map(d => `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title" style="font-size:16px;font-weight:800;text-transform:none;letter-spacing:0;color:var(--text)">🏫 ${escHtml(d)}</div>
+      ${byDept[d].map(t => `
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--border)">
+          <div style="flex:1;min-width:220px">
+            <div style="font-weight:600">${escHtml(t.title)}</div>
+            <div class="muted" style="font-size:12px;margin-top:2px">${t.note ? escHtml(t.note) + ' · ' : ''}Thêm bởi ${escHtml(t.created_by_name || '--')} · ${fmtDate(String(t.created_at).slice(0, 10))}</div>
+          </div>
+          <a class="btn primary sm" href="${escHtml(t.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Mở Google Sheet ↗</a>
+          ${isEditor ? `<button class="btn sm" onclick="openTemplateModal('${t.id}')">Sửa</button><button class="btn sm" style="color:var(--red)" onclick="deleteTemplate('${t.id}')">Xoá</button>` : ''}
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function openTemplateModal(id) {
+  const t = id ? tplList.find(x => x.id === id) : null;
+  document.getElementById('tpl-modal-title').textContent = t ? 'Sửa mẫu kế hoạch năm' : 'Thêm mẫu kế hoạch năm';
+  document.getElementById('tpl-id').value = t ? t.id : '';
+  document.getElementById('tpl-dept').value = t ? t.department : '';
+  document.getElementById('tpl-title').value = t ? t.title : '';
+  document.getElementById('tpl-url').value = t ? t.url : '';
+  document.getElementById('tpl-note').value = t ? (t.note || '') : '';
+  document.getElementById('tpl-year-f').value = t ? t.school_year : document.getElementById('tpl-year').value;
+  const depts = [...new Set([...TPL_COMMON_DEPTS, ...tplList.map(x => x.department)])];
+  document.getElementById('tpl-dept-list').innerHTML = depts.map(d => `<option value="${escHtml(d)}">`).join('');
+  openModal('tpl-modal');
+}
+
+async function saveTemplate() {
+  const t = {
+    id: document.getElementById('tpl-id').value || undefined,
+    department: document.getElementById('tpl-dept').value.trim(),
+    school_year: document.getElementById('tpl-year-f').value,
+    title: document.getElementById('tpl-title').value.trim(),
+    url: document.getElementById('tpl-url').value.trim(),
+    note: document.getElementById('tpl-note').value.trim()
+  };
+  if (!t.department || !t.title || !t.url) { toast('Điền đủ phòng ban, tên mẫu và link Google Sheet'); return; }
+  const res = await api('save_plan_template', { template: t });
+  if (!res.ok) { toast(res.error || 'Lưu thất bại'); return; }
+  closeModal('tpl-modal');
+  document.getElementById('tpl-year').value = t.school_year;
+  toast('Đã lưu mẫu kế hoạch năm');
+  loadTemplates();
+}
+
+async function deleteTemplate(id) {
+  const t = tplList.find(x => x.id === id);
+  if (!confirm('Xoá mẫu "' + (t ? t.title : '') + '"? (Không xoá file Google Sheet, chỉ gỡ link khỏi danh sách)')) return;
+  const res = await api('delete_plan_template', { id });
+  if (!res.ok) { toast(res.error || 'Xoá thất bại'); return; }
+  toast('Đã xoá mẫu');
+  loadTemplates();
 }
 
 // ---------------- Lịch sự kiện ----------------
