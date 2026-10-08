@@ -125,7 +125,7 @@ export async function handleGetPublishQueue(supabase, p) {
 }
 
 // Lấy bài + kiểm tra quyền + kênh hợp lệ (dùng cho 3 action ghi).
-async function loadTarget(supabase, p) {
+export async function loadPublishTarget(supabase, p) {
   const actor = await getActor(supabase, p.user_id);
   if (!actor) return { error: 'Chưa đăng nhập' };
   const channel = String(p.channel || '');
@@ -140,7 +140,7 @@ async function loadTarget(supabase, p) {
 }
 
 export async function handleSavePublishSlot(supabase, p) {
-  const t = await loadTarget(supabase, p);
+  const t = await loadPublishTarget(supabase, p);
   if (t.error) return { ok: false, error: t.error };
   if (t.slot && t.slot.status === 'da_dang') return { ok: false, error: 'Kênh này đã đánh dấu đã đăng — hoàn tác trước nếu muốn đổi lịch' };
   const date = String(p.scheduled_date || '').trim() ? cleanDate(p.scheduled_date) : null;
@@ -163,7 +163,7 @@ export async function handleSavePublishSlot(supabase, p) {
 }
 
 export async function handleMarkPublished(supabase, p) {
-  const t = await loadTarget(supabase, p);
+  const t = await loadPublishTarget(supabase, p);
   if (t.error) return { ok: false, error: t.error };
   const link = cleanLink(p.post_link);
   if (String(p.post_link || '').trim() && !link) return { ok: false, error: 'Link bài đăng phải bắt đầu bằng http:// hoặc https://' };
@@ -201,7 +201,7 @@ export async function handleMarkPublished(supabase, p) {
 }
 
 export async function handleUnmarkPublished(supabase, p) {
-  const t = await loadTarget(supabase, p);
+  const t = await loadPublishTarget(supabase, p);
   if (t.error) return { ok: false, error: t.error };
   if (!t.slot || t.slot.status !== 'da_dang') return { ok: false, error: 'Kênh này chưa được đánh dấu đã đăng' };
   const now = new Date().toISOString();

@@ -85,6 +85,20 @@
   .stats .stat:nth-child(4){border-top-color:var(--fpt-green)} .stats .stat:nth-child(4) .n{color:var(--fpt-green)}
   .stat .l{font-size:12px;color:var(--text2)}
 
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  #pkg-modal .modal-actions{flex-wrap:wrap}
+  .chan-steps{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .chan-step{flex:1;min-width:220px;border:1px solid var(--border);border-radius:12px;padding:10px 14px;background:var(--surface);font-size:13px}
+  .chan-step b{display:block;margin-bottom:2px}
+  .chan-step.now{border-color:var(--fpt-green);background:var(--green-bg)}
+  .chan-step.next{opacity:.8}
+  .chan-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .chan-badge{width:34px;height:34px;border-radius:9px;color:#fff;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-size:15px}
+  .chan-name{font-size:16px;font-weight:800}
+  .chan-acc{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--border)}
+  .pkg-text{width:100%;min-height:200px;resize:vertical;font-size:13px;line-height:1.6;padding:10px 12px;border:1px solid var(--border2,var(--border));border-radius:10px;font-family:inherit}
+  .pkg-count{font-size:12px;color:var(--text3)}
+  .pkg-count.over{color:var(--red);font-weight:700}
   .pub-group-title{font-size:15px;font-weight:800;margin:14px 0 6px;display:flex;align-items:center;gap:8px}
   .pub-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--border)}
   .pub-date{min-width:92px;font-weight:700;font-size:13px}
@@ -371,6 +385,7 @@
     <button class="tab" data-tab="plan" onclick="switchTab('plan')">Danh sách việc tháng</button>
     <button class="tab" data-tab="events" onclick="switchTab('events')">Danh sách sự kiện</button>
     <button class="tab" data-tab="publish" onclick="switchTab('publish')">📣 Lịch đăng</button>
+    <button class="tab" data-tab="channels" id="tab-channels" style="display:none" onclick="switchTab('channels')">Kết nối kênh</button>
     <button class="tab" data-tab="templates" onclick="switchTab('templates')">Link kế hoạch năm</button>
     <button class="tab" data-tab="pillars" id="tab-pillars" style="display:none" onclick="switchTab('pillars')">Trụ content</button>
   </div>
@@ -451,6 +466,18 @@
     </div>
     <div class="stats" id="pub-stats"></div>
     <div id="pub-list"><div class="empty">Đang tải…</div></div>
+  </section>
+
+  <!-- KẾT NỐI KÊNH: khai báo Fanpage / TikTok / Zalo OA / Youtube / Website của từng cơ sở -->
+  <section id="view-channels" style="display:none">
+    <div class="chan-steps">
+      <div class="chan-step now"><b>Bước 1 — Khai báo kênh (đang dùng)</b>Ghi tên, ID và link kênh của từng cơ sở. Người đăng bài biết đăng ở đâu, và bài đã duyệt được soạn sẵn nội dung theo từng kênh để sao chép.</div>
+      <div class="chan-step next"><b>Bước 2 — Kết nối tự động (chờ cấp quyền)</b>Khi nền tảng cấp quyền xong, nút "Kết nối" bật lên và tool đăng/hẹn giờ thẳng lên kênh. Các kênh khai báo ở bước 1 giữ nguyên, chỉ cần bấm kết nối.</div>
+    </div>
+    <div class="toolbar">
+      <span class="muted" id="chan-hint">Mỗi cơ sở khai báo kênh riêng của mình; kênh "Dùng chung" áp cho cả 2 cơ sở.</span>
+    </div>
+    <div id="chan-list"><div class="empty">Đang tải…</div></div>
   </section>
 
   <!-- MẪU KẾ HOẠCH NĂM: link Google Sheet mẫu của từng phòng ban -->
@@ -577,6 +604,47 @@
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('pub-modal')">Huỷ</button>
       <button class="btn primary" id="pub-save-btn" onclick="savePub()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: khai báo kênh đăng -->
+<div class="modal-back" id="chan-modal" onclick="if(event.target===this)closeModal('chan-modal')">
+  <div class="modal">
+    <h2 id="chan-modal-title">Khai báo kênh</h2>
+    <input type="hidden" id="chan-id"><input type="hidden" id="chan-kind">
+    <div class="field"><label>Cơ sở *</label><select id="chan-campus"></select></div>
+    <div class="field"><label>Tên kênh *</label><input type="text" id="chan-name" maxlength="120" placeholder="Vd: FPT Schools Hòa Lạc"></div>
+    <div class="field"><label id="chan-id-label">ID kênh</label><input type="text" id="chan-extid" maxlength="200"></div>
+    <div class="field"><label>Link mở kênh</label><input type="text" id="chan-url" placeholder="https://..."></div>
+    <div class="field"><label>Ghi chú</label><input type="text" id="chan-note" maxlength="300" placeholder="Ai quản trị, quy ước đăng bài..."></div>
+    <div class="muted" id="chan-id-hint" style="margin-bottom:6px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('chan-modal')">Huỷ</button>
+      <button class="btn primary" onclick="saveChan()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: chuẩn bị bài đăng theo kênh -->
+<div class="modal-back" id="pkg-modal" onclick="if(event.target===this)closeModal('pkg-modal')">
+  <div class="modal wide">
+    <h2>Chuẩn bị bài đăng</h2>
+    <div class="muted" id="pkg-sub" style="margin-bottom:10px"></div>
+    <div id="pkg-acc" style="margin-bottom:10px"></div>
+    <div class="field"><label>Nội dung đăng (sửa được trước khi sao chép)</label>
+      <textarea class="pkg-text" id="pkg-text" oninput="pkgCount()"></textarea>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px">
+        <span class="pkg-count" id="pkg-count"></span><span style="flex:1"></span>
+        <button class="btn sm primary" onclick="pkgCopy('pkg-text')">📋 Sao chép nội dung</button>
+      </div>
+    </div>
+    <div id="pkg-files" style="margin-bottom:6px"></div>
+    <div class="muted" style="margin-bottom:6px">Định dạng đậm/màu/cỡ chữ đã được bỏ vì các kênh mạng xã hội chỉ nhận chữ thuần; ảnh và video lấy từ link Google Drive người viết đã gắn.</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('pkg-modal')">Đóng</button>
+      <button class="btn" id="pkg-auto" disabled title="Chưa kết nối API của kênh này — khi được cấp quyền, nút này đăng thẳng lên kênh">🚀 Đăng tự động (sắp có)</button>
+      <button class="btn primary" onclick="pkgDone()">✓ Tôi đã đăng xong</button>
     </div>
   </div>
 </div>
@@ -721,6 +789,7 @@ async function init() {
   document.getElementById('back-link').href = ['ctv','leader_content'].includes(me.role) ? 'ctv.html' : 'boss.html';
   if (!isEditor) document.querySelectorAll('.editor-only').forEach(el => el.style.display = 'none');
   if (['manager','admin'].includes(me.role)) document.getElementById('tab-pillars').style.display = '';
+  if (isEditor) document.getElementById('tab-channels').style.display = '';
 
   const campuses = campusOptions().map(c => [c, 'Cơ sở ' + CAMPUS_LABEL[c]]);
   fillSelect(document.getElementById('plan-campus'), campuses, campuses[0][0]);
@@ -740,7 +809,7 @@ async function init() {
   users = (uRes.users || []).filter(u => u.active !== false);
 
   const tab = new URLSearchParams(location.search).get('tab');
-  switchTab(['plan','events','publish','templates','pillars'].includes(tab) ? tab : 'cal');
+  switchTab(['plan','events','publish','channels','templates','pillars'].includes(tab) && (tab !== 'channels' || isEditor) ? tab : 'cal');
 }
 
 // Danh sách tháng của năm học trước / hiện tại / sau, nhãn kiểu "Tháng 9/2026".
@@ -760,16 +829,17 @@ function ensureMonthOption(sel, key) {
   sel.value = key;
 }
 let activeTab = 'cal';
-function reloadActive() { if (activeTab === 'cal') loadCal(true); else if (activeTab === 'plan') loadPlan(); else if (activeTab === 'events') loadEvents(); else if (activeTab === 'publish') loadPublish(); }
+function reloadActive() { if (activeTab === 'cal') loadCal(true); else if (activeTab === 'plan') loadPlan(); else if (activeTab === 'events') loadEvents(); else if (activeTab === 'publish') loadPublish(); else if (activeTab === 'channels') loadChannels(); }
 
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['cal','plan','events','publish','templates','pillars'].forEach(v => document.getElementById('view-' + v).style.display = v === tab ? '' : 'none');
+  ['cal','plan','events','publish','channels','templates','pillars'].forEach(v => document.getElementById('view-' + v).style.display = v === tab ? '' : 'none');
   if (tab === 'cal') loadCal();
   if (tab === 'plan') loadPlan();
   if (tab === 'events') loadEvents();
   if (tab === 'publish') loadPublish();
+  if (tab === 'channels') loadChannels();
   if (tab === 'templates') loadTemplates();
   if (tab === 'pillars') renderPillars();
 }
@@ -818,7 +888,8 @@ function renderPublish() {
     const [dt, rel] = pubDayText(r);
     const act = !r.can_edit ? '' : r.status === 'da_dang'
       ? `<button class="btn sm" onclick="undoPub('${escHtml(r.submission_id)}','${r.channel}')">Hoàn tác</button>`
-      : `<button class="btn sm" onclick="openPubModal('${escHtml(r.submission_id)}','${r.channel}','schedule')">${r.scheduled_date ? 'Đổi lịch' : 'Đặt lịch'}</button>
+      : `<button class="btn sm" onclick="openPkg('${escHtml(r.submission_id)}','${r.channel}')">📋 Chuẩn bị bài đăng</button>
+         <button class="btn sm" onclick="openPubModal('${escHtml(r.submission_id)}','${r.channel}','schedule')">${r.scheduled_date ? 'Đổi lịch' : 'Đặt lịch'}</button>
          <button class="btn sm primary" onclick="openPubModal('${escHtml(r.submission_id)}','${r.channel}','done')">✓ Đã đăng</button>`;
     const when = r.status === 'da_dang'
       ? `<div class="pub-date" style="color:var(--green)">✓ Đã đăng<small>${r.posted_at ? fmtDate(new Date(new Date(r.posted_at).getTime() + 7 * 3600000).toISOString().slice(0, 10)) : ''}</small></div>`
@@ -889,6 +960,130 @@ async function undoPub(subId, channel) {
   if (!res.ok) { toast('⚠️ ' + (res.error || 'Không hoàn tác được')); return; }
   toast('Đã hoàn tác'); loadPublish();
 }
+
+// ---------------- Kết nối kênh (khai báo kênh đăng) + Chuẩn bị bài đăng ----------------
+const CHAN_KINDS = [
+  { k: 'facebook', badge: 'f', color: '#1877F2', name: 'Facebook Fanpage', idLabel: 'Page ID', idHint: 'Page ID là dãy số của Fanpage (Facebook → Cài đặt Page → Giới thiệu → "ID Trang").', what: 'Đăng bài và hẹn giờ lên Fanpage' },
+  { k: 'tiktok', badge: 'T', color: '#111111', name: 'TikTok', idLabel: 'Tên kênh (@...)', idHint: 'Ghi tên tài khoản dạng @ten_kenh.', what: 'Đăng video lên kênh TikTok' },
+  { k: 'zalo', badge: 'Z', color: '#0068FF', name: 'Zalo Official Account', idLabel: 'OA ID', idHint: 'OA ID xem ở trang quản trị Zalo OA (oa.zalo.me).', what: 'Gửi tin/bài viết qua Zalo OA' },
+  { k: 'youtube', badge: '▶', color: '#FF0000', name: 'Kênh YouTube', idLabel: 'Channel ID', idHint: 'Channel ID dạng UC... — xem ở YouTube Studio → Cài đặt → Kênh → Thông tin nâng cao.', what: 'Đăng video lên kênh YouTube' },
+  { k: 'web', badge: 'W', color: '#00843D', name: 'Website', idLabel: 'Địa chỉ website', idHint: 'Địa chỉ trang web cần đăng bài, vd https://fschools.edu.vn', what: 'Đăng bài lên website' }
+];
+const CHAN_STATUS = { khai_bao: ['Đã khai báo · chưa kết nối API', 'p-amber'], da_ket_noi: ['Đã kết nối', 'p-green'], het_han: ['Hết hạn — cần kết nối lại', 'p-red'], loi: ['Lỗi kết nối', 'p-red'] };
+let chanAccounts = [], chanCanManage = false;
+
+async function loadChannels() {
+  document.getElementById('chan-list').innerHTML = '<div class="empty">Đang tải…</div>';
+  const res = await api('get_channel_accounts', {});
+  if (!res.ok) { document.getElementById('chan-list').innerHTML = `<div class="empty">${escHtml(res.error || 'Lỗi tải kênh')}</div>`; return; }
+  chanAccounts = res.accounts || []; chanCanManage = !!res.can_manage;
+  document.getElementById('chan-hint').textContent = chanCanManage
+    ? 'Mỗi cơ sở khai báo kênh riêng của mình; kênh "Dùng chung" áp cho cả 2 cơ sở.'
+    : 'Bạn chỉ xem được danh sách kênh. Trưởng ban/Admin khai báo và sửa kênh.';
+  renderChannels();
+}
+
+function renderChannels() {
+  document.getElementById('chan-list').innerHTML = CHAN_KINDS.map(kd => {
+    const list = chanAccounts.filter(a => a.channel === kd.k);
+    const rows = list.map(a => {
+      const [lbl, cls] = CHAN_STATUS[a.status] || [a.status, 'p-gray'];
+      return `<div class="chan-acc">
+        <span class="pill p-gray">${escHtml(CAMPUS_LABEL[a.campus] || a.campus)}</span>
+        <div style="flex:1;min-width:200px"><div style="font-weight:600">${escHtml(a.name)}</div>
+          <div class="muted" style="font-size:12px;margin-top:2px">${a.external_id ? escHtml(kd.idLabel) + ': ' + escHtml(a.external_id) + ' · ' : ''}${a.note ? escHtml(a.note) + ' · ' : ''}khai báo bởi ${escHtml(a.created_by_name || '--')}</div></div>
+        <span class="pill ${cls}">${lbl}</span>
+        ${a.page_url ? `<a class="btn sm" href="${escHtml(a.page_url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Mở kênh ↗</a>` : ''}
+        ${chanCanManage ? `<button class="btn sm" disabled title="Sắp có — khi được cấp quyền từ nền tảng">Kết nối</button><button class="btn sm" onclick="openChanModal('${kd.k}','${a.id}')">Sửa</button><button class="btn sm" style="color:var(--red)" onclick="deleteChan('${a.id}')">Xoá</button>` : ''}
+      </div>`;
+    }).join('');
+    return `<div class="card" style="margin-bottom:12px">
+      <div class="chan-head"><span class="chan-badge" style="background:${kd.color}">${kd.badge}</span>
+        <div style="flex:1;min-width:180px"><div class="chan-name">${kd.name}</div><div class="muted" style="font-size:12px">Sau này: ${kd.what}</div></div>
+        ${chanCanManage ? `<button class="btn sm primary" onclick="openChanModal('${kd.k}')">+ Khai báo ${kd.name}</button>` : ''}</div>
+      ${rows || `<div class="muted" style="padding:10px 0;border-top:1px solid var(--border)">Chưa khai báo kênh nào.${chanCanManage ? ' Bấm "+ Khai báo" để thêm.' : ''}</div>`}
+    </div>`;
+  }).join('');
+}
+
+function openChanModal(kind, id) {
+  const kd = CHAN_KINDS.find(x => x.k === kind); if (!kd) return;
+  const a = id ? chanAccounts.find(x => x.id === id) : null;
+  document.getElementById('chan-modal-title').textContent = (a ? 'Sửa ' : 'Khai báo ') + kd.name;
+  document.getElementById('chan-id').value = a ? a.id : ''; document.getElementById('chan-kind').value = kind;
+  const campuses = [['hoa_lac', 'Cơ sở Hòa Lạc'], ['tay_hn', 'Cơ sở Tây HN'], ['chung', 'Dùng chung (cả 2 cơ sở)']];
+  fillSelect(document.getElementById('chan-campus'), campuses, a ? a.campus : 'hoa_lac');
+  document.getElementById('chan-name').value = a ? a.name : '';
+  document.getElementById('chan-extid').value = a ? a.external_id || '' : '';
+  document.getElementById('chan-url').value = a ? a.page_url || '' : '';
+  document.getElementById('chan-note').value = a ? a.note || '' : '';
+  document.getElementById('chan-id-label').textContent = kd.idLabel;
+  document.getElementById('chan-id-hint').textContent = kd.idHint;
+  openModal('chan-modal');
+}
+
+async function saveChan() {
+  const kind = document.getElementById('chan-kind').value;
+  const name = document.getElementById('chan-name').value.trim();
+  if (!name) { toast('⚠️ Nhập tên kênh'); return; }
+  const res = await api('save_channel_account', { account: {
+    id: document.getElementById('chan-id').value || undefined, channel: kind, campus: document.getElementById('chan-campus').value, name,
+    external_id: document.getElementById('chan-extid').value, page_url: document.getElementById('chan-url').value, note: document.getElementById('chan-note').value
+  } });
+  if (!res.ok) { toast('⚠️ ' + (res.error || 'Không lưu được')); return; }
+  closeModal('chan-modal'); toast('✅ Đã lưu kênh'); loadChannels();
+}
+
+async function deleteChan(id) {
+  const a = chanAccounts.find(x => x.id === id);
+  if (!confirm(`Xoá kênh "${a ? a.name : ''}"? Các bài đã đăng không bị ảnh hưởng.`)) return;
+  const res = await api('delete_channel_account', { id });
+  if (!res.ok) { toast('⚠️ ' + (res.error || 'Không xoá được')); return; }
+  toast('Đã xoá kênh'); loadChannels();
+}
+
+// ---- Chuẩn bị bài đăng: nội dung chữ thuần theo giới hạn của kênh + ảnh/video + kênh sẽ đăng ----
+let pkgState = null;
+async function openPkg(subId, channel) {
+  pkgState = { subId, channel };
+  document.getElementById('pkg-sub').textContent = 'Đang soạn nội dung…';
+  document.getElementById('pkg-text').value = ''; document.getElementById('pkg-files').innerHTML = ''; document.getElementById('pkg-acc').innerHTML = '';
+  document.getElementById('pkg-count').textContent = '';
+  openModal('pkg-modal');
+  const [res, acc] = await Promise.all([api('get_publish_package', { submission_id: subId, channel }), api('get_channel_accounts', {})]);
+  if (!res.ok) { closeModal('pkg-modal'); toast('⚠️ ' + (res.error || 'Không soạn được nội dung')); return; }
+  if (acc.ok) chanAccounts = acc.accounts || [];
+  pkgState.limit = res.limit; pkgState.campus = res.campus;
+  document.getElementById('pkg-sub').innerHTML = `<b>${escHtml(res.title)}</b> · ${escHtml(chLabel(channel))} · ${escHtml(PUB_CAMPUS[res.campus] || '')}`;
+  document.getElementById('pkg-text').value = res.text || '';
+  pkgCount();
+  const kd = CHAN_KINDS.find(x => x.k === channel);
+  const accs = chanAccounts.filter(a => a.channel === channel && (res.campus === 'chung' || a.campus === res.campus || a.campus === 'chung'));
+  document.getElementById('pkg-acc').innerHTML = !kd ? '' : accs.length
+    ? `<div class="muted" style="margin-bottom:4px">Đăng lên:</div>` + accs.map(a => `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:4px 0"><b>${escHtml(a.name)}</b><span class="pill p-gray">${escHtml(CAMPUS_LABEL[a.campus] || a.campus)}</span>${a.page_url ? `<a class="btn sm" href="${escHtml(a.page_url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Mở kênh ↗</a>` : ''}</div>`).join('')
+    : `<div class="notice amber">Chưa khai báo ${escHtml(kd.name)} cho cơ sở này. ${isEditor ? '<a href="#" onclick="event.preventDefault();closeModal(\'pkg-modal\');switchTab(\'channels\')">Mở Kết nối kênh</a> để khai báo.' : ''}</div>`;
+  const files = res.files || [];
+  document.getElementById('pkg-files').innerHTML = files.length
+    ? `<div class="muted" style="margin-bottom:4px">Ảnh/video kèm theo (${files.length}):</div>` +
+      files.map((u, i) => `<div style="padding:2px 0"><a href="${escHtml(u)}" target="_blank" rel="noopener noreferrer">Tệp ${i + 1} ↗</a></div>`).join('') +
+      `<div style="margin-top:4px"><button class="btn sm" onclick="pkgCopyFiles()">📋 Sao chép link ảnh/video</button></div>`
+    : '<div class="muted">Bài này không có ảnh/video đính kèm.</div>';
+  pkgState.files = files;
+}
+function pkgCount() {
+  const el = document.getElementById('pkg-text'), n = el.value.length, lim = pkgState && pkgState.limit;
+  const c = document.getElementById('pkg-count');
+  c.textContent = `${n.toLocaleString('vi-VN')} ký tự${lim ? ` / tối đa ${lim.toLocaleString('vi-VN')}` : ''}${lim && n > lim ? ' — quá giới hạn của kênh, cần rút gọn' : ''}`;
+  c.classList.toggle('over', !!(lim && n > lim));
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+  const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} ta.remove(); return ok;
+}
+async function pkgCopy(id) { toast(await copyText(document.getElementById(id).value) ? '✅ Đã sao chép nội dung' : '⚠️ Không sao chép được — bôi đen và Ctrl+C'); }
+async function pkgCopyFiles() { toast(await copyText((pkgState.files || []).join('\n')) ? '✅ Đã sao chép link ảnh/video' : '⚠️ Không sao chép được'); }
+function pkgDone() { const st = pkgState; closeModal('pkg-modal'); if (st) openPubModal(st.subId, st.channel, 'done'); }
 
 // ---------------- Mẫu kế hoạch năm (link Google Sheet của các phòng ban) ----------------
 let tplList = [];
