@@ -1,4 +1,5 @@
 import { newId } from '../ids.js';
+import { getPublishTodo } from './publish.js';
 
 // ============================================================
 // KẾ HOẠCH & LỊCH — trụ content, lịch sự kiện năm học, đầu việc kế hoạch content tháng.
@@ -422,7 +423,10 @@ export async function handleGetTodo(supabase, p) {
     assignee_name: i.assignee_id ? (names[i.assignee_id] || '') : '',
     days_late: diffDaysIso(i.deadline, today)   // > 0: đã trễ; ≤ 0: sắp tới hạn
   }));
-  return { ok: true, today, events, items };
+  // Bài đã duyệt cần đăng (đến hạn trong 2 ngày tới / trễ / chưa có ngày đăng). Lỗi phần này không làm hỏng cả trang.
+  let publish = { due: [], unscheduled: [] };
+  try { publish = await getPublishTodo(supabase, actor, today); } catch (e) { publish = { due: [], unscheduled: [], error: true }; }
+  return { ok: true, today, events, items, publish };
 }
 
 // ============================================================

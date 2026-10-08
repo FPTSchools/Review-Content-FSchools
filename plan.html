@@ -85,6 +85,14 @@
   .stats .stat:nth-child(4){border-top-color:var(--fpt-green)} .stats .stat:nth-child(4) .n{color:var(--fpt-green)}
   .stat .l{font-size:12px;color:var(--text2)}
 
+  .pub-group-title{font-size:15px;font-weight:800;margin:14px 0 6px;display:flex;align-items:center;gap:8px}
+  .pub-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--border)}
+  .pub-date{min-width:92px;font-weight:700;font-size:13px}
+  .pub-date small{display:block;font-weight:500;color:var(--text3);font-size:11px}
+  .pub-main{flex:1;min-width:200px}
+  .pub-main a.t{font-weight:600;color:var(--text);text-decoration:none}
+  .pub-main a.t:hover{text-decoration:underline}
+  .pub-ch{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--blue-bg);color:var(--blue);white-space:nowrap}
   .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
   .p-gray{background:var(--surface2);color:var(--text2)}
   .p-blue{background:var(--blue-bg);color:var(--blue)}
@@ -356,6 +364,7 @@
     <button class="tab active" data-tab="cal" onclick="switchTab('cal')">📅 Lịch kế hoạch</button>
     <button class="tab" data-tab="plan" onclick="switchTab('plan')">Danh sách việc tháng</button>
     <button class="tab" data-tab="events" onclick="switchTab('events')">Danh sách sự kiện</button>
+    <button class="tab" data-tab="publish" onclick="switchTab('publish')">📣 Lịch đăng</button>
     <button class="tab" data-tab="templates" onclick="switchTab('templates')">Link kế hoạch năm</button>
     <button class="tab" data-tab="pillars" id="tab-pillars" style="display:none" onclick="switchTab('pillars')">Trụ content</button>
   </div>
@@ -414,6 +423,28 @@
     <div id="ev-notice"></div>
     <div id="ev-upcoming"></div>
     <div id="ev-list"><div class="empty">Đang tải…</div></div>
+  </section>
+
+  <!-- LỊCH ĐĂNG: bài đã duyệt → đặt ngày đăng theo từng kênh → đánh dấu đã đăng + link -->
+  <section id="view-publish" style="display:none">
+    <div class="toolbar">
+      <select id="pub-campus" onchange="renderPublish()">
+        <option value="">Tất cả cơ sở</option>
+        <option value="hoa_lac">Cơ sở Hòa Lạc</option>
+        <option value="tay_hn">Cơ sở Tây HN</option>
+        <option value="chung">Dùng chung</option>
+      </select>
+      <div class="chips" id="pub-filter">
+        <span class="chip active" data-f="todo" onclick="setPubFilter('todo')">Cần đăng</span>
+        <span class="chip" data-f="done" onclick="setPubFilter('done')">Đã đăng</span>
+        <span class="chip" data-f="all" onclick="setPubFilter('all')">Tất cả</span>
+      </div>
+      <label class="muted" style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pub-mine" onchange="renderPublish()">Chỉ bài của tôi</label>
+      <span class="spacer"></span>
+      <span class="muted">Bài đã duyệt hiện ở đây theo từng kênh. Đặt ngày đăng, đăng xong bấm "Đã đăng" và dán link.</span>
+    </div>
+    <div class="stats" id="pub-stats"></div>
+    <div id="pub-list"><div class="empty">Đang tải…</div></div>
   </section>
 
   <!-- MẪU KẾ HOẠCH NĂM: link Google Sheet mẫu của từng phòng ban -->
@@ -515,6 +546,31 @@
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('event-modal')">Huỷ</button>
       <button class="btn primary" onclick="saveEvent()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: đặt lịch đăng / đánh dấu đã đăng -->
+<div class="modal-back" id="pub-modal" onclick="if(event.target===this)closeModal('pub-modal')">
+  <div class="modal">
+    <h2 id="pub-modal-title">Đặt lịch đăng</h2>
+    <div class="muted" id="pub-modal-sub" style="margin-bottom:10px"></div>
+    <input type="hidden" id="pub-sub"><input type="hidden" id="pub-ch"><input type="hidden" id="pub-mode">
+    <div id="pub-sched-box">
+      <div class="grid2">
+        <div class="field"><label>Ngày đăng</label><input type="text" class="vn-date" id="pub-date"></div>
+        <div class="field"><label>Giờ đăng (không bắt buộc)</label><input type="text" id="pub-time" placeholder="Vd: 09:00" maxlength="5"></div>
+      </div>
+      <div class="field"><label>Ghi chú</label><input type="text" id="pub-note" placeholder="Vd: đăng sau 19h, kèm ảnh bìa..." maxlength="200"></div>
+      <div class="muted">Để trống ngày rồi bấm Lưu nếu muốn bỏ lịch đã đặt.</div>
+    </div>
+    <div id="pub-done-box" style="display:none">
+      <div class="field"><label>Link bài đã đăng</label><input type="text" id="pub-link" placeholder="https://..."></div>
+      <div class="muted">Dán link bài vừa đăng để cả nhóm kiểm tra và tính vào báo cáo. Email/SMS/Zalo không có link thì để trống.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('pub-modal')">Huỷ</button>
+      <button class="btn primary" id="pub-save-btn" onclick="savePub()">Lưu</button>
     </div>
   </div>
 </div>
@@ -678,7 +734,7 @@ async function init() {
   users = (uRes.users || []).filter(u => u.active !== false);
 
   const tab = new URLSearchParams(location.search).get('tab');
-  switchTab(['plan','events','pillars'].includes(tab) ? tab : 'cal');
+  switchTab(['plan','events','publish','templates','pillars'].includes(tab) ? tab : 'cal');
 }
 
 // Danh sách tháng của năm học trước / hiện tại / sau, nhãn kiểu "Tháng 9/2026".
@@ -698,17 +754,134 @@ function ensureMonthOption(sel, key) {
   sel.value = key;
 }
 let activeTab = 'cal';
-function reloadActive() { if (activeTab === 'cal') loadCal(true); else if (activeTab === 'plan') loadPlan(); else if (activeTab === 'events') loadEvents(); }
+function reloadActive() { if (activeTab === 'cal') loadCal(true); else if (activeTab === 'plan') loadPlan(); else if (activeTab === 'events') loadEvents(); else if (activeTab === 'publish') loadPublish(); }
 
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['cal','plan','events','templates','pillars'].forEach(v => document.getElementById('view-' + v).style.display = v === tab ? '' : 'none');
+  ['cal','plan','events','publish','templates','pillars'].forEach(v => document.getElementById('view-' + v).style.display = v === tab ? '' : 'none');
   if (tab === 'cal') loadCal();
   if (tab === 'plan') loadPlan();
   if (tab === 'events') loadEvents();
+  if (tab === 'publish') loadPublish();
   if (tab === 'templates') loadTemplates();
   if (tab === 'pillars') renderPillars();
+}
+
+// ---------------- Lịch đăng (bài đã duyệt → đặt ngày đăng theo kênh → đã đăng + link) ----------------
+let pubRows = [], pubToday = '', pubFilter = 'todo';
+const PUB_LINK_CHANNELS = ['facebook', 'instagram', 'tiktok', 'youtube', 'web'];   // kênh nên có link bài đăng
+const PUB_CAMPUS = { hoa_lac: 'Hòa Lạc', tay_hn: 'Tây HN', chung: 'Cả 2 cơ sở' };
+const chLabel = c => (CHANNELS.find(x => x[0] === c) || [c, c])[1];
+
+async function loadPublish() {
+  document.getElementById('pub-list').innerHTML = '<div class="empty">Đang tải…</div>';
+  const res = await api('get_publish_queue', {});
+  if (!res.ok) { document.getElementById('pub-list').innerHTML = `<div class="empty">${escHtml(res.error || 'Lỗi tải lịch đăng')}</div>`; return; }
+  pubRows = res.slots || []; pubToday = res.today || todayIso();
+  renderPublish();
+}
+function setPubFilter(f) {
+  pubFilter = f;
+  document.querySelectorAll('#pub-filter .chip').forEach(c => c.classList.toggle('active', c.dataset.f === f));
+  renderPublish();
+}
+function pubDayText(r) {
+  if (!r.scheduled_date) return ['Chưa có ngày', ''];
+  const d = daysBetween(pubToday, r.scheduled_date);
+  const rel = d < 0 ? `Trễ ${-d} ngày` : d === 0 ? 'Hôm nay' : d === 1 ? 'Ngày mai' : `Còn ${d} ngày`;
+  return [fmtDate(r.scheduled_date) + (r.scheduled_time ? ' ' + r.scheduled_time : ''), rel];
+}
+function pubOpenHref(id) { return (['ctv', 'leader_content'].includes(me.role) ? 'ctv.html' : 'boss.html') + '?open=' + encodeURIComponent(id); }
+
+function renderPublish() {
+  const campus = document.getElementById('pub-campus').value, mine = document.getElementById('pub-mine').checked;
+  const rows = pubRows.filter(r => (!campus || r.campus === campus) && (!mine || String(r.user_id) === String(me.id)));
+  const todo = rows.filter(r => r.status === 'cho_dang'), done = rows.filter(r => r.status === 'da_dang');
+  const late = todo.filter(r => r.scheduled_date && r.scheduled_date < pubToday);
+  const today = todo.filter(r => r.scheduled_date === pubToday);
+  const soon = todo.filter(r => r.scheduled_date && r.scheduled_date > pubToday && r.scheduled_date <= addDays(pubToday, 7));
+  const later = todo.filter(r => r.scheduled_date && r.scheduled_date > addDays(pubToday, 7));
+  const none = todo.filter(r => !r.scheduled_date);
+  document.getElementById('pub-stats').innerHTML = [
+    [late.length, 'Trễ lịch đăng', late.length ? 'var(--red)' : ''], [today.length, 'Cần đăng hôm nay', ''], [soon.length, 'Trong 7 ngày tới', ''],
+    [none.length, 'Chưa đặt ngày đăng', none.length ? 'var(--amber)' : ''], [done.length, 'Đã đăng (21 ngày qua)', '']
+  ].map(([n, l, c]) => `<div class="stat"><div class="n"${c ? ` style="color:${c}"` : ''}>${n}</div><div class="l">${l}</div></div>`).join('');
+
+  const row = r => {
+    const [dt, rel] = pubDayText(r);
+    const act = !r.can_edit ? '' : r.status === 'da_dang'
+      ? `<button class="btn sm" onclick="undoPub('${escHtml(r.submission_id)}','${r.channel}')">Hoàn tác</button>`
+      : `<button class="btn sm" onclick="openPubModal('${escHtml(r.submission_id)}','${r.channel}','schedule')">${r.scheduled_date ? 'Đổi lịch' : 'Đặt lịch'}</button>
+         <button class="btn sm primary" onclick="openPubModal('${escHtml(r.submission_id)}','${r.channel}','done')">✓ Đã đăng</button>`;
+    const when = r.status === 'da_dang'
+      ? `<div class="pub-date" style="color:var(--green)">✓ Đã đăng<small>${r.posted_at ? fmtDate(new Date(new Date(r.posted_at).getTime() + 7 * 3600000).toISOString().slice(0, 10)) : ''}</small></div>`
+      : `<div class="pub-date"${r.scheduled_date && r.scheduled_date < pubToday ? ' style="color:var(--red)"' : ''}>${dt}<small>${rel}</small></div>`;
+    return `<div class="pub-row">${when}
+      <span class="pub-ch">${escHtml(chLabel(r.channel))}</span>
+      <div class="pub-main"><a class="t" href="${pubOpenHref(r.submission_id)}">${escHtml(r.title)}</a>
+        <div class="muted" style="font-size:12px;margin-top:2px">${escHtml(r.user_name || '')} · ${PUB_CAMPUS[r.campus] || ''}${r.from_plan ? ' · ngày theo kế hoạch tháng' : ''}${r.note ? ' · ' + escHtml(r.note) : ''}${r.status === 'da_dang' && r.posted_by_name ? ' · đăng bởi ' + escHtml(r.posted_by_name) : ''}</div>
+        ${r.status === 'da_dang' && r.post_link ? `<div style="font-size:12px;margin-top:2px"><a href="${escHtml(r.post_link)}" target="_blank" rel="noopener noreferrer">${escHtml(r.post_link)}</a></div>` : ''}
+      </div>${act}</div>`;
+  };
+  const sortByDate = (a, b) => (a.scheduled_date || '9').localeCompare(b.scheduled_date || '9') || (a.scheduled_time || '').localeCompare(b.scheduled_time || '');
+  const group = (title, list, color) => list.length ? `<div class="card" style="margin-bottom:12px"><div class="pub-group-title" style="color:${color}">${title} <span class="muted" style="font-weight:600;font-size:12px">(${list.length})</span></div>${list.slice().sort(sortByDate).map(row).join('')}</div>` : '';
+
+  let html = '';
+  if (pubFilter !== 'done') {
+    html += group('⏰ Trễ lịch đăng', late, 'var(--red)') + group('📣 Hôm nay', today, 'var(--fpt-orange,#F26522)') +
+      group('Trong 7 ngày tới', soon, 'var(--blue)') + group('Sau đó', later, 'var(--text2)') + group('📝 Đã duyệt, chưa đặt ngày đăng', none, 'var(--amber)');
+    if (!todo.length) html += '<div class="empty">🎉 Không có bài nào đang chờ đăng. Bài được duyệt xong sẽ tự hiện ở đây theo từng kênh.</div>';
+  }
+  if (pubFilter !== 'todo') {
+    html += done.length ? group('✅ Đã đăng', done.slice().sort((a, b) => String(b.posted_at).localeCompare(String(a.posted_at))), 'var(--green)') : '<div class="empty">Chưa có bài nào được đánh dấu đã đăng trong 21 ngày qua.</div>';
+  }
+  document.getElementById('pub-list').innerHTML = html;
+}
+
+function openPubModal(subId, channel, mode) {
+  const r = pubRows.find(x => x.submission_id === subId && x.channel === channel);
+  if (!r) return;
+  document.getElementById('pub-sub').value = subId; document.getElementById('pub-ch').value = channel; document.getElementById('pub-mode').value = mode;
+  document.getElementById('pub-modal-title').textContent = mode === 'done' ? 'Đánh dấu đã đăng' : 'Đặt lịch đăng';
+  document.getElementById('pub-modal-sub').innerHTML = `<b>${escHtml(r.title)}</b> · ${escHtml(chLabel(channel))}`;
+  document.getElementById('pub-sched-box').style.display = mode === 'done' ? 'none' : '';
+  document.getElementById('pub-done-box').style.display = mode === 'done' ? '' : 'none';
+  document.getElementById('pub-save-btn').textContent = mode === 'done' ? '✓ Xác nhận đã đăng' : 'Lưu';
+  document.getElementById('pub-date').value = r.scheduled_date ? fmtDate(r.scheduled_date) : '';
+  document.getElementById('pub-time').value = r.scheduled_time || '';
+  document.getElementById('pub-note').value = r.note || '';
+  document.getElementById('pub-link').value = '';
+  openModal('pub-modal');
+}
+
+async function savePub() {
+  const mode = document.getElementById('pub-mode').value;
+  const base = { submission_id: document.getElementById('pub-sub').value, channel: document.getElementById('pub-ch').value };
+  let res;
+  if (mode === 'done') {
+    const link = document.getElementById('pub-link').value.trim();
+    if (!link && PUB_LINK_CHANNELS.includes(base.channel) && !confirm('Chưa dán link bài đã đăng. Vẫn đánh dấu đã đăng?')) return;
+    res = await api('mark_published', { ...base, post_link: link });
+  } else {
+    const raw = document.getElementById('pub-date').value.trim();
+    const iso = raw ? parseVnDate(raw) : '';
+    if (raw && !iso) { toast('⚠️ Ngày đăng chưa đúng (ngày/tháng/năm)'); return; }
+    const time = document.getElementById('pub-time').value.trim();
+    if (time && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(time)) { toast('⚠️ Giờ đăng dạng 09:00'); return; }
+    res = await api('save_publish_slot', { ...base, scheduled_date: iso || '', scheduled_time: time.length === 4 ? '0' + time : time, note: document.getElementById('pub-note').value });
+  }
+  if (!res.ok) { toast('⚠️ ' + (res.error || 'Không lưu được')); return; }
+  closeModal('pub-modal');
+  toast(mode === 'done' ? (res.plan_updated ? '✅ Đã ghi nhận — đầu việc kế hoạch chuyển "Đã đăng"' : '✅ Đã ghi nhận đã đăng') : '✅ Đã lưu lịch đăng');
+  loadPublish();
+}
+
+async function undoPub(subId, channel) {
+  if (!confirm('Hoàn tác "đã đăng" cho kênh này? Link đã dán sẽ bị xoá.')) return;
+  const res = await api('unmark_published', { submission_id: subId, channel });
+  if (!res.ok) { toast('⚠️ ' + (res.error || 'Không hoàn tác được')); return; }
+  toast('Đã hoàn tác'); loadPublish();
 }
 
 // ---------------- Mẫu kế hoạch năm (link Google Sheet của các phòng ban) ----------------

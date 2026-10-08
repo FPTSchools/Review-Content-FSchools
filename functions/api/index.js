@@ -13,6 +13,7 @@ import { handleProcessEmailQueue } from '../_lib/handlers/emailQueue.js';
 import { handleGetAiAccuracyReport } from '../_lib/handlers/aiAccuracy.js';
 import * as planning from '../_lib/handlers/planning.js';
 import * as knowledge from '../_lib/handlers/knowledge.js';
+import * as publish from '../_lib/handlers/publish.js';
 import { verifySessionToken, passwordFingerprint, safeEqual } from '../_lib/session.js';
 import { isActionAllowed, bindIdentity } from '../_lib/authz.js';
 
@@ -126,6 +127,10 @@ async function routeAction(p, supabase, env) {
     case 'delete_annual_plan_line': return planning.handleDeleteAnnualPlanLine(supabase, p);
     case 'copy_annual_plan': return planning.handleCopyAnnualPlan(supabase, p);
     case 'get_todo': return planning.handleGetTodo(supabase, p);
+    case 'get_publish_queue': return publish.handleGetPublishQueue(supabase, p);
+    case 'save_publish_slot': return publish.handleSavePublishSlot(supabase, p);
+    case 'mark_published': return publish.handleMarkPublished(supabase, p);
+    case 'unmark_published': return publish.handleUnmarkPublished(supabase, p);
     case 'get_plan_templates': return planning.handleGetPlanTemplates(supabase, p);
     case 'save_plan_template': return planning.handleSavePlanTemplate(supabase, p);
     case 'delete_plan_template': return planning.handleDeletePlanTemplate(supabase, p);

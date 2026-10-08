@@ -103,6 +103,11 @@ export const ACTION_ROLES = {
   get_plan_templates: ALL,
   save_plan_template: ALL,    // handler tự kiểm tra: chỉ PLAN_EDITOR_ROLES
   delete_plan_template: ALL,  // handler tự kiểm tra: chỉ PLAN_EDITOR_ROLES
+  // Lịch đăng (handler tự tra vai trò: chủ bài hoặc người lập kế hoạch đúng cơ sở)
+  get_publish_queue: ALL,
+  save_publish_slot: ALL,
+  mark_published: ALL,
+  unmark_published: ALL,
   get_todo: ALL // trang "Việc cần làm": handler tự giới hạn theo vai trò (CTV chỉ đầu việc của mình, không có sự kiện)
 };
 

@@ -2607,8 +2607,25 @@ function todoReviewOverdue() {
     .map(s => ({ s, days: Math.floor((now - new Date(s.submitted_at)) / 86400000) }))
     .filter(x => x.days >= 1).sort((a, b) => b.days - a.days);
 }
+// "Bài cần đăng": bài đã duyệt đến hạn đăng (hoặc trễ) + bài đã duyệt chưa đặt ngày đăng. Dữ liệu từ get_todo (publish).
+function todoPublishData() { const p = todoServer && todoServer.publish; return p && !p.error ? p : { due: [], unscheduled: [] }; }
+const TODO_CH = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'Youtube', web: 'Website', email: 'Email', zalo: 'Zalo', sms: 'SMS' };
+function todoPublishHtml() {
+  const { due, unscheduled } = todoPublishData();
+  const rowOf = (r, pill) => todoRow(
+    `<b style="min-width:48px">${r.scheduled_date ? todoDate(r.scheduled_date) : '—'}</b>
+     <div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(r.title)}</div>
+       <div style="font-size:11px;color:var(--text3);margin-top:2px">${escHtml(TODO_CH[r.channel] || r.channel)} · ${escHtml(r.user_name || '')} · ${TODO_CAMPUS[r.campus] || ''}</div></div>` + pill +
+    todoLink('plan.html?tab=publish', (r.scheduled_date ? 'Mở lịch đăng' : 'Đặt ngày đăng') + ' →'));
+  const dueHtml = due.map(r => rowOf(r, r.days_late > 0 ? todoPill('Trễ ' + r.days_late + ' ngày', 'var(--red)', 'var(--red-bg)')
+    : todoPill(r.days_late === 0 ? 'Đăng hôm nay' : 'Còn ' + (-r.days_late) + ' ngày', 'var(--amber)', 'var(--amber-bg)'))).join('');
+  const shown = unscheduled.slice(0, 8);
+  const unHtml = shown.map(r => rowOf(r, todoPill('Chưa có ngày đăng', 'var(--text2)', 'var(--surface2)'))).join('') +
+    (unscheduled.length > shown.length ? `<div style="padding:6px 0;color:var(--text3);font-size:12px">… và ${unscheduled.length - shown.length} bài nữa — <a href="plan.html?tab=publish" style="color:var(--blue)">xem tất cả</a></div>` : '');
+  return (dueHtml + unHtml) || todoEmpty('Không có bài đã duyệt nào đang chờ đăng.');
+}
 function renderTodoBadge() {
-  const n = todoRevisionList().length + todoReviewOverdue().length + (todoServer ? todoServer.items.length + todoServer.events.length : 0);
+  const n = todoRevisionList().length + todoReviewOverdue().length + (todoServer ? todoServer.items.length + todoServer.events.length : 0) + todoPublishData().due.length + todoPublishData().unscheduled.length;
   const b = document.getElementById('todo-badge');
   if (b) { b.textContent = n; b.style.display = n ? 'inline-block' : 'none'; }
 }
@@ -2668,6 +2685,7 @@ function renderTodoPage() {
     sections.push([over.length, 'Bài chờ bạn duyệt quá 1 ngày', 'var(--red)', '📥 Bài chờ tôi duyệt quá hạn <span style="font-size:10px;font-weight:400;color:var(--text3)">(vàng ≥ 1 ngày · đỏ ≥ 2 ngày)</span>', overHtml]);
     sections.push([events.length, 'Sự kiện 14 ngày tới chưa có bài', 'var(--amber)', '📅 Sự kiện sắp diễn ra mà chưa có bài', evHtml]);
   }
+  { const pd = todoPublishData(); sections.push([pd.due.length + pd.unscheduled.length, 'Bài đã duyệt cần đăng', 'var(--green)', '📣 Bài đã duyệt cần đăng <span style="font-size:10px;font-weight:400;color:var(--text3)">(đến hạn trong 2 ngày, trễ, hoặc chưa đặt ngày)</span>', todoPublishHtml()]); }
   sections.push([items.length, isLeader ? 'Đầu việc kế hoạch trễ / sắp hạn' : 'Đầu việc của bạn trễ / sắp hạn', 'var(--purple)',
     isLeader ? '⏰ Đầu việc Kế hoạch tháng trễ hoặc sắp tới hạn' : '⏰ Đầu việc Kế hoạch tháng được giao cho tôi', itemsHtml]);
   sections.push([rev.length, 'Bài cần sửa của bạn', 'var(--blue)', '📝 Bài cần sửa của tôi', revHtml]);

@@ -484,6 +484,7 @@
         <div class="report-card"><div class="report-num" id="td-pending" style="color:var(--red)">0</div><div class="report-lbl">Bài chờ duyệt quá 1 ngày</div></div>
         <div class="report-card"><div class="report-num" id="td-events" style="color:var(--amber)">0</div><div class="report-lbl">Sự kiện 14 ngày tới chưa có bài</div></div>
         <div class="report-card"><div class="report-num" id="td-items" style="color:var(--purple)">0</div><div class="report-lbl">Đầu việc kế hoạch trễ / sắp tới hạn</div></div>
+        <div class="report-card"><div class="report-num" id="td-publish" style="color:var(--green)">0</div><div class="report-lbl">Bài đã duyệt cần đăng</div></div>
       </div>
       <div class="card">
         <div class="card-title">📥 Bài chờ duyệt quá hạn <span style="font-size:10px;font-weight:400;color:var(--text3)">(tính từ lúc gửi · vàng ≥ 1 ngày · đỏ ≥ 2 ngày)</span></div>
@@ -496,6 +497,10 @@
       <div class="card">
         <div class="card-title">⏰ Đầu việc Kế hoạch tháng trễ hoặc sắp tới hạn <span style="font-size:10px;font-weight:400;color:var(--text3)">(trễ: chưa làm / cần sửa / bị từ chối · sắp hạn: trong 3 ngày mà chưa làm)</span></div>
         <div id="td-items-list" style="font-size:13px;color:var(--text3)">Đang tải...</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📣 Bài đã duyệt cần đăng <span style="font-size:10px;font-weight:400;color:var(--text3)">(đến hạn trong 2 ngày, trễ lịch, hoặc chưa đặt ngày đăng)</span></div>
+        <div id="td-publish-list" style="font-size:13px;color:var(--text3)">Đang tải...</div>
       </div>
     </div>
 
@@ -2018,9 +2023,24 @@ async function loadTodo() {
         : todoPill(i.days_late === 0 ? 'Hạn hôm nay' : 'Còn ' + (-i.days_late) + ' ngày', 'var(--amber)', 'var(--amber-bg)')) +
       '<a href="plan.html" style="font-size:12px;color:var(--blue);text-decoration:none;white-space:nowrap">Mở kế hoạch →</a>')).join('')
       : todoEmpty('Không có đầu việc nào trễ hoặc sắp tới hạn.');
+    const pb = res.publish && !res.publish.error ? res.publish : { due: [], unscheduled: [] };
+    document.getElementById('td-publish').textContent = pb.due.length + pb.unscheduled.length;
+    const chName = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'Youtube', web: 'Website', email: 'Email', zalo: 'Zalo', sms: 'SMS' };
+    const pubRow = (r, pill) => todoRow(
+      `<b style="min-width:48px">${r.scheduled_date ? todoDate(r.scheduled_date) : '—'}</b>
+       <div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(r.title)}</div>
+         <div style="font-size:11px;color:var(--text3);margin-top:2px">${escHtml(chName[r.channel] || r.channel)} · ${escHtml(r.user_name || '')} · ${TODO_CAMPUS[r.campus] || ''}</div></div>` + pill +
+      '<a href="plan.html?tab=publish" style="font-size:12px;color:var(--blue);text-decoration:none;white-space:nowrap">' + (r.scheduled_date ? 'Mở lịch đăng' : 'Đặt ngày đăng') + ' →</a>');
+    const shownUn = pb.unscheduled.slice(0, 8);
+    document.getElementById('td-publish-list').style.color = '';
+    document.getElementById('td-publish-list').innerHTML = (pb.due.map(r => pubRow(r, r.days_late > 0 ? todoPill('Trễ ' + r.days_late + ' ngày', 'var(--red)', 'var(--red-bg)')
+        : todoPill(r.days_late === 0 ? 'Đăng hôm nay' : 'Còn ' + (-r.days_late) + ' ngày', 'var(--amber)', 'var(--amber-bg)'))).join('') +
+      shownUn.map(r => pubRow(r, todoPill('Chưa có ngày đăng', 'var(--text2)', 'var(--surface2)'))).join('') +
+      (pb.unscheduled.length > shownUn.length ? `<div style="padding:6px 0;color:var(--text3);font-size:12px">… và ${pb.unscheduled.length - shownUn.length} bài nữa — <a href="plan.html?tab=publish" style="color:var(--blue)">xem tất cả</a></div>` : '')) || todoEmpty('Không có bài đã duyệt nào đang chờ đăng.');
   } catch (e) {
     const msg = '<span style="color:var(--red)">Không tải được dữ liệu kế hoạch. Thử lại sau.</span>';
     evBox.innerHTML = msg; itBox.innerHTML = msg;
+    const pl = document.getElementById('td-publish-list'); if (pl) pl.innerHTML = msg;
   }
 }
 
