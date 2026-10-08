@@ -3708,6 +3708,43 @@ async function loadReviewQueue() {
   } catch(e) {}
 }
 
+// Vẽ lại hàng chờ mà KHÔNG làm mất trạng thái người duyệt đang dùng: thẻ nào không đổi (cùng "chữ ký") được giữ nguyên
+// trong trang — bài đang mở vẫn mở, nhận xét/điểm gõ dở, khung chat AI, vị trí cuộn đều còn. Thẻ có thay đổi thật
+// (đổi trạng thái, người duyệt, nội dung…) được vẽ lại nhưng vẫn tự mở lại + giữ chữ đã gõ. Thẻ không còn trong danh sách thì bị bỏ.
+function patchCardList(container, list, o) {
+  const esc = id => String(id).replace(/"/g, '\\"');
+  const old = {};
+  Array.from(container.children).forEach(el => {
+    if (el.id && el.id.indexOf(o.cardPrefix) === 0) old[el.id.slice(o.cardPrefix.length)] = el; else el.remove();
+  });
+  const sameOrder = list.length === Object.keys(old).length && Array.from(container.children).every((el, i) => el.id === o.cardPrefix + list[i].id);
+  if (sameOrder && list.every(s => old[s.id].dataset.sig === o.sig(s))) return;   // không có gì đổi → không đụng vào trang
+  const frag = document.createDocumentFragment(), reopen = [];
+  list.forEach(s => {
+    const sig = o.sig(s), prev = old[s.id];
+    if (prev && prev.dataset.sig === sig) { frag.appendChild(prev); delete old[s.id]; return; }
+    const holder = document.createElement('div');
+    holder.innerHTML = o.html(s).trim();
+    const node = holder.firstElementChild;
+    node.dataset.sig = sig;
+    if (prev) {
+      const q = (root, id) => root.querySelector('[id="' + esc(id) + '"]');
+      (o.valueIds(s.id) || []).forEach(fid => { const a = q(prev, fid), b = q(node, fid); if (a && b) b.value = a.value; });
+      (o.htmlIds(s.id) || []).forEach(fid => { const a = q(prev, fid), b = q(node, fid); if (a && b) b.innerHTML = a.innerHTML; });
+      (o.showIds(s.id) || []).forEach(fid => { const a = q(prev, fid), b = q(node, fid); if (a && b) b.style.display = a.style.display; });
+      const body = q(node, o.bodyPrefix + s.id), wasOpen = q(prev, o.bodyPrefix + s.id);
+      if (body && wasOpen && wasOpen.classList.contains('open')) { body.classList.add('open'); reopen.push(s.id); }
+      delete old[s.id];
+    }
+    frag.appendChild(node);
+  });
+  const y = window.scrollY;
+  container.innerHTML = '';
+  container.appendChild(frag);
+  reopen.forEach(id => { try { o.reopen(id); } catch (e) {} });
+  window.scrollTo(0, y);
+}
+
 function renderReviewQueue() {
   const container = document.getElementById('review-list');
   if (!reviewQueue.length) {
@@ -3716,7 +3753,14 @@ function renderReviewQueue() {
   }
   const campusMap={hoa_lac:'Hòa Lạc',tay_hn:'Tây HN',chung:'Cả 2'};
 
-  container.innerHTML = reviewQueue.map(s => {
+  patchCardList(container, reviewQueue, {
+    cardPrefix: 'rvc-', bodyPrefix: 'rvb-',
+    sig: s => [s.status, s.current_reviewer_id, s.send_count, s.current_reviewer_index, s.lock_version, s.title, String(s.content || '').length, s.reviewed_at, s.note, s.is_shared, JSON.stringify(s.reviewers || '')].join('|'),
+    valueIds: id => ['rv-comment-' + id, 'rv-ai-chat-input-' + id],
+    htmlIds: id => ['rv-ai-chat-hist-' + id, 'rv-ai-meta-' + id],
+    showIds: id => ['rv-ai-chat-box-' + id],
+    reopen: id => { const s = reviewQueue.find(x => x.id === id); if (!_rvIcMap[id]) loadRVInlineComments(id, s ? (s.inline_comments || '[]') : '[]'); else renderRVInlineEditor(id); },
+    html: s => {
     const reviewers = parseMaybeJson(s.reviewers, []);
     const reviewerChain = reviewers.map((r,i) =>
       `<span style="font-size:10px;padding:2px 7px;border-radius:12px;background:${r.id===currentUser.id?'var(--accent)':'var(--surface2)'};color:${r.id===currentUser.id?'white':'var(--text2)'}">${r.order || i+1}. ${r.name}</span>`
@@ -3788,7 +3832,7 @@ function renderReviewQueue() {
         </div>
       </div>
     </div>`;
-  }).join('');
+  }});
 }
 
 function toggleRVCard(id) {
