@@ -79,6 +79,7 @@ export const ACTION_ROLES = {
   ai_suggest_review: REVIEWERS,
   ai_chat: ALL,
   ai_write_from_outline: ALL,
+  ai_suggest_topics: ALL,
 
   // Kho thông tin chuẩn (handler tự kiểm tra: ai cũng đề xuất được; xác minh = admin/manager/leader)
   get_knowledge_facts: ALL,

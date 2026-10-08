@@ -66,6 +66,21 @@
   .btn-blue{background:var(--blue);color:white;}.btn-blue:hover{background:#144d8c;}
   /* Khối "AI viết nháp từ dàn ý" */
   .aiw{border:1px solid #b0ccf0;border-radius:var(--radius);background:linear-gradient(180deg,var(--blue-bg),#fff 60px);margin-bottom:14px;overflow:hidden;}
+  .tp{margin-bottom:12px;border:1px dashed #F5B58A;background:#FFF8F1;border-radius:var(--radius);}
+  .tp-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;}
+  .tp-title{font-size:13px;font-weight:600;color:var(--accent);}
+  .tp-sub{font-size:11px;color:var(--text3);flex:1;min-width:160px;}
+  .tp-body{padding:0 12px 12px;}
+  .tp-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-top:8px;}
+  .tp-card-title{font-size:14px;font-weight:600;color:var(--text);line-height:1.4;}
+  .tp-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;}
+  .tp-tag{font-size:10.5px;padding:2px 7px;border-radius:10px;background:var(--surface2);color:var(--text2);}
+  .tp-tag.ev{background:#FFE3CC;color:#9A3A05;}
+  .tp-tag.pl{background:#E3ECFA;color:#003DA5;}
+  .tp-reason{font-size:12px;color:var(--text2);margin-top:6px;line-height:1.5;}
+  .tp-outline{font-size:12px;color:var(--text);margin-top:6px;white-space:pre-wrap;line-height:1.55;background:var(--surface2);border-radius:6px;padding:7px 9px;}
+  .tp-outline mark{background:#FFE3CC;color:#9A3A05;border-radius:3px;padding:0 2px;font-weight:600;}
+  .tp-miss{font-size:11px;color:#9A3A05;margin-top:5px;}
   .aiw-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;cursor:pointer;}
   .aiw-title{font-size:13px;font-weight:600;color:var(--blue);}
   .aiw-sub{font-size:11px;color:var(--text3);}
@@ -512,6 +527,15 @@ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r
             <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" class="platform-cb" value="zalo" onchange="onPlatformChange()">Zalo</label>
             <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" class="platform-cb" value="instagram" onchange="onPlatformChange()">Instagram</label>
           </div>
+        </div>
+        <!-- AI gợi ý chủ đề + dàn ý: từ lịch sự kiện, đầu việc kế hoạch chưa viết, Kho thông tin chuẩn -->
+        <div class="tp" id="tp">
+          <div class="tp-head">
+            <span class="tp-title">💡 Chưa biết viết gì? AI gợi ý chủ đề</span>
+            <span class="tp-sub">dựa trên lịch sự kiện sắp tới, đầu việc kế hoạch chưa có bài và Kho thông tin chuẩn</span>
+            <button type="button" class="btn btn-outline btn-sm" id="tp-btn" onclick="runSuggestTopics()">💡 Gợi ý chủ đề</button>
+          </div>
+          <div class="tp-body" id="tp-body" style="display:none"></div>
         </div>
         <!-- Tiêu đề -->
         <div class="field">
@@ -1340,6 +1364,74 @@ async function loadMySubmissions() {
       renderTodoBadge();
     }
   } catch(e) {}
+}
+
+// ============================================================
+// AI GỢI Ý CHỦ ĐỀ + DÀN Ý (backend: ai_suggest_topics — functions/_lib/handlers/ai.js)
+// Chọn 1 gợi ý → điền sẵn tiêu đề, cơ sở, kênh, trụ content, dàn ý; nếu bám đầu việc kế hoạch thì nối bài vào đầu việc đó.
+// ============================================================
+let _topics = [];
+async function runSuggestTopics() {
+  const btn = document.getElementById('tp-btn'), box = document.getElementById('tp-body');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span> AI đang xem lịch…';
+  box.style.display = 'block';
+  box.innerHTML = '<div class="aiw-box info">AI đang đọc lịch sự kiện, kế hoạch tháng và các bài gần đây để chọn chủ đề — thường mất 15–40 giây.</div>';
+  try {
+    const res = await callAPI({ action: 'ai_suggest_topics', campus: document.getElementById('campus').value, count: 5 });
+    if (!res.ok) { box.innerHTML = `<div class="aiw-box warn">${escHtml(res.error || 'AI chưa gợi ý được, thử lại')}</div>`; return; }
+    _topics = res.suggestions || [];
+    renderTopics(res.meta || {});
+  } catch (e) {
+    box.innerHTML = '<div class="aiw-box warn">Lỗi kết nối — thử lại sau ít phút.</div>';
+  } finally {
+    btn.disabled = false; btn.innerHTML = '↻ Gợi ý lại';
+  }
+}
+
+const TOPIC_CHANNEL_LABEL = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'Youtube', web: 'Website', email: 'Email', zalo: 'Zalo', sms: 'SMS' };
+function renderTopics(meta) {
+  const box = document.getElementById('tp-body');
+  const markOutline = t => escHtml(t).replace(/\[(CẦN BỔ SUNG|CẦN XÁC MINH):?([^\]]*)\]/gi, '<mark>[$1:$2]</mark>');
+  box.innerHTML = _topics.map((t, i) => `
+    <div class="tp-card">
+      <div class="tp-card-title">${escHtml(t.title)}</div>
+      <div class="tp-tags">
+        ${t.event_title ? `<span class="tp-tag ev">📅 ${escHtml(t.event_title)}</span>` : ''}
+        ${t.plan_item_id ? '<span class="tp-tag pl">🗓️ Có trong kế hoạch tháng</span>' : ''}
+        ${t.pillar_name ? `<span class="tp-tag">${escHtml(t.pillar_name)}</span>` : ''}
+        ${(t.channels || []).map(c => `<span class="tp-tag">${escHtml(TOPIC_CHANNEL_LABEL[c] || c)}</span>`).join('')}
+        ${t.suggested_date ? `<span class="tp-tag">Đăng khoảng ${t.suggested_date.split('-').reverse().join('/')}</span>` : ''}
+      </div>
+      <div class="tp-reason">${escHtml(t.reason)}</div>
+      <div class="tp-outline">${markOutline(t.outline)}</div>
+      ${(t.missing_info || []).length ? `<div class="tp-miss">🟠 Cần bổ sung: ${t.missing_info.map(escHtml).join('; ')}</div>` : ''}
+      ${(t.banned_found || []).length ? `<div class="tp-miss" style="color:var(--red)">⚠️ Có từ cấm: ${t.banned_found.map(escHtml).join(', ')}</div>` : ''}
+      <div class="aiw-actions"><button type="button" class="btn btn-blue btn-sm" onclick="useTopic(${i})">✓ Dùng chủ đề này</button></div>
+    </div>`).join('') +
+    `<div style="font-size:10px;color:var(--text3);margin-top:8px">🔎 AI đã xem: ${meta.eventCount || 0} sự kiện sắp tới · ${meta.planItemCount || 0} đầu việc chưa viết · ${meta.recentCount || 0} bài gần đây · ${meta.factsCount || 0} thông tin chuẩn. Đây chỉ là gợi ý — bạn chỉnh lại trước khi nhờ AI viết nháp.</div>`;
+}
+
+async function useTopic(i) {
+  const t = _topics[i];
+  if (!t) return;
+  const titleEl = document.getElementById('title-input'), outlineEl = document.getElementById('outline-input');
+  const hasWork = titleEl.value.trim() || outlineEl.value.trim() || getContentInputValue().trim();
+  if (hasWork && !confirm('Thay tiêu đề và dàn ý đang có bằng chủ đề này? (Nội dung bài đã viết trong ô Nội dung được giữ nguyên.)')) return;
+  titleEl.value = String(t.title || '').replace(/\[CẦN[^\]]*\]/g, '').trim();
+  outlineEl.value = t.outline || '';
+  const campusEl = document.getElementById('campus');
+  if (t.campus && Array.from(campusEl.options).some(o => o.value === t.campus)) campusEl.value = t.campus;
+  if ((t.channels || []).length) { applyPlatformCheckboxes(t.channels); try { onPlatformChange(); } catch (e) {} }
+  if (t.pillar_id) setPillarValue(t.pillar_id);
+  const noteEl = document.getElementById('note-input');
+  if (!noteEl.value.trim()) {
+    noteEl.value = [t.event_title ? 'Sự kiện: ' + t.event_title : '', t.suggested_date ? 'Dự kiến đăng ' + t.suggested_date.split('-').reverse().join('/') : ''].filter(Boolean).join(' — ');
+  }
+  toggleAiw(true);
+  if (t.plan_item_id) { window._planItemId = null; await loadPlanItemIntoForm(t.plan_item_id); }
+  try { scheduleDraftSave(); } catch (e) {}
+  showToast('✅ Đã điền chủ đề và dàn ý — chỉnh lại rồi bấm "AI viết nháp"');
+  document.getElementById('aiw').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ============================================================
@@ -3528,7 +3620,7 @@ async function callAPI(data, _retryCount) {
   }
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), ['ai_chat', 'ai_check_content', 'ai_write_from_outline'].includes(data.action) ? 90000 : 40000);
+    const timeoutId = setTimeout(() => controller.abort(), ['ai_chat', 'ai_check_content', 'ai_write_from_outline', 'ai_suggest_topics'].includes(data.action) ? 90000 : 40000);
     let r;
     try {
       r = await fetch(APPS_SCRIPT_URL, {

@@ -398,6 +398,218 @@ export async function handleAiWriteFromOutline(supabase, env, p) {
   };
 }
 
+// ------------------------------------------------------------
+// AI GỢI Ý CHỦ ĐỀ + DÀN Ý — bước "Gợi ý việc cần viết → Dàn ý" của luồng kế hoạch.
+// Nguồn: sự kiện sắp tới trong lịch (kể cả chưa có đầu việc), đầu việc kế hoạch chưa có bài, Kho thông tin
+// chuẩn đã xác minh, và các bài gần đây (để tránh trùng + cân bằng trụ content). Mỗi gợi ý kèm dàn ý sẵn để
+// đưa thẳng vào khối "AI viết nháp". Mã E#/P#/F#/T# do hệ thống đặt — AI chỉ trả lại mã, code mới tra ra id thật
+// (AI không được tự bịa id); số liệu trong dàn ý cũng bị đối chiếu như bài nháp (markUnverifiedNumbers).
+// ------------------------------------------------------------
+const TOPIC_SCHEMA = {
+  type: 'object',
+  properties: {
+    suggestions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          reason: { type: 'string' },
+          source_code: { type: 'string' },        // E1 = sự kiện, P1 = đầu việc kế hoạch, "" = từ kho thông tin / cân bằng trụ
+          pillar_code: { type: 'string' },        // T1...
+          channels: { type: 'array', items: { type: 'string' } },
+          suggested_date: { type: 'string' },     // yyyy-mm-dd hoặc ""
+          facts_used: { type: 'array', items: { type: 'string' } },
+          missing_info: { type: 'array', items: { type: 'string' } },
+          outline: { type: 'array', items: { type: 'string' } }
+        },
+        required: ['title', 'reason', 'source_code', 'pillar_code', 'channels', 'suggested_date', 'facts_used', 'missing_info', 'outline'],
+        additionalProperties: false
+      }
+    }
+  },
+  required: ['suggestions'],
+  additionalProperties: false
+};
+
+const TOPIC_CHANNELS = ['facebook', 'instagram', 'tiktok', 'youtube', 'web', 'email', 'zalo', 'sms'];
+const TOPIC_EVENT_DAYS = 45;      // sự kiện trong 45 ngày tới
+const TOPIC_RECENT_DAYS = 45;     // bài đã gửi trong 45 ngày qua
+const vnTodayIso = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+const addDaysIsoT = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+const dmy = iso => (iso ? iso.split('-').reverse().join('/') : '');
+
+export async function handleAiSuggestTopics(supabase, env, p) {
+  const { data: actor } = await supabase.from('users').select('id, name, role, campus, active').eq('id', p.user_id).maybeSingle();
+  if (!actor || actor.active === false) return { ok: false, error: 'Chưa đăng nhập' };
+  const ALL_CAMPUSES = ['hoa_lac', 'tay_hn', 'chung'];
+  const allowed = (['manager', 'admin', 'leader'].includes(actor.role) || actor.campus === 'chung') ? ALL_CAMPUSES : [actor.campus, 'chung'];
+  const campus = allowed.includes(p.campus) ? p.campus : '';
+  const campuses = campus && campus !== 'chung' ? [campus, 'chung'] : allowed;
+  const count = Math.max(3, Math.min(8, Number(p.count) || 5));
+  const today = vnTodayIso();
+
+  const [evRes, pilRes, itRes, subRes, aiContext, facts] = await Promise.all([
+    supabase.from('school_events')
+      .select('id, campus, title, department, start_date, end_date, time_note, status')
+      .in('campus', campuses).neq('status', 'huy')
+      .gte('start_date', addDaysIsoT(today, -2)).lte('start_date', addDaysIsoT(today, TOPIC_EVENT_DAYS))
+      .order('start_date', { ascending: true }).limit(25),
+    supabase.from('content_pillars').select('id, name').eq('active', true).order('sort_order'),
+    supabase.from('plan_items')
+      .select('id, campus, title, pillar_id, event_id, highlight, reference, channels, assignee_id, deadline, publish_date')
+      .in('campus', campuses).is('submission_id', null).is('post_link', null)
+      .or(`deadline.is.null,and(deadline.gte.${addDaysIsoT(today, -7)},deadline.lte.${addDaysIsoT(today, 30)})`)
+      .order('deadline', { ascending: true, nullsFirst: false }).limit(30),
+    supabase.from('submissions').select('title, pillar_id, content_type, submitted_at, status')
+      .in('campus', campuses).neq('status', 'cancelled')
+      .gte('submitted_at', addDaysIsoT(today, -TOPIC_RECENT_DAYS) + 'T00:00:00+07:00')
+      .order('submitted_at', { ascending: false }).limit(80),
+    buildAiRulesContext(supabase),
+    getVerifiedFacts(supabase, campus).catch(() => [])
+  ]);
+  if (evRes.error) return { ok: false, error: evRes.error.message };
+  const pillars = pilRes.data || [];
+  const events = evRes.data || [];
+  // CTV chỉ thấy đầu việc của mình hoặc chưa giao ai; người lập kế hoạch thấy tất cả.
+  let items = itRes.data || [];
+  if (actor.role === 'ctv') items = items.filter(i => !i.assignee_id || String(i.assignee_id) === String(actor.id));
+  const subs = subRes.data || [];
+  const { text: factsText, kept } = factsPromptText(facts, 6000);
+
+  // Sự kiện đã có đầu việc thì không coi là "chưa có bài nào".
+  const covered = new Set();
+  if (events.length) {
+    const pi = await supabase.from('plan_items').select('event_id').in('event_id', events.map(e => e.id));
+    (pi.data || []).forEach(r => covered.add(r.event_id));
+  }
+
+  if (!events.length && !items.length && !kept.length) {
+    return { ok: false, error: 'Chưa có dữ liệu để gợi ý: lịch sự kiện 45 ngày tới trống, không có đầu việc kế hoạch chưa viết và Kho thông tin chuẩn chưa có thông tin đã xác minh.' };
+  }
+
+  const evCodes = events.map((e, i) => ({ code: 'E' + (i + 1), ...e }));
+  const itCodes = items.slice(0, 6).map((it, i) => ({ code: 'P' + (i + 1), ...it }));
+  const pilCodes = pillars.map((x, i) => ({ code: 'T' + (i + 1), ...x }));
+  const pillName = id => (pillars.find(x => x.id === id) || {}).name || '';
+
+  const evText = evCodes.length ? evCodes.map(e => {
+    const left = Math.round((Date.parse(e.start_date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
+    const when = e.start_date ? `${dmy(e.start_date)}${e.end_date && e.end_date !== e.start_date ? '–' + dmy(e.end_date) : ''} (${left >= 0 ? 'còn ' + left + ' ngày' : 'vừa diễn ra'})` : 'chưa có ngày';
+    return `[${e.code}] ${e.title} — ${when}${e.status === 'cho_xac_nhan' ? ' · ngày CHƯA xác nhận' : ''}${e.department ? ' · ' + e.department : ''}${covered.has(e.id) ? ' · ĐÃ có đầu việc kế hoạch' : ' · CHƯA có bài nào'}`;
+  }).join('\n') : '(Không có sự kiện trong 45 ngày tới.)';
+  const itText = itCodes.length ? itCodes.map(it =>
+    `[${it.code}] ${it.title}${it.deadline ? ' — hạn ' + dmy(it.deadline) : ''}${it.pillar_id ? ' · trụ ' + pillName(it.pillar_id) : ''}${it.highlight ? ' · ý chính: ' + String(it.highlight).replace(/\s+/g, ' ').slice(0, 160) : ''}`
+  ).join('\n') : '(Không có đầu việc kế hoạch nào đang chờ viết.)';
+  const pillCount = {};
+  subs.forEach(s => { pillCount[s.pillar_id || ''] = (pillCount[s.pillar_id || ''] || 0) + 1; });
+  const pillText = pilCodes.length ? pilCodes.map(x => `[${x.code}] ${x.name} — ${pillCount[x.id] || 0} bài trong ${TOPIC_RECENT_DAYS} ngày qua`).join('\n') : '(Chưa có trụ content.)';
+  const recentText = subs.length ? subs.slice(0, 40).map(s => `- ${String(s.title).slice(0, 90)}`).join('\n') : '(Chưa có bài nào gần đây.)';
+
+  const prompt = [
+    'Bạn là trưởng nhóm content của FPT Schools (hệ thống trường THPT FPT). Hãy ĐỀ XUẤT ' + count + ' chủ đề bài viết nên làm ngay, kèm dàn ý sẵn cho từng chủ đề, để CTV chọn rồi nhờ AI viết nháp.',
+    `Hôm nay: ${dmy(today)}. Cơ sở đang xem: ${campus === 'hoa_lac' ? 'Hòa Lạc' : campus === 'tay_hn' ? 'Tây Hà Nội' : 'cả 2 cơ sở'}.`,
+    p.focus ? `Người dùng muốn tập trung vào: ${String(p.focus).slice(0, 200)}` : '',
+    '',
+    '=== SỰ KIỆN SẮP TỚI (ưu tiên 1: sự kiện CHƯA có bài, càng gần ngày càng gấp; sự kiện sắp diễn ra cần bài "trước", đang diễn ra cần bài "trong", vừa xong cần bài "sau") ===', evText,
+    '',
+    '=== ĐẦU VIỆC KẾ HOẠCH CHƯA CÓ BÀI (BẮT BUỘC: mỗi đầu việc P# phải có đúng 1 chủ đề dùng mã P# đó ở source_code, dàn ý cho chính đầu việc đó, đặt các chủ đề này lên ĐẦU danh sách; giữ ý chính của đầu việc, có thể làm tiêu đề hấp dẫn hơn) ===', itText,
+    '',
+    '=== TRỤ CONTENT & SỐ BÀI GẦN ĐÂY (ưu tiên 3: chọn trụ ÍT bài để cân bằng) ===', pillText,
+    '',
+    '=== BÀI ĐÃ VIẾT GẦN ĐÂY (KHÔNG đề xuất chủ đề trùng hoặc na ná) ===', recentText,
+    '',
+    '=== THÔNG TIN CHUẨN ĐÃ XÁC MINH (ưu tiên 4: có thể gợi ý chủ đề khai thác thông tin nổi bật mà chưa thấy bài nào viết) ===',
+    kept.length ? factsText : '(Kho thông tin chuẩn chưa có thông tin nào.)',
+    '',
+    aiContext.promptText,
+    aiContext.bannedList.length ? `Tiêu đề và dàn ý TUYỆT ĐỐI không dùng: ${aiContext.bannedList.join(', ')}.` : '',
+    '',
+    '=== QUY TẮC ===',
+    '- Mỗi chủ đề: title (tiêu đề bài, hấp dẫn, tiếng Việt); reason (1 câu: vì sao nên viết lúc này, nêu cụ thể sự kiện/ngày/trụ); source_code (mã E# hoặc P# nếu bám sự kiện/đầu việc, "" nếu từ kho thông tin hoặc cân bằng trụ); pillar_code (mã T# hợp nhất; "" nếu không có); channels (1-2 kênh trong: ' + TOPIC_CHANNELS.join(', ') + '); suggested_date (ngày đăng đề xuất yyyy-mm-dd, từ hôm nay trở đi và hợp lý với ngày sự kiện, "" nếu không rõ); facts_used (mã F# đã dựa vào); missing_info; outline.',
+    '- outline: 4-6 ý chính, mỗi ý 1 câu ngắn, theo thứ tự mở đầu → ý chính → kêu gọi hành động. KHÔNG viết thành bài hoàn chỉnh.',
+    '- Mọi con số, ngày, học phí, học bổng, chỉ tiêu, địa chỉ, tên chương trình trong title/outline CHỈ được lấy từ các danh sách trên (ngày sự kiện, thông tin chuẩn). Cần thông tin cụ thể mà danh sách không có thì KHÔNG bịa; ghi vào missing_info (điền missing_info TRƯỚC khi viết outline) và trong outline viết [CẦN BỔ SUNG: <thông tin cần>].',
+    '- Ngày sự kiện đang ghi "CHƯA xác nhận" thì trong outline nhắc "ngày dự kiến" và ghi vào missing_info việc cần xác nhận ngày.',
+    '- Nếu số đầu việc P# nhiều hơn số chủ đề cần đề xuất thì chỉ lấy các đầu việc có hạn gần nhất, không bỏ đầu việc nào có hạn trong 7 ngày tới.',
+    '- Đa dạng: không quá 2 chủ đề cùng sự kiện, không quá 2 chủ đề cùng trụ. Mỗi mã E#/P# chỉ dùng tối đa 2 lần.'
+  ].filter(s => s !== '').join('\n');
+
+  const meta = { ...aiContext.summary, factsCount: kept.length, eventCount: events.length, planItemCount: items.length, recentCount: subs.length };
+  const askTopics = async extra => JSON.parse(await callOpenAI(env, prompt + extra, {
+    jsonSchema: { name: 'suggest_topics', schema: TOPIC_SCHEMA },
+    max_tokens: 3200, temperature: 0.7, timeoutMs: 40000, retries: 1
+  }));
+  let r;
+  try { r = await askTopics(''); } catch (e) {
+    return { ok: false, error: e instanceof SyntaxError ? 'AI trả về không đúng định dạng, vui lòng thử lại' : e.message, meta };
+  }
+  // Đầu việc đã nằm trong kế hoạch (tối đa 3 việc hạn gần nhất) phải có chủ đề — AI hay bỏ qua dù đã dặn,
+  // nên kiểm tra bằng code và hỏi lại 1 lần nếu thiếu.
+  const required = itCodes.slice(0, Math.min(3, count)).map(i => i.code);
+  const missingReq = rr => required.filter(c => !(rr.suggestions || []).some(s => String(s.source_code || '').toUpperCase() === c));
+  const missedFirst = missingReq(r);
+  if (missedFirst.length) {
+    try {
+      const r2 = await askTopics(`\n\nLẦN TRƯỚC bạn bỏ sót đầu việc kế hoạch: ${missedFirst.join(', ')}. Lần này BẮT BUỘC có đúng 1 chủ đề với source_code đúng bằng từng mã đó, đặt ở ĐẦU danh sách.`);
+      if (r2 && Array.isArray(r2.suggestions) && missingReq(r2).length < missedFirst.length) r = r2;
+    } catch (e) { /* giữ kết quả lần đầu */ }
+  }
+
+  // Nguồn "được phép" để đối chiếu số liệu: thông tin chuẩn + ngày/tên sự kiện + ý chính đầu việc + hôm nay.
+  const sourceText = [
+    kept.map(f => `${f.title} ${f.content}`).join('\n'),
+    evCodes.map(e => `${e.title} ${dmy(e.start_date)} ${dmy(e.end_date)} ${e.time_note || ''}`).join('\n'),
+    itCodes.map(i => `${i.title} ${i.highlight || ''} ${i.reference || ''} ${dmy(i.deadline)} ${dmy(i.publish_date)}`).join('\n'),
+    dmy(today), `năm học ${Number(today.slice(0, 4)) - 1}-${today.slice(0, 4)} ${today.slice(0, 4)}-${Number(today.slice(0, 4)) + 1}`, p.focus || ''
+  ].join('\n');
+  const banned = aiContext.bannedList;
+  const seen = new Set();
+  const out = [];
+  for (const s of (r.suggestions || [])) {
+    const title = String(s.title || '').trim().slice(0, 160);
+    if (!title) continue;
+    const key = title.toLowerCase().replace(/\s+/g, ' ');
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const src = String(s.source_code || '').toUpperCase();
+    const ev = /^E\d+$/.test(src) ? evCodes.find(e => e.code === src) : null;
+    const it = /^P\d+$/.test(src) ? itCodes.find(i => i.code === src) : null;
+    const pil = pilCodes.find(x => x.code === String(s.pillar_code || '').toUpperCase())
+      || (it && it.pillar_id ? pilCodes.find(x => x.id === it.pillar_id) : null);
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(s.suggested_date || '')) && s.suggested_date >= today ? s.suggested_date : '';
+    const channels = [...new Set((s.channels || []).filter(c => TOPIC_CHANNELS.includes(c)))].slice(0, 3);
+    const used = [...new Set((s.facts_used || []).map(c => Number(String(c).replace(/\D/g, ''))).filter(n => n >= 1 && n <= kept.length))]
+      .map(n => ({ id: kept[n - 1].id, title: kept[n - 1].title }));
+
+    // Đối chiếu số liệu trong tiêu đề + dàn ý với nguồn thật; số lạ được bọc [CẦN XÁC MINH].
+    const outlineChecked = markUnverifiedNumbers((s.outline || []).map(x => '- ' + String(x).trim().replace(/^[-•]\s*/, '')).join('\n'), sourceText);
+    const titleChecked = markUnverifiedNumbers(title, sourceText);
+    const missing = (s.missing_info || []).map(x => String(x).trim()
+      .replace(/^\[?\s*CẦN BỔ SUNG\s*:?\s*/i, '').replace(/\]?\s*\.?$/, '').trim()).filter(Boolean)
+      .concat(outlineChecked.unverified.concat(titleChecked.unverified).map(u => `Số "${u.number}" chưa có trong Kho thông tin chuẩn`));
+    const low = (titleChecked.draft + ' ' + outlineChecked.draft).toLowerCase();
+
+    out.push({
+      title: titleChecked.draft,
+      reason: String(s.reason || '').trim().slice(0, 300),
+      outline: outlineChecked.draft,
+      pillar_id: pil ? pil.id : '', pillar_name: pil ? pil.name : '',
+      channels, suggested_date: date,
+      event_id: ev ? ev.id : (it && it.event_id) || '',
+      event_title: ev ? ev.title : '',
+      plan_item_id: it ? it.id : '',
+      plan_item_title: it ? it.title : '',
+      campus: (ev && ev.campus) || (it && it.campus) || '',
+      facts_used: used, missing_info: missing,
+      banned_found: banned.filter(w => w && low.includes(String(w).toLowerCase()))
+    });
+    if (out.length >= count) break;
+  }
+  if (!out.length) return { ok: false, error: 'AI chưa đề xuất được chủ đề phù hợp, vui lòng thử lại', meta };
+  return { ok: true, suggestions: out, meta };
+}
+
 export async function handleAiSuggestReview(supabase, env, p) {
   const aiContext = await buildAiRulesContext(supabase);
   const fewShot = await buildFewShotExamples(supabase, p.content_type);

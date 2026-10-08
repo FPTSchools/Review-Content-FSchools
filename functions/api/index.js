@@ -106,6 +106,7 @@ async function routeAction(p, supabase, env) {
     case 'ai_suggest_review': return ai.handleAiSuggestReview(supabase, env, p);
     case 'ai_chat': return ai.handleAiChat(supabase, env, p);
     case 'ai_write_from_outline': return ai.handleAiWriteFromOutline(supabase, env, p);
+    case 'ai_suggest_topics': return ai.handleAiSuggestTopics(supabase, env, p);
 
     case 'get_knowledge_facts': return knowledge.handleGetKnowledgeFacts(supabase, p);
     case 'save_knowledge_fact': return knowledge.handleSaveKnowledgeFact(supabase, p);
