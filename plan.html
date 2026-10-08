@@ -185,6 +185,12 @@
   .ent.it .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
   .ent.it.done{color:var(--text3)}
   .ent.it.done .t::before{content:'✓ ';color:var(--green);font-weight:700}
+  .ent.pub{background:none;color:var(--green);padding-left:4px}
+  .ent.pub:hover{background:var(--surface2);box-shadow:none;filter:none}
+  .ent.pub.done{color:var(--text3)}
+  .ent.pub .t::before{content:'📣 '}
+  .ent.pub.done .t::before{content:'✓ ';color:var(--green);font-weight:700}
+  .wcard.pubc{border-left-color:var(--green);cursor:pointer}
   .ent.hol{background:none;color:var(--red);font-size:10.5px;font-weight:500;padding-left:6px;cursor:pointer}
   .ent.hol:hover{box-shadow:none;background:var(--red-bg)}
   .ent.sel{outline:2px solid var(--fpt-blue);outline-offset:0}
@@ -1507,7 +1513,7 @@ function pillarColor(id) { const i = pillars.findIndex(p => p.id === id); return
 const cal = {
   view: 'month', y: 0, m: 0, sy: '', wk: '',     // tháng (Tháng) / năm học (Năm) / thứ Hai của tuần (Tuần) đang xem
   sel: null,                                       // { type: 'event'|'item'|'day'|'month'|'line', id|date|key }
-  f: { events: true, items: true, holidays: true, lunar: true, mine: false },
+  f: { events: true, items: true, pub: true, holidays: true, lunar: true, mine: false },
   data: { key: '', sy: '', events: [], items: [], lines: [] }
 };
 function schoolYearOf(y, m) { return m >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`; }
@@ -1576,15 +1582,18 @@ async function loadCal(force) {
   if (force || cal.data.key !== key) {
     if (cal.data.key !== key) document.getElementById('cal-body').innerHTML = '<div class="empty">Đang tải…</div>';
     const [a, b] = sy.split('-').map(Number);
-    const [eRes, iRes, lRes] = await Promise.all([
+    const [eRes, iRes, lRes, pRes] = await Promise.all([
       api('get_school_events', { campus, school_year: sy }),
       api('get_plan_items', { campus, from_month: `${a}-08`, to_month: `${b}-08` }),
-      api('get_annual_plan', { campus, school_year: sy })
+      api('get_annual_plan', { campus, school_year: sy }),
+      api('get_publish_queue', {})
     ]);
     if (!eRes.ok || !iRes.ok) { document.getElementById('cal-body').innerHTML = `<div class="empty">${escHtml(eRes.error || iRes.error || 'Lỗi tải lịch')}</div>`; return; }
     // Người dùng đã chuyển sang tháng/năm khác trong lúc chờ → bỏ kết quả cũ.
     if (`${document.getElementById('cal-campus').value}|${calSchoolYear()}` !== key) return;
-    cal.data = { key, sy, events: eRes.events || [], items: iRes.items || [], lines: (lRes.ok && lRes.lines) || [] };
+    // Suất đăng đã có ngày (bỏ suất chỉ lấy ngày từ đầu việc kế hoạch — đã hiện ở dạng đầu việc), đúng cơ sở đang xem.
+    const pub = ((pRes.ok && pRes.slots) || []).filter(r => r.scheduled_date && !r.from_plan && (!campus || r.campus === campus || r.campus === 'chung'));
+    cal.data = { key, sy, events: eRes.events || [], items: iRes.items || [], lines: (lRes.ok && lRes.lines) || [], pub };
   }
   renderCal();
 }
@@ -1601,11 +1610,11 @@ function renderCalBar() {
     : `<span style="flex:1"></span><span class="muted" title="Giữ và kéo 1 sự kiện hoặc 1 bài sang ngày khác">✋ Kéo thả để đổi ngày</span><button class="btn sm orange" onclick="openEventModal(null, false, { date: calSelectedDate() })">+ Sự kiện</button><button class="btn sm primary" onclick="openItemModal(null, { date: calSelectedDate() })">+ Đầu việc</button>`) : '';
   document.getElementById('cal-filters').innerHTML = cal.view === 'year'
     ? `${chip('events', 'Sự kiện')}${chip('items', 'Bài kế hoạch')}${chip('mine', 'Chỉ việc của tôi')}${editorBtns}`
-    : `${chip('events', 'Sự kiện')}${chip('items', 'Bài kế hoạch')}${chip('holidays', 'Ngày lễ')}${chip('lunar', 'Âm lịch')}${chip('mine', 'Chỉ việc của tôi')}${editorBtns}`;
+    : `${chip('events', 'Sự kiện')}${chip('items', 'Bài kế hoạch')}${chip('pub', 'Lịch đăng')}${chip('holidays', 'Ngày lễ')}${chip('lunar', 'Âm lịch')}${chip('mine', 'Chỉ việc của tôi')}${editorBtns}`;
   const pillarLegend = pillars.filter(p => p.active).map(p => `<span><i style="background:${pillarColor(p.id)}"></i>${escHtml(p.name)}</span>`).join('');
   document.getElementById('cal-legend').innerHTML = cal.view === 'year'
     ? `<span><i style="background:var(--accent)"></i>Sự kiện</span><span><i style="background:var(--fpt-blue)"></i>Bài kế hoạch</span>` + SECTIONS.filter(s => s[0] !== 'muc_tieu').map(s => `<span><i style="background:${s[2]}"></i>${s[1]}</span>`).join('')
-    : `<span><i style="background:var(--accent)"></i>Sự kiện đã chốt</span><span><i style="background:repeating-linear-gradient(135deg,#FEE6D6 0 3px,#FDF1E8 3px 6px);box-shadow:inset 0 0 0 1px #F7B993"></i>Sự kiện chờ xác nhận ngày</span>${pillarLegend}<span><i style="background:#9CA3AF"></i>Chưa gán trụ</span>`;
+    : `<span><i style="background:var(--accent)"></i>Sự kiện đã chốt</span><span><i style="background:repeating-linear-gradient(135deg,#FEE6D6 0 3px,#FDF1E8 3px 6px);box-shadow:inset 0 0 0 1px #F7B993"></i>Sự kiện chờ xác nhận ngày</span>${pillarLegend}<span><i style="background:#9CA3AF"></i>Chưa gán trụ</span><span><i style="background:var(--green)"></i>Lịch đăng bài đã duyệt</span>`;
 }
 // Ngày để điền sẵn khi bấm "+ Đầu việc": ngày đang chọn, không thì hôm nay nếu thuộc tháng đang xem.
 function calSelectedDate() {
@@ -1617,6 +1626,8 @@ function calSelectedDate() {
 
 function itemDate(it) { return it.publish_date || it.deadline || null; }
 function visibleItems() { return cal.data.items.filter(it => !cal.f.mine || it.assignee_id === me.id); }
+function visiblePub() { return cal.f.pub ? (cal.data.pub || []).filter(r => !cal.f.mine || String(r.user_id) === String(me.id)) : []; }
+function pubShort(r) { return `${chLabel(r.channel)}: ${r.title}`; }
 function visibleEvents() { return cal.data.events.filter(e => e.status !== 'huy'); }
 
 function renderCal() {
@@ -1642,7 +1653,8 @@ function renderMonth() {
   if (cal.f.holidays) weeks.flat().forEach(d => holidaysOf(d).forEach(h => entries.push({ kind: 'hol', start: d, end: d, title: h, key: 'h' + d + h })));
   if (cal.f.events) visibleEvents().filter(e => e.start_date).forEach(e => entries.push({ kind: 'ev', id: e.id, start: e.start_date, end: e.end_date && e.end_date > e.start_date ? e.end_date : e.start_date, title: e.title, pending: e.status === 'cho_xac_nhan' }));
   if (cal.f.items) visibleItems().filter(itemDate).forEach(it => entries.push({ kind: 'it', id: it.id, start: itemDate(it), end: itemDate(it), title: it.title, color: pillarColor(it.pillar_id), done: ['da_duyet', 'da_dang'].includes(it.plan_status) }));
-  const order = { hol: 0, ev: 1, it: 2 };
+  visiblePub().forEach(r => entries.push({ kind: 'pub', start: r.scheduled_date, end: r.scheduled_date, title: pubShort(r), done: r.status === 'da_dang', key: 'p' + r.submission_id + r.channel }));
+  const order = { hol: 0, ev: 1, it: 2, pub: 3 };
   entries.sort((a, b) => order[a.kind] - order[b.kind] || a.start.localeCompare(b.start) || b.end.localeCompare(a.end) || a.title.localeCompare(b.title, 'vi'));
 
   const selDate = cal.sel && cal.sel.type === 'day' ? cal.sel.date : null;
@@ -1674,6 +1686,7 @@ function renderMonth() {
       const e = sg.e, pos = `grid-column:${sg.c + 1} / span ${sg.span};grid-row:${sg.lane + 2}`;
       const isSel = cal.sel && e.id && cal.sel.id === e.id && cal.sel.type === (e.kind === 'ev' ? 'event' : 'item');
       if (e.kind === 'hol') return `<button class="ent hol" style="${pos}" onclick="calSelectDay('${e.start}')" title="${escHtml(e.title)}">${escHtml(e.title)}</button>`;
+      if (e.kind === 'pub') return `<button class="ent pub${e.done ? ' done' : ''}" style="${pos}" onclick="switchTab('publish')" title="${escHtml(e.title)} — bấm để mở Lịch đăng"><span class="t">${escHtml(e.title)}</span></button>`;
       const drag = isEditor ? ` data-drag="${e.kind === 'ev' ? 'event' : 'item'}:${e.id}"` : '';
       const hint = isEditor ? ' · kéo thả để đổi ngày' : '';
       if (e.kind === 'ev') return `<button class="ent ev${e.pending ? ' pending' : ''}${sg.cl ? ' cl' : ''}${sg.cr ? ' cr' : ''}${isSel ? ' sel' : ''}"${drag} style="${pos}" onclick="calSelect('event','${e.id}')" title="${escHtml(e.title)}${e.pending ? ' (chờ xác nhận ngày)' : ''}${hint}">${sg.cl ? '◂ ' : ''}${escHtml(e.title)}</button>`;
@@ -1739,6 +1752,12 @@ function weekCard(it) {
     <div class="wc-m">${planStatusPill(it)}${userName(it.assignee_id) ? `<span>👤 ${escHtml(userName(it.assignee_id))}</span>` : '<span class="muted">Chưa giao</span>'}${ch ? `<span>${escHtml(ch)}</span>` : ''}</div>
   </div>`;
 }
+function weekPub(r) {
+  return `<div class="wcard pubc${r.status === 'da_dang' ? ' done' : ''}" onclick="event.stopPropagation();switchTab('publish')" title="Bấm để mở Lịch đăng">
+    <div class="wc-t">📣 ${escHtml(r.title)}</div>
+    <div class="wc-m"><span class="pill ${r.status === 'da_dang' ? 'p-green' : 'p-blue'}">${r.status === 'da_dang' ? 'Đã đăng' : 'Chờ đăng'}</span><span>${escHtml(chLabel(r.channel))}${r.scheduled_time ? ' · ' + escHtml(r.scheduled_time) : ''}</span></div>
+  </div>`;
+}
 function weekEventBar(e, d) {
   const isSel = cal.sel && cal.sel.type === 'event' && cal.sel.id === e.id;
   const end = e.end_date || e.start_date;
@@ -1754,6 +1773,8 @@ function renderWeek() {
   const its = cal.f.items ? visibleItems().filter(it => itemDate(it) && itemDate(it) >= days[0] && itemDate(it) <= days[6]) : [];
   const itemsOf = d => its.filter(it => itemDate(it) === d).sort((a, b) => (pillars.findIndex(p => p.id === a.pillar_id) - pillars.findIndex(p => p.id === b.pillar_id)) || a.title.localeCompare(b.title, 'vi'));
   const evOn = d => evs.filter(e => e.start_date <= d && (e.end_date || e.start_date) >= d);
+  const pubs = visiblePub().filter(r => r.scheduled_date >= days[0] && r.scheduled_date <= days[6]);
+  const pubOf = d => pubs.filter(r => r.scheduled_date === d);
   const head = d => {
     const l = toLunar(d), hol = cal.f.holidays ? holidaysOf(d) : [];
     return { l, hol, lunar: cal.f.lunar ? `Âm ${l.d}/${l.m}${l.leap ? 'N' : ''}` : '' };
@@ -1762,13 +1783,13 @@ function renderWeek() {
 
   if (narrow) {
     document.getElementById('cal-body').innerHTML = `<div class="wlist">${days.map(d => {
-      const h = head(d), list = itemsOf(d), ev = evOn(d);
+      const h = head(d), list = itemsOf(d), ev = evOn(d), pb = pubOf(d);
       const cls = ['wday', d === today ? 'today' : '', d === selDate ? 'sel' : ''].filter(Boolean).join(' ');
       return `<div class="${cls}" data-drop="${d}" onclick="calSelectDay('${d}')">
         <div class="wday-h"><span class="wd-n${dowMon(d) === 6 ? ' sun' : ''}">${WEEKDAYS[dowMon(d)]}, ${fmtDate(d).slice(0, 5)}</span>
           <span class="muted">${h.lunar}</span>${h.hol.map(x => `<span class="wd-hol">${escHtml(x)}</span>`).join('')}<span style="flex:1"></span>${addBtn(d)}</div>
-        ${ev.map(e => weekEventBar(e, d)).join('')}${list.map(weekCard).join('')}
-        ${!ev.length && !list.length ? '<div class="muted" style="padding:2px 0 4px">Trống</div>' : ''}
+        ${ev.map(e => weekEventBar(e, d)).join('')}${list.map(weekCard).join('')}${pb.map(weekPub).join('')}
+        ${!ev.length && !list.length && !pb.length ? '<div class="muted" style="padding:2px 0 4px">Trống</div>' : ''}
       </div>`;
     }).join('')}</div>`;
     return;
@@ -1799,7 +1820,7 @@ function renderWeek() {
   const cols = days.map(d => {
     const list = itemsOf(d);
     return `<div class="wcol${d === today ? ' today' : ''}${d === selDate ? ' sel' : ''}" data-drop="${d}" onclick="calSelectDay('${d}')">
-      ${list.map(weekCard).join('')}${addBtn(d)}</div>`;
+      ${list.map(weekCard).join('')}${pubOf(d).map(weekPub).join('')}${addBtn(d)}</div>`;
   }).join('');
   document.getElementById('cal-body').innerHTML = `<div class="wgrid">
     <div class="wg-head">${heads}</div>
@@ -2034,6 +2055,7 @@ function dayDetail(date) {
     ${evs.length ? `<div class="dt-sub">Sự kiện</div>${evs.map(e => `<div class="item" style="border-left:4px solid var(--accent);cursor:pointer" onclick="calSelect('event','${e.id}')"><div><div class="r-title">${escHtml(e.title)} <span class="pill ${(EVENT_STATUS[e.status] || [])[1] || 'p-gray'}">${(EVENT_STATUS[e.status] || [e.status])[0]}</span></div><div class="r-meta">${escHtml([e.department, e.time_note].filter(Boolean).join(' · '))} · ${cal.data.items.filter(it => it.event_id === e.id).length} bài</div></div><div class="r-actions"><span class="btn sm ghost">Xem chi tiết ›</span></div></div>`).join('')}` : ''}
     <div class="dt-sub">Bài đăng ngày này · ${its.length}</div>
     ${its.length ? its.map(detailItemRow).join('') : '<div class="muted">Chưa có bài nào xếp đăng ngày này.</div>'}
+    ${(() => { const ps = visiblePub().filter(r => r.scheduled_date === date); return ps.length ? `<div class="dt-sub">📣 Lịch đăng bài đã duyệt · ${ps.length}</div>${ps.map(r => `<div class="item" style="border-left:4px solid var(--green);cursor:pointer" onclick="switchTab('publish')"><div><div class="r-title">${escHtml(r.title)} <span class="pill ${r.status === 'da_dang' ? 'p-green' : 'p-blue'}">${r.status === 'da_dang' ? 'Đã đăng' : 'Chờ đăng'}</span></div><div class="r-meta">${escHtml(chLabel(r.channel))}${r.scheduled_time ? ' · ' + escHtml(r.scheduled_time) : ''} · ${escHtml(r.user_name || '')}</div></div><div class="r-actions"><span class="btn sm ghost">Mở Lịch đăng ›</span></div></div>`).join('')}` : ''; })()}
     ${add}
   </div>`;
 }

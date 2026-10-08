@@ -1,4 +1,5 @@
 import { newId } from '../ids.js';
+import { enqueueEmail, emailHtml, openButtonHtml } from '../email.js';
 
 // ============================================================
 // LỊCH ĐĂNG — bước "Duyệt → Lịch đăng → Đăng" của luồng kế hoạch. Mỗi bài ĐÃ DUYỆT × mỗi kênh đăng = 1 suất đăng
@@ -17,6 +18,7 @@ const CHANNELS = ['facebook', 'instagram', 'tiktok', 'youtube', 'web', 'email', 
 // Bài cũ vẫn tự vào danh sách nếu từng được đặt lịch/đánh dấu.
 const PUBLISH_START = '2026-10-08';
 const DONE_KEEP_DAYS = 21;
+const CHANNEL_LABEL = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'Youtube', web: 'Website', email: 'Email', zalo: 'Zalo', sms: 'SMS' };
 
 const vnToday = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
 const addDaysIso = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
@@ -45,22 +47,11 @@ const cleanTime = v => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || '').trim())
 const cleanLink = v => { const s = String(v || '').trim(); return /^https?:\/\/\S+$/i.test(s) ? s.slice(0, 500) : ''; };
 const channelsOf = sub => [...new Set((sub.platform || []).filter(c => CHANNELS.includes(c)))];
 
-// Danh sách suất đăng (đã gộp suất thật + suất "ảo" suy ra từ bài đã duyệt) mà người này được thấy.
-export async function loadPublishRows(supabase, actor, opts = {}) {
-  const today = vnToday();
-  const writerOnly = actor.role === 'ctv';
-  let q = supabase.from('submissions')
-    .select('id, user_id, user_name, campus, title, platform, pillar_id, submitted_at, reviewed_at')
-    .eq('status', 'approved')
-    .gte('submitted_at', addDaysIso(today, -150) + 'T00:00:00+07:00')
-    .order('reviewed_at', { ascending: false, nullsFirst: false }).limit(400);
-  q = writerOnly ? q.eq('user_id', actor.id) : q.in('campus', visibleCampuses(actor));
-  const { data: subs, error } = await q;
-  if (error) throw new Error(error.message);
-  const list = subs || [];
+// Gộp bài đã duyệt + suất đăng thật + ngày đăng của đầu việc kế hoạch thành danh sách suất đăng (kể cả suất "ảo" chưa có dòng DB).
+// canEdit(sub) quyết định cờ can_edit của từng dòng.
+async function buildPublishRows(supabase, list, canEdit, doneDays) {
   if (!list.length) return [];
   const ids = list.map(s => s.id);
-
   const [slotRes, planRes] = await Promise.all([
     supabase.from('publish_slots').select('*').in('submission_id', ids),
     supabase.from('plan_items').select('id, submission_id, publish_date, post_link').in('submission_id', ids)
@@ -71,7 +62,7 @@ export async function loadPublishRows(supabase, actor, opts = {}) {
   const planOf = {};
   (planRes.data || []).forEach(p => { planOf[p.submission_id] = p; });
 
-  const keepDoneFrom = addDaysIso(today, -(opts.doneDays || DONE_KEEP_DAYS));
+  const keepDoneFrom = addDaysIso(vnToday(), -doneDays);
   const rows = [];
   for (const s of list) {
     const approvedOn = vnDateOf(s.reviewed_at || s.submitted_at);
@@ -92,11 +83,27 @@ export async function loadPublishRows(supabase, actor, opts = {}) {
         note: slot ? slot.note || '' : '',
         post_link: slot ? slot.post_link || '' : '',
         posted_at: slot ? slot.posted_at : null, posted_by_name: slot ? slot.posted_by_name || '' : '',
-        can_edit: canManageSub(actor, s)
+        can_edit: canEdit(s)
       });
     }
   }
   return rows;
+}
+
+const SUB_COLS = 'id, user_id, user_name, campus, title, platform, pillar_id, submitted_at, reviewed_at';
+
+// Danh sách suất đăng mà người này được thấy.
+export async function loadPublishRows(supabase, actor, opts = {}) {
+  const today = vnToday();
+  const writerOnly = actor.role === 'ctv';
+  let q = supabase.from('submissions').select(SUB_COLS)
+    .eq('status', 'approved')
+    .gte('submitted_at', addDaysIso(today, -150) + 'T00:00:00+07:00')
+    .order('reviewed_at', { ascending: false, nullsFirst: false }).limit(400);
+  q = writerOnly ? q.eq('user_id', actor.id) : q.in('campus', visibleCampuses(actor));
+  const { data: subs, error } = await q;
+  if (error) throw new Error(error.message);
+  return buildPublishRows(supabase, subs || [], s => canManageSub(actor, s), opts.doneDays || DONE_KEEP_DAYS);
 }
 
 // Phần "Bài cần đăng" của trang Việc cần làm: đến hạn trong 2 ngày tới (kể cả đã trễ) + bài đã duyệt chưa có ngày đăng.
@@ -210,4 +217,43 @@ export async function handleUnmarkPublished(supabase, p) {
     }
   } catch (e) {}
   return { ok: true };
+}
+
+// ------------------------------------------------------------
+// EMAIL NHẮC ĐẾN HẠN ĐĂNG — mỗi ngày 1 email cho từng chủ bài có bài đã duyệt đến hạn đăng hôm nay hoặc đã trễ.
+// Chạy kèm tiến trình gửi email (Worker lập lịch gọi process_email_queue mỗi 2 phút): chỉ thử trong khung 8h–17h giờ VN,
+// mỗi giờ 1 lần; khoá chống trùng `publish_due:<user>:<ngày>` của enqueueEmail đảm bảo mỗi người tối đa 1 email/ngày.
+// ------------------------------------------------------------
+export async function enqueuePublishReminders(supabase, env, opts = {}) {
+  const vn = new Date(Date.now() + 7 * 3600 * 1000);
+  if (!opts.force && (vn.getUTCHours() < 8 || vn.getUTCHours() > 17 || vn.getUTCMinutes() >= 4)) return { skipped: true };
+  const today = vnToday();
+  const { data: subs, error } = await supabase.from('submissions').select(SUB_COLS)
+    .eq('status', 'approved').gte('submitted_at', addDaysIso(today, -150) + 'T00:00:00+07:00').limit(600);
+  if (error) throw new Error(error.message);
+  const rows = (await buildPublishRows(supabase, (subs || []).filter(x => !opts.onlyUsers || opts.onlyUsers.includes(x.user_id)), () => true, 0))
+    .filter(r => r.status === 'cho_dang' && r.scheduled_date && r.scheduled_date <= today);
+  if (!rows.length) return { queued: 0 };
+
+  const byUser = {};
+  rows.forEach(r => { (byUser[r.user_id] = byUser[r.user_id] || []).push(r); });
+  const { data: users } = await supabase.from('users').select('id, name, email, active').in('id', Object.keys(byUser));
+  const link = String(env.APP_URL || '').replace(/\/$/, '') + '/plan.html?tab=publish';
+  const dmy = iso => iso.split('-').reverse().join('/');
+  let queued = 0;
+  for (const u of users || []) {
+    if (u.active === false || !u.email) continue;
+    const list = byUser[u.id].sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+    const late = list.filter(r => r.scheduled_date < today).length;
+    const line = r => `- ${r.scheduled_date === today ? 'Hôm nay' : 'Trễ từ ' + dmy(r.scheduled_date)}: [${CHANNEL_LABEL[r.channel] || r.channel}] ${r.title}`;
+    const subject = `[Lịch đăng] ${list.length} bài cần đăng${late ? ` (${late} bài đã trễ)` : ' hôm nay'}`;
+    const text = `Chào ${u.name},\n\nBạn có ${list.length} bài đã duyệt đến hạn đăng:\n\n${list.map(line).join('\n')}\n\n` +
+      `Đăng xong, nhớ bấm "Đã đăng" và dán link bài: ${link}\n\nFSchools Content Review`;
+    const html = `<p>Chào ${emailHtml(u.name)},</p><p>Bạn có <b>${list.length}</b> bài đã duyệt đến hạn đăng:</p><ul>` +
+      list.map(r => `<li>${r.scheduled_date === today ? '<b>Hôm nay</b>' : '<span style="color:#C0392B"><b>Trễ từ ' + dmy(r.scheduled_date) + '</b></span>'}: [${emailHtml(CHANNEL_LABEL[r.channel] || r.channel)}] ${emailHtml(r.title)}</li>`).join('') +
+      `</ul><p>Đăng xong, nhớ bấm <b>Đã đăng</b> và dán link bài.</p>${openButtonHtml(link, 'Mở Lịch đăng')}<p>FSchools Content Review</p>`;
+    const r = await enqueueEmail(supabase, u.email, u.name, subject, text, html, `publish_due:${u.id}:${today}`);
+    if (r && r.queued) queued++;
+  }
+  return { queued };
 }

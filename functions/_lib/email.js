@@ -10,13 +10,13 @@ import { newId } from './ids.js';
 const CAMPUS_MAP = { hoa_lac: 'FSC Hòa Lạc', tay_hn: 'FSC Tây HN', chung: 'Cả 2' };
 const APP_NAME = 'FSchools Content Review';
 
-function emailHtml(value) {
+export function emailHtml(value) {
   return String(value === null || value === undefined ? '' : value)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, '<br>');
 }
 
-function openButtonHtml(link, label) {
+export function openButtonHtml(link, label) {
   const safeLink = emailHtml(link);
   return `<p style="margin:20px 0"><a href="${safeLink}" style="display:inline-block;background:#F26522;color:#ffffff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:600">${emailHtml(label || 'Mở bài cần duyệt')}</a></p>` +
     `<p style="font-size:12px;color:#666">Nếu nút không hoạt động, sao chép đường dẫn sau vào trình duyệt:<br><a href="${safeLink}">${safeLink}</a></p>`;
