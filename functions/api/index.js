@@ -15,6 +15,7 @@ import * as planning from '../_lib/handlers/planning.js';
 import * as knowledge from '../_lib/handlers/knowledge.js';
 import * as publish from '../_lib/handlers/publish.js';
 import * as channels from '../_lib/handlers/channels.js';
+import * as quotas from '../_lib/handlers/quotas.js';
 import { verifySessionToken, passwordFingerprint, safeEqual } from '../_lib/session.js';
 import { isActionAllowed, bindIdentity } from '../_lib/authz.js';
 
@@ -136,6 +137,8 @@ async function routeAction(p, supabase, env) {
     case 'save_channel_account': return channels.handleSaveChannelAccount(supabase, p);
     case 'delete_channel_account': return channels.handleDeleteChannelAccount(supabase, p);
     case 'get_publish_package': return channels.handleGetPublishPackage(supabase, p);
+    case 'get_quotas': return quotas.handleGetQuotas(supabase, p);
+    case 'save_quota': return quotas.handleSaveQuota(supabase, p);
     case 'get_plan_templates': return planning.handleGetPlanTemplates(supabase, p);
     case 'save_plan_template': return planning.handleSavePlanTemplate(supabase, p);
     case 'delete_plan_template': return planning.handleDeletePlanTemplate(supabase, p);

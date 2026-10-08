@@ -110,6 +110,9 @@ export const ACTION_ROLES = {
   unmark_published: ALL,
   get_publish_package: ALL,      // handler tự kiểm tra: chủ bài hoặc người lập kế hoạch đúng cơ sở, bài đã duyệt
   // Kết nối kênh đăng (khai báo Fanpage/TikTok/Zalo/Youtube/Website): ai cũng xem được kênh của cơ sở mình; sửa = Trưởng ban/Admin
+  // Định mức bài theo kênh (handler tự tra vai trò: sửa = người lập kế hoạch đúng cơ sở)
+  get_quotas: ALL,
+  save_quota: ALL,
   get_channel_accounts: ALL,
   save_channel_account: ADMIN_MANAGER,
   delete_channel_account: ADMIN_MANAGER,

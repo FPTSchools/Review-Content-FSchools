@@ -2624,6 +2624,17 @@ function todoPublishHtml() {
     (unscheduled.length > shown.length ? `<div style="padding:6px 0;color:var(--text3);font-size:12px">… và ${unscheduled.length - shown.length} bài nữa — <a href="plan.html?tab=publish" style="color:var(--blue)">xem tất cả</a></div>` : '');
   return (dueHtml + unHtml) || todoEmpty('Không có bài đã duyệt nào đang chờ đăng.');
 }
+function todoQuotaHtml() {
+  const q = todoServer && todoServer.quota && !todoServer.quota.error ? todoServer.quota : { behind: [], total: 0 };
+  const PER = { week: 'tuần này', month: 'tháng này' };
+  if (!q.total) return '<div style="padding:6px 0;color:var(--text3)">Chưa đặt định mức bài theo kênh. Leader Content/Trưởng phòng đặt ở Kế hoạch & Lịch → Định mức kênh.</div>';
+  if (!q.behind.length) return todoEmpty('Mọi kênh đang đạt hoặc đúng tiến độ định mức.');
+  return q.behind.map(r => todoRow(
+    `<div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(TODO_CH[r.channel] || r.channel)} · ${TODO_CAMPUS[r.campus] || ''} · ${PER[r.period]}</div>
+       <div style="font-size:11px;color:var(--text3);margin-top:2px">Đã duyệt ${r.done}/${r.target} bài · đáng lẽ đến nay phải có ${r.expected}</div></div>` +
+    (r.status === 'thieu' ? todoPill('Thiếu nhiều', 'var(--red)', 'var(--red-bg)') : todoPill('Chậm', 'var(--amber)', 'var(--amber-bg)')) +
+    todoLink('plan.html?tab=quota', 'Xem định mức →'))).join('');
+}
 function renderTodoBadge() {
   const n = todoRevisionList().length + todoReviewOverdue().length + (todoServer ? todoServer.items.length + todoServer.events.length : 0) + todoPublishData().due.length + todoPublishData().unscheduled.length;
   const b = document.getElementById('todo-badge');
@@ -2686,6 +2697,7 @@ function renderTodoPage() {
     sections.push([events.length, 'Sự kiện 14 ngày tới chưa có bài', 'var(--amber)', '📅 Sự kiện sắp diễn ra mà chưa có bài', evHtml]);
   }
   { const pd = todoPublishData(); sections.push([pd.due.length + pd.unscheduled.length, 'Bài đã duyệt cần đăng', 'var(--green)', '📣 Bài đã duyệt cần đăng <span style="font-size:10px;font-weight:400;color:var(--text3)">(đến hạn trong 2 ngày, trễ, hoặc chưa đặt ngày)</span>', todoPublishHtml()]); }
+  { const qd = todoServer && todoServer.quota && !todoServer.quota.error ? todoServer.quota.behind.length : 0; sections.push([qd, 'Kênh chậm định mức', 'var(--amber)', '📊 Kênh đang chậm so với định mức bài <span style="font-size:10px;font-weight:400;color:var(--text3)">(tuần và tháng này)</span>', todoQuotaHtml()]); }
   sections.push([items.length, isLeader ? 'Đầu việc kế hoạch trễ / sắp hạn' : 'Đầu việc của bạn trễ / sắp hạn', 'var(--purple)',
     isLeader ? '⏰ Đầu việc Kế hoạch tháng trễ hoặc sắp tới hạn' : '⏰ Đầu việc Kế hoạch tháng được giao cho tôi', itemsHtml]);
   sections.push([rev.length, 'Bài cần sửa của bạn', 'var(--blue)', '📝 Bài cần sửa của tôi', revHtml]);

@@ -1,5 +1,6 @@
 import { newId } from '../ids.js';
 import { getPublishTodo } from './publish.js';
+import { getQuotaTodo } from './quotas.js';
 
 // ============================================================
 // KẾ HOẠCH & LỊCH — trụ content, lịch sự kiện năm học, đầu việc kế hoạch content tháng.
@@ -426,7 +427,10 @@ export async function handleGetTodo(supabase, p) {
   // Bài đã duyệt cần đăng (đến hạn trong 2 ngày tới / trễ / chưa có ngày đăng). Lỗi phần này không làm hỏng cả trang.
   let publish = { due: [], unscheduled: [] };
   try { publish = await getPublishTodo(supabase, actor, today); } catch (e) { publish = { due: [], unscheduled: [], error: true }; }
-  return { ok: true, today, events, items, publish };
+  // Định mức kênh đang chậm / thiếu trong tuần-tháng này (lỗi phần này không làm hỏng trang).
+  let quota = { behind: [], total: 0 };
+  try { quota = await getQuotaTodo(supabase, actor, today); } catch (e) { quota = { behind: [], total: 0, error: true }; }
+  return { ok: true, today, events, items, publish, quota };
 }
 
 // ============================================================

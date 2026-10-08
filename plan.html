@@ -85,6 +85,15 @@
   .stats .stat:nth-child(4){border-top-color:var(--fpt-green)} .stats .stat:nth-child(4) .n{color:var(--fpt-green)}
   .stat .l{font-size:12px;color:var(--text2)}
 
+  .q-table{width:100%;border-collapse:collapse}
+  .q-table th{text-align:left;font-size:12px;color:var(--text2);padding:6px 10px;border-bottom:1px solid var(--border)}
+  .q-table td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top}
+  .q-ch{font-weight:700;white-space:nowrap}
+  .q-cell{min-width:200px}
+  .q-bar{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden;margin:6px 0 4px}
+  .q-bar i{display:block;height:100%;border-radius:99px}
+  .q-in{width:64px;padding:5px 7px;border:1px solid var(--border2,var(--border));border-radius:8px;font-family:inherit;font-size:13px}
+  .q-row-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   #pkg-modal .modal-actions{flex-wrap:wrap}
   .chan-steps{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -385,6 +394,7 @@
     <button class="tab" data-tab="plan" onclick="switchTab('plan')">Danh sách việc tháng</button>
     <button class="tab" data-tab="events" onclick="switchTab('events')">Danh sách sự kiện</button>
     <button class="tab" data-tab="publish" onclick="switchTab('publish')">📣 Lịch đăng</button>
+    <button class="tab" data-tab="quota" onclick="switchTab('quota')">Định mức kênh</button>
     <button class="tab" data-tab="channels" id="tab-channels" style="display:none" onclick="switchTab('channels')">Kết nối kênh</button>
     <button class="tab" data-tab="templates" onclick="switchTab('templates')">Link kế hoạch năm</button>
     <button class="tab" data-tab="pillars" id="tab-pillars" style="display:none" onclick="switchTab('pillars')">Trụ content</button>
@@ -466,6 +476,16 @@
     </div>
     <div class="stats" id="pub-stats"></div>
     <div id="pub-list"><div class="empty">Đang tải…</div></div>
+  </section>
+
+  <!-- ĐỊNH MỨC KÊNH: số bài đã duyệt mong muốn cho từng kênh theo tuần / tháng + tiến độ -->
+  <section id="view-quota" style="display:none">
+    <div class="toolbar">
+      <select id="quota-campus" onchange="renderQuota()"></select>
+      <span class="muted" id="quota-range"></span>
+    </div>
+    <div class="notice blue" style="margin-bottom:12px">Định mức là số bài <b>đã duyệt</b> mong muốn cho từng kênh trong tuần (Thứ Hai → Chủ nhật) hoặc tháng. Thanh tiến độ so với mốc đáng lẽ phải đạt đến hôm nay: xanh = đạt/đúng tiến độ, vàng = chậm, đỏ = thiếu nhiều. Bài chung 2 cơ sở tính cho cả 2 cơ sở. Để trống = kênh không đặt định mức.</div>
+    <div id="quota-list"><div class="empty">Đang tải…</div></div>
   </section>
 
   <!-- KẾT NỐI KÊNH: khai báo Fanpage / TikTok / Zalo OA / Youtube / Website của từng cơ sở -->
@@ -809,7 +829,7 @@ async function init() {
   users = (uRes.users || []).filter(u => u.active !== false);
 
   const tab = new URLSearchParams(location.search).get('tab');
-  switchTab(['plan','events','publish','channels','templates','pillars'].includes(tab) && (tab !== 'channels' || isEditor) ? tab : 'cal');
+  switchTab(['plan','events','publish','quota','channels','templates','pillars'].includes(tab) && (tab !== 'channels' || isEditor) ? tab : 'cal');
 }
 
 // Danh sách tháng của năm học trước / hiện tại / sau, nhãn kiểu "Tháng 9/2026".
@@ -829,17 +849,18 @@ function ensureMonthOption(sel, key) {
   sel.value = key;
 }
 let activeTab = 'cal';
-function reloadActive() { if (activeTab === 'cal') loadCal(true); else if (activeTab === 'plan') loadPlan(); else if (activeTab === 'events') loadEvents(); else if (activeTab === 'publish') loadPublish(); else if (activeTab === 'channels') loadChannels(); }
+function reloadActive() { if (activeTab === 'cal') loadCal(true); else if (activeTab === 'plan') loadPlan(); else if (activeTab === 'events') loadEvents(); else if (activeTab === 'publish') loadPublish(); else if (activeTab === 'channels') loadChannels(); else if (activeTab === 'quota') loadQuota(); }
 
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['cal','plan','events','publish','channels','templates','pillars'].forEach(v => document.getElementById('view-' + v).style.display = v === tab ? '' : 'none');
+  ['cal','plan','events','publish','quota','channels','templates','pillars'].forEach(v => document.getElementById('view-' + v).style.display = v === tab ? '' : 'none');
   if (tab === 'cal') loadCal();
   if (tab === 'plan') loadPlan();
   if (tab === 'events') loadEvents();
   if (tab === 'publish') loadPublish();
   if (tab === 'channels') loadChannels();
+  if (tab === 'quota') loadQuota();
   if (tab === 'templates') loadTemplates();
   if (tab === 'pillars') renderPillars();
 }
@@ -959,6 +980,49 @@ async function undoPub(subId, channel) {
   const res = await api('unmark_published', { submission_id: subId, channel });
   if (!res.ok) { toast('⚠️ ' + (res.error || 'Không hoàn tác được')); return; }
   toast('Đã hoàn tác'); loadPublish();
+}
+
+// ---------------- Định mức bài theo kênh ----------------
+let quotaData = null;
+const Q_STATUS = { dat: ['Đạt', 'p-green', 'var(--green)'], dung: ['Đúng tiến độ', 'p-green', 'var(--green)'], cham: ['Chậm', 'p-amber', 'var(--amber)'], thieu: ['Thiếu nhiều', 'p-red', 'var(--red)'] };
+
+async function loadQuota() {
+  document.getElementById('quota-list').innerHTML = '<div class="empty">Đang tải…</div>';
+  const res = await api('get_quotas', {});
+  if (!res.ok) { document.getElementById('quota-list').innerHTML = `<div class="empty">${escHtml(res.error || 'Lỗi tải định mức')}</div>`; return; }
+  quotaData = res;
+  const sel = document.getElementById('quota-campus'), keep = sel.value;
+  fillSelect(sel, res.campuses.map(c => [c, 'Cơ sở ' + CAMPUS_LABEL[c]]), res.campuses.includes(keep) ? keep : (res.campuses.includes(me.campus) ? me.campus : res.campuses[0]));
+  renderQuota();
+}
+
+function renderQuota() {
+  const d = quotaData; if (!d) return;
+  const campus = document.getElementById('quota-campus').value;
+  const editable = d.editable.includes(campus);
+  document.getElementById('quota-range').textContent = `Tuần ${fmtDate(d.week.from).slice(0, 5)} – ${fmtDate(d.week.to).slice(0, 5)} · Tháng ${Number(d.month.from.slice(5, 7))}/${d.month.from.slice(0, 4)}`;
+  const find = (ch, per) => d.rows.find(r => r.campus === campus && r.channel === ch && r.period === per);
+  const cell = (ch, per) => {
+    const r = find(ch, per);
+    const input = editable ? `<input class="q-in" type="number" min="0" max="999" value="${r ? r.target : ''}" placeholder="—" title="Định mức ${per === 'week' ? 'tuần' : 'tháng'} — để trống hoặc 0 để bỏ" onchange="saveQuotaCell('${campus}','${ch}','${per}',this.value)"> <span class="muted">bài</span>` : '';
+    if (!r) return `<div class="q-row-top">${input || '<span class="muted">Chưa đặt</span>'}</div>`;
+    const [lbl, cls, color] = Q_STATUS[r.status];
+    const pct = Math.min(100, Math.round(r.done / r.target * 100));
+    return `<div class="q-row-top">${input}<b>${r.done}/${r.target}</b><span class="pill ${cls}">${lbl}</span></div>
+      <div class="q-bar"><i style="width:${pct}%;background:${color}"></i></div>
+      <div class="muted" style="font-size:12px">Đáng lẽ đến nay: ${r.expected} · đã đăng thật: ${r.posted}</div>`;
+  };
+  document.getElementById('quota-list').innerHTML = `<div class="card" style="overflow-x:auto"><table class="q-table"><tr><th>Kênh</th><th>Tuần này</th><th>Tháng này</th></tr>` +
+    CHANNELS.map(([ch, label]) => `<tr><td class="q-ch">${escHtml(label)}</td><td class="q-cell">${cell(ch, 'week')}</td><td class="q-cell">${cell(ch, 'month')}</td></tr>`).join('') + '</table></div>' +
+    (editable ? '' : '<div class="muted" style="margin-top:8px">Bạn chỉ xem được định mức của cơ sở này. Leader Content/Trưởng phòng/Trưởng ban/Admin đặt định mức.</div>');
+}
+
+async function saveQuotaCell(campus, channel, period, value) {
+  const n = value === '' ? 0 : Number(value);
+  if (!Number.isFinite(n) || n < 0 || n > 999) { toast('⚠️ Định mức là số từ 0 đến 999'); loadQuota(); return; }
+  const res = await api('save_quota', { campus, channel, period, target: Math.floor(n) });
+  if (!res.ok) { toast('⚠️ ' + (res.error || 'Không lưu được')); loadQuota(); return; }
+  toast(n ? '✅ Đã lưu định mức' : 'Đã bỏ định mức'); loadQuota();
 }
 
 // ---------------- Kết nối kênh (khai báo kênh đăng) + Chuẩn bị bài đăng ----------------

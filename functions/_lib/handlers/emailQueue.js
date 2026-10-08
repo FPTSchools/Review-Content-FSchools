@@ -1,5 +1,6 @@
 import { sendViaGmail } from '../gmail.js';
 import { enqueuePublishReminders } from './publish.js';
+import { enqueueMonthlyReports } from './monthlyReport.js';
 
 // ============================================================
 // EMAIL QUEUE PROCESSOR — port từ processEmailQueue trong backend_apps_script.js.
@@ -13,6 +14,9 @@ export async function handleProcessEmailQueue(supabase, env) {
   // Nhắc đến hạn đăng bài (tự giới hạn khung giờ + 1 email/người/ngày); lỗi ở đây không được chặn việc gửi email.
   let reminders = null;
   try { reminders = await enqueuePublishReminders(supabase, env); } catch (e) { reminders = { error: String((e && e.message) || e) }; }
+  // Báo cáo tháng tự gửi (ngày 1–3 hằng tháng, 8h–17h; mỗi người 1 email/tháng).
+  let monthly = null;
+  try { monthly = await enqueueMonthlyReports(supabase, env); } catch (e) { monthly = { error: String((e && e.message) || e) }; }
 
   const { data: rows, error } = await supabase
     .from('email_queue')
@@ -39,5 +43,5 @@ export async function handleProcessEmailQueue(supabase, env) {
       failed++;
     }
   }
-  return { ok: true, processed, sent, failed, reminders };
+  return { ok: true, processed, sent, failed, reminders, monthly };
 }

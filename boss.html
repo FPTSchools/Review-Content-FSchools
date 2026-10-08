@@ -485,6 +485,7 @@
         <div class="report-card"><div class="report-num" id="td-events" style="color:var(--amber)">0</div><div class="report-lbl">Sự kiện 14 ngày tới chưa có bài</div></div>
         <div class="report-card"><div class="report-num" id="td-items" style="color:var(--purple)">0</div><div class="report-lbl">Đầu việc kế hoạch trễ / sắp tới hạn</div></div>
         <div class="report-card"><div class="report-num" id="td-publish" style="color:var(--green)">0</div><div class="report-lbl">Bài đã duyệt cần đăng</div></div>
+        <div class="report-card"><div class="report-num" id="td-quota" style="color:var(--amber)">0</div><div class="report-lbl">Kênh chậm định mức bài</div></div>
       </div>
       <div class="card">
         <div class="card-title">📥 Bài chờ duyệt quá hạn <span style="font-size:10px;font-weight:400;color:var(--text3)">(tính từ lúc gửi · vàng ≥ 1 ngày · đỏ ≥ 2 ngày)</span></div>
@@ -501,6 +502,10 @@
       <div class="card">
         <div class="card-title">📣 Bài đã duyệt cần đăng <span style="font-size:10px;font-weight:400;color:var(--text3)">(đến hạn trong 2 ngày, trễ lịch, hoặc chưa đặt ngày đăng)</span></div>
         <div id="td-publish-list" style="font-size:13px;color:var(--text3)">Đang tải...</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Kênh đang chậm so với định mức bài <span style="font-size:10px;font-weight:400;color:var(--text3)">(tuần và tháng này · số bài đã duyệt)</span></div>
+        <div id="td-quota-list" style="font-size:13px;color:var(--text3)">Đang tải...</div>
       </div>
     </div>
 
@@ -2075,6 +2080,18 @@ async function loadTodo() {
        <div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(r.title)}</div>
          <div style="font-size:11px;color:var(--text3);margin-top:2px">${escHtml(chName[r.channel] || r.channel)} · ${escHtml(r.user_name || '')} · ${TODO_CAMPUS[r.campus] || ''}</div></div>` + pill +
       '<a href="plan.html?tab=publish" style="font-size:12px;color:var(--blue);text-decoration:none;white-space:nowrap">' + (r.scheduled_date ? 'Mở lịch đăng' : 'Đặt ngày đăng') + ' →</a>');
+    const qd = res.quota && !res.quota.error ? res.quota : { behind: [], total: 0 };
+    document.getElementById('td-quota').textContent = qd.behind.length;
+    const PERN = { week: 'tuần này', month: 'tháng này' };
+    document.getElementById('td-quota-list').style.color = '';
+    document.getElementById('td-quota-list').innerHTML = !qd.total
+      ? '<div style="padding:6px 0;color:var(--text3)">Chưa đặt định mức bài theo kênh. Đặt ở Kế hoạch & Lịch → Định mức kênh.</div>'
+      : qd.behind.length ? qd.behind.map(r => todoRow(
+        `<div style="flex:1;min-width:200px"><div style="font-weight:600;color:var(--text)">${escHtml(chName[r.channel] || r.channel)} · ${TODO_CAMPUS[r.campus] || ''} · ${PERN[r.period]}</div>
+           <div style="font-size:11px;color:var(--text3);margin-top:2px">Đã duyệt ${r.done}/${r.target} bài · đáng lẽ đến nay phải có ${r.expected}</div></div>` +
+        (r.status === 'thieu' ? todoPill('Thiếu nhiều', 'var(--red)', 'var(--red-bg)') : todoPill('Chậm', 'var(--amber)', 'var(--amber-bg)')) +
+        '<a href="plan.html?tab=quota" style="font-size:12px;color:var(--blue);text-decoration:none;white-space:nowrap">Xem định mức →</a>')).join('')
+      : todoEmpty('Mọi kênh đang đạt hoặc đúng tiến độ định mức.');
     const shownUn = pb.unscheduled.slice(0, 8);
     document.getElementById('td-publish-list').style.color = '';
     document.getElementById('td-publish-list').innerHTML = (pb.due.map(r => pubRow(r, r.days_late > 0 ? todoPill('Trễ ' + r.days_late + ' ngày', 'var(--red)', 'var(--red-bg)')
@@ -2085,6 +2102,7 @@ async function loadTodo() {
     const msg = '<span style="color:var(--red)">Không tải được dữ liệu kế hoạch. Thử lại sau.</span>';
     evBox.innerHTML = msg; itBox.innerHTML = msg;
     const pl = document.getElementById('td-publish-list'); if (pl) pl.innerHTML = msg;
+    const ql = document.getElementById('td-quota-list'); if (ql) ql.innerHTML = msg;
   }
 }
 
